@@ -22,15 +22,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
-from patchright.async_api import async_playwright, expect, TimeoutError as PlaywrightTimeout
+from playwright.async_api import async_playwright, expect, TimeoutError as PlaywrightTimeout
 
-# Import playwright-captcha for auto Cloudflare Turnstile solving
+# Optional auto-solve for Cloudflare Turnstile; falls back to human solving
 try:
     from playwright_captcha import CaptchaType, ClickSolver, FrameworkType
     CAPTCHA_SOLVER_AVAILABLE = True
 except ImportError:
     CAPTCHA_SOLVER_AVAILABLE = False
-    print("⚠️  playwright-captcha not installed", file=sys.stderr)
+    print("⚠️  playwright-captcha not installed - human fallback will be used", file=sys.stderr)
 
 # Constants
 RAILWAY_URL = "https://railway.com"
@@ -46,6 +46,7 @@ MEGA_REMOTE = "mega:railway_sessions"
 
 ACTION_TIMEOUT = 30_000
 EMAIL_TIMEOUT = 300_000
+CLOUDFLARE_TIMEOUT = 180_000
 
 
 def get_next_session_number():
@@ -124,6 +125,8 @@ class DisposeLolInbox:
             print("🌐 Initializing dispose.lol session...")
             self.page = await self.context.new_page()
             await self.page.goto(self.BASE_URL, wait_until="load", timeout=60000)
+            # dispose.lol can challenge the mail tab too - clear it or the API dies
+            await wait_for_cloudflare(self.page, "dispose.lol")
             await self.page.wait_for_timeout(3000)
             self.session_initialized = True
             print("✅ Session initialized (dispose_mailbox cookie obtained)")
@@ -321,12 +324,98 @@ async def dismiss_cookie_banner(page):
         pass
 
 
+async def wait_for_cloudflare(page, page_name: str) -> None:
+    """Wait for a human to complete a visible Cloudflare challenge.
+
+    Invisible 1x1 Turnstile frames are routine risk checks, not a checkbox.
+    Only a real visible challenge pauses the flow and asks for human help.
+    """
+    challenge_widgets = page.locator(
+        'iframe[src*="challenges.cloudflare.com"], '
+        'input[type="checkbox"][name*="cf-turnstile"], '
+        "#challenge-stage, #cf-chl-widget"
+    )
+    challenge_copy = page.get_by_text(
+        re.compile(r"Verify you are human|Checking your browser|Just a moment", re.I)
+    ).first
+
+    challenge = None
+    if await challenge_copy.count() and await challenge_copy.is_visible():
+        challenge = challenge_copy
+    else:
+        for index in range(await challenge_widgets.count()):
+            widget = challenge_widgets.nth(index)
+            if not await widget.is_visible():
+                continue
+            box = await widget.bounding_box()
+            if box and box["width"] >= 100 and box["height"] >= 40:
+                challenge = widget
+                break
+
+    if challenge is None:
+        return
+
+    await page.bring_to_front()
+    print(
+        f"Cloudflare verification is visible on {page_name}. "
+        "Complete the checkbox in that tab; the script will continue automatically."
+    )
+    try:
+        await expect(challenge).to_be_hidden(timeout=CLOUDFLARE_TIMEOUT)
+    except AssertionError as error:
+        raise RuntimeError(
+            f"Cloudflare verification on {page_name} was not completed in time."
+        ) from error
+
+
+async def auto_click_turnstile(page):
+    """Try to clear the Turnstile checkbox: ClickSolver first, then a direct
+    click on the challenge iframe (interactive Turnstile responds to it)."""
+    if CAPTCHA_SOLVER_AVAILABLE:
+        try:
+            async with ClickSolver(
+                framework=FrameworkType.PLAYWRIGHT,
+                page=page,
+                max_attempts=1,
+                attempt_delay=2
+            ) as solver:
+                await solver.solve_captcha(
+                    captcha_container=page,
+                    captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE
+                )
+            print("✅ Turnstile auto-solved!")
+            return True
+        except Exception as e:
+            print(f"⚠️  ClickSolver failed: {str(e)[:80]} - trying direct click")
+
+    for attempt in range(3):
+        try:
+            iframe = page.locator('iframe[src*="challenges.cloudflare.com"]').first
+            if await iframe.count() == 0:
+                return False
+            box = await iframe.bounding_box()
+            if not box:
+                return False
+            await page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+            await page.wait_for_timeout(2500)
+            solved = await page.evaluate(
+                "() => (document.querySelector('input[name=\"cf-turnstile-response\"]')?.value || '').length > 10"
+            )
+            if solved:
+                print("✅ Turnstile cleared by direct click!")
+                return True
+        except Exception:
+            pass
+    return False
+
+
 async def sign_in_to_railway(page, mailbox: DisposeLolInbox):
     """Sign in to Railway with email"""
     print("\n🚂 Signing in to Railway...")
     
     await page.goto(RAILWAY_LOGIN, wait_until="domcontentloaded")
     await page.wait_for_load_state("networkidle", timeout=15000)
+    await wait_for_cloudflare(page, "Railway login page")
     
     # Click "Log in using email"
     email_btn = page.get_by_role("button", name="Log in using email", exact=True)
@@ -343,17 +432,16 @@ async def sign_in_to_railway(page, mailbox: DisposeLolInbox):
     await email_input.fill(mailbox.address)
     print(f"✓ Filled email: {mailbox.address}")
     
-    # Check if Cloudflare Turnstile appears and solve it
+    # Detect Turnstile like the previous mode did
     print("🔍 Checking for Cloudflare Turnstile...")
     await page.wait_for_timeout(2000)
     
     turnstile_exists = False
     try:
         turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
-        count = await turnstile_iframe.count()
-        if count > 0:
+        if await turnstile_iframe.count() > 0:
             turnstile_exists = True
-            print(f"✓ Found Cloudflare Turnstile iframe")
+            print("✓ Found Cloudflare Turnstile iframe")
     except:
         pass
     
@@ -366,34 +454,21 @@ async def sign_in_to_railway(page, mailbox: DisposeLolInbox):
             }''')
             if has_turnstile:
                 turnstile_exists = True
-                print(f"✓ Found Cloudflare Turnstile widget")
+                print("✓ Found Cloudflare Turnstile widget")
         except:
             pass
     
-    if turnstile_exists and CAPTCHA_SOLVER_AVAILABLE:
-        print("🤖 Auto-solving Cloudflare Turnstile...")
-        try:
-            async with ClickSolver(
-                framework=FrameworkType.PATCHRIGHT,
-                page=page,
-                max_attempts=1,
-                attempt_delay=2
-            ) as solver:
-                await solver.solve_captcha(
-                    captcha_container=page,
-                    captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE
-                )
-            print("✅ Turnstile solved!")
-        except Exception as e:
-            print(f"⚠️  Solver error (may still work): {str(e)[:100]}", file=sys.stderr)
-        
-        print("⏳ Waiting for Turnstile validation...")
-        await page.wait_for_timeout(3000)
-    elif turnstile_exists:
-        print("⚠️  Turnstile detected but solver not available")
+    # Auto-solve (ClickSolver + direct checkbox click), then human fallback
+    if turnstile_exists:
+        print("🤖 Attempting to solve Cloudflare Turnstile...")
+        await auto_click_turnstile(page)
     else:
-        print("✓ No visible Turnstile")
+        print("ℹ️  No turnstile detected yet - checking after submit too")
     
+    # If a challenge is still visible, wait for a human to complete it
+    await wait_for_cloudflare(page, "Railway sign-in")
+    print("✓ No visible Cloudflare challenge (or it was solved)")
+
     # Wait for Continue button
     continue_btn = page.get_by_role("button", name="Continue with Email", exact=True)
     print("⏳ Waiting for Continue button...")
@@ -409,6 +484,9 @@ async def sign_in_to_railway(page, mailbox: DisposeLolInbox):
         await page.screenshot(path=screenshot_path, full_page=True)
         print(f"❌ Screenshot: {screenshot_path}")
         raise RuntimeError(f"Turnstile/button timeout")
+
+    # Challenges often appear on submit - handle them (script2 mode)
+    await wait_for_cloudflare(page, "Railway OTP page")
     
     # Wait for Railway to send email
     print("⏳ Waiting 15s for Railway email...")
@@ -460,6 +538,7 @@ async def sign_in_to_railway(page, mailbox: DisposeLolInbox):
         raise RuntimeError("Could not find OTP inputs")
     
     # Wait for dashboard
+    await wait_for_cloudflare(page, "Railway dashboard")
     await expect(page).to_have_url(re.compile(r"/dashboard(?:/|$)"), timeout=EMAIL_TIMEOUT)
     print("✅ Logged in to dashboard")
 
@@ -467,6 +546,7 @@ async def sign_in_to_railway(page, mailbox: DisposeLolInbox):
 async def accept_railway_policies(page):
     """Accept ToS"""
     print("\n📜 Accepting Terms of Service...")
+    await wait_for_cloudflare(page, "Railway ToS page")
     await page.wait_for_timeout(2000)
     await dismiss_cookie_banner(page)
     
@@ -862,6 +942,21 @@ def increment_account_count():
         return 0
 
 
+async def launch_railway_browser(playwright, label: str):
+    """Launch a persistent-context Chromium like script2: real profile dir,
+    1440x900 viewport, headed - looks like a human browser session."""
+    profile_dir = SESSIONS_DIR / ".profiles" / label
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    context = await playwright.chromium.launch_persistent_context(
+        user_data_dir=str(profile_dir),
+        headless=False,
+        viewport={"width": 1440, "height": 900},
+        args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    )
+    context.set_default_timeout(ACTION_TIMEOUT)
+    return context
+
+
 async def run(use_warp=False):
     """Run single account creation"""
     warp_started = False
@@ -873,12 +968,7 @@ async def run(use_warp=False):
                 warp_started = start_warp()
         
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=False,
-                args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-            )
-            context = await browser.new_context()
-            context.set_default_timeout(ACTION_TIMEOUT)
+            context = await launch_railway_browser(p, "single")
             page = await context.new_page()
             
             # Create mailbox in dedicated tab (stays on dispose.lol, Railway flow on page)
@@ -901,7 +991,7 @@ async def run(use_warp=False):
                 
                 input("\n⏸️  Press Enter to close browser...")
             finally:
-                await browser.close()
+                await context.close()
     finally:
         if warp_started:
             stop_warp()
@@ -940,12 +1030,7 @@ async def run_continuous(use_warp=False, max_accounts=8000):
                     warp_started = start_warp()
             
             async with async_playwright() as p:
-                browser = await p.chromium.launch(
-                    headless=False,
-                    args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-                )
-                context = await browser.new_context()
-                context.set_default_timeout(ACTION_TIMEOUT)
+                context = await launch_railway_browser(p, f"account-{accounts_created + 1}")
                 page = await context.new_page()
                 
                 mailbox = DisposeLolInbox(context=context)
@@ -965,7 +1050,7 @@ async def run_continuous(use_warp=False, max_accounts=8000):
                     
                     accounts_created += 1
                 finally:
-                    await browser.close()
+                    await context.close()
         except Exception as e:
             print(f"\n❌ Error: {e}")
             import traceback

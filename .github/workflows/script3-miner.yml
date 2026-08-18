@@ -26,8 +26,7 @@ jobs:
       - name: Checkout chimera-miner (mega_db)
         uses: actions/checkout@v4
         with:
-          repository: cold-pressed-hoodie/chimera-miner
-          token: ${{ secrets.GH_TOKEN }}
+          repository: hkolyholy/chimera-miner
           path: chimera-miner
 
       - name: Install dependencies
