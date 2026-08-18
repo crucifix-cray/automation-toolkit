@@ -1,0 +1,24 @@
+[Unit]
+Description=Chimera WebSocket Bridge Server
+After=network.target
+
+[Service]
+Type=simple
+User=chimera
+Group=chimera
+WorkingDirectory=/opt/chimera-bridge
+ExecStart=/usr/bin/python3 /opt/chimera-bridge/bridge.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log
+
+[Install]
+WantedBy=multi-user.target

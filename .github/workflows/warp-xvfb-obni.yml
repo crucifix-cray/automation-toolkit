@@ -1,0 +1,54 @@
+name: WARP Xvfb Spawn (obni-style)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  warp-xvfb:
+    name: WARP-${{ matrix.instance }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        instance: [1, 2, 3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wireguard-tools xvfb x11-utils build-essential git python3-pip tcpdump iproute2 dnsutils conntrack
+
+      - name: Install wgcf (WARP account generator)
+        run: |
+          curl -sL -o /tmp/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64
+          sudo install -m 755 /tmp/wgcf /usr/local/bin/wgcf
+
+      - name: Install Playwright chromium (with deps)
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install --with-deps chromium
+
+      - name: Start WARP instance obni-style wgcf account plus netns
+        run: |
+          sudo bash finals/core/warp_multi_instance.sh ${{ matrix.instance }} start
+
+      - name: Verify unique WARP IP inside namespace
+        run: |
+          echo "--- wg handshake ---"
+          sudo ip netns exec warp-${{ matrix.instance }} wg show | grep -E "peer|latest handshake" || true
+          echo "--- egress IP via tunnel ---"
+          sudo ip netns exec warp-${{ matrix.instance }} curl -sS -4 --max-time 20 https://www.cloudflare.com/cdn-cgi/trace | grep -E "^(ip|warp|colo)="
+
+      - name: Start Xvfb display
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 > /tmp/xvfb.log 2>&1 &
+          sleep 2
+          DISPLAY=:99 xdpyinfo | head -4
+
+      - name: Open browser inside namespace obni-style WARP IP plus Xvfb
+        run: |
+          sudo ip netns exec warp-${{ matrix.instance }} \
+            sudo -u runner env DISPLAY=:99 HOME=/home/runner \
+            python3 finals/core/gh_warp_xvfb_check.py

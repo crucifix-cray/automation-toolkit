@@ -1,0 +1,247 @@
+name: Test TOR-WARP Chain
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-proxy-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y wireguard-tools tor curl jq
+          
+          # Install wgcf
+          wget -q https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64 -O wgcf
+          chmod +x wgcf
+          sudo mv wgcf /usr/local/bin/
+          
+          # Install gost (SOCKS5 proxy)
+          wget -q https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz
+          gunzip gost-linux-amd64-2.11.5.gz
+          chmod +x gost-linux-amd64-2.11.5
+          sudo mv gost-linux-amd64-2.11.5 /usr/local/bin/gost
+      
+      - name: Setup 4 WARP instances
+        run: |
+          echo "🚀 Setting up 4 WARP instances..."
+          
+          for i in {1..4}; do
+            port=$((40000 + i))
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🌐 WARP Instance $i (port $port)"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            
+            # Register new WARP account
+            mkdir -p /tmp/warp$i
+            cd /tmp/warp$i
+            wgcf register --accept-tos
+            wgcf generate
+            
+            # Remove DNS to avoid conflicts
+            sed -i '/DNS/d' wgcf-profile.conf
+            
+            # Copy to /etc/wireguard
+            sudo cp wgcf-profile.conf /etc/wireguard/wgcf$i.conf
+            sudo chmod 600 /etc/wireguard/wgcf$i.conf
+            
+            # Start WireGuard
+            echo "  📡 Starting WireGuard interface wgcf$i..."
+            sudo wg-quick up wgcf$i
+            
+            # Start SOCKS5 proxy on this interface
+            echo "  🔌 Starting SOCKS5 proxy on port $port..."
+            sudo ip netns add warp$i 2>/dev/null || true
+            sudo mkdir -p /etc/netns/warp$i
+            echo "nameserver 1.1.1.1" | sudo tee /etc/netns/warp$i/resolv.conf > /dev/null
+            sudo ip link set wgcf$i netns warp$i
+            sudo ip netns exec warp$i ip addr add 172.16.$i.2/32 dev wgcf$i
+            sudo ip netns exec warp$i ip link set wgcf$i up
+            sudo ip netns exec warp$i ip route add default dev wgcf$i
+
+            # Re-add IPv6 (moved with device but routes/addresses are netns-local)
+            V6=$(grep -oE '2606:4700:[0-9a-f:]+/[0-9]+' wgcf-profile.conf | head -1)
+            if [ -n "$V6" ]; then
+              sudo ip netns exec warp$i sysctl -w net.ipv6.conf.all.disable_ipv6=0 > /dev/null
+              sudo ip netns exec warp$i ip -6 addr add $V6 dev wgcf$i
+              sudo ip netns exec warp$i ip -6 route add default dev wgcf$i
+              echo "  📡 IPv6: $V6"
+            else
+              echo "  ⚠️  No IPv6 in profile"
+            fi
+
+            # veth pair: host <-> netns, so host can reach gost (listening inside netns)
+            sudo ip link add veth-w$i type veth peer name veth-h$i
+            sudo ip link set veth-w$i netns warp$i
+            sudo ip addr add 172.18.$i.1/24 dev veth-h$i
+            sudo ip link set veth-h$i up
+            sudo ip netns exec warp$i ip addr add 172.18.$i.2/24 dev veth-w$i
+            sudo ip netns exec warp$i ip link set veth-w$i up
+
+            # Start gost inside namespace, reachable from host via 172.18.$i.2
+            nohup sudo ip netns exec warp$i gost -L=socks5://0.0.0.0:$port > /tmp/gost$i.log 2>&1 &
+
+            sleep 2
+
+            # Test WARP IP (via veth IP, gost lives in netns)
+            warp_ip=$(curl -s --socks5 172.18.$i.2:$port https://cloudflare.com/cdn-cgi/trace 2>/dev/null | grep "ip=" | cut -d= -f2)
+            warp_status=$(curl -s --socks5 172.18.$i.2:$port https://cloudflare.com/cdn-cgi/trace 2>/dev/null | grep "warp=" | cut -d= -f2)
+            
+            echo "  ✅ WARP $i IP: $warp_ip (warp=$warp_status)"
+          done
+          
+          echo ""
+          echo "✅ All 4 WARP instances ready!"
+      
+      - name: Setup 4 TOR instances (routing through WARP)
+        run: |
+          echo ""
+          echo "🚀 Setting up 4 TOR instances..."
+          
+          for i in {1..4}; do
+            tor_port=$((9050 + i))
+            warp_port=$((40000 + i))
+            control_port=$((9150 + i))
+            
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🧅 TOR Instance $i (port $tor_port)"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            
+            # Create TOR config (printf, no heredoc - YAML safe)
+            sudo mkdir -p /etc/tor/instances
+            printf '%s\n' \
+              "User debian-tor" \
+              "DataDirectory /var/lib/tor/tor$i" \
+              "PidFile /var/run/tor/tor$i.pid" \
+              "SocksPort 127.0.0.1:$tor_port" \
+              "ControlPort 127.0.0.1:$control_port" \
+              "Socks5Proxy 172.18.$i.2:$warp_port" \
+              "Log notice file /var/log/tor/tor$i.log" \
+              | sudo tee /etc/tor/instances/tor$i.conf > /dev/null
+            
+            # Create data directory
+            sudo mkdir -p /var/lib/tor/tor$i
+            sudo chown -R debian-tor:debian-tor /var/lib/tor/tor$i
+            sudo chmod 700 /var/lib/tor/tor$i
+            
+            # Start TOR
+            echo "  🔌 Starting TOR on port $tor_port -> WARP port $warp_port..."
+            sudo tor -f /etc/tor/instances/tor$i.conf &
+            
+            sleep 5
+            
+            # Test TOR→WARP chain
+            final_ip=$(curl -s --socks5 127.0.0.1:$tor_port https://check.torproject.org/api/ip 2>/dev/null | jq -r '.IP' 2>/dev/null || echo "error")
+            is_tor=$(curl -s --socks5 127.0.0.1:$tor_port https://check.torproject.org/api/ip 2>/dev/null | jq -r '.IsTor' 2>/dev/null || echo "false")
+            
+            echo "  ✅ TOR $i → Final IP: $final_ip (IsTor: $is_tor)"
+          done
+          
+          echo ""
+          echo "✅ All 4 TOR instances ready!"
+      
+      - name: Test IPv6 egress (unique WARP IP per instance?)
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🧪 TESTING IPv6 EGRESS PER INSTANCE"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+          for i in {1..4}; do
+            v6=$(sudo ip netns exec warp$i curl -6 -s --max-time 20 https://www.cloudflare.com/cdn-cgi/trace 2>/dev/null | grep "^ip=" | cut -d= -f2)
+            echo "Instance $i IPv6 egress: $v6"
+          done
+
+      - name: Test all 4 chains
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🧪 TESTING ALL 4 PROXY CHAINS"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          for i in {1..4}; do
+            tor_port=$((9050 + i))
+            warp_port=$((40000 + i))
+            
+            echo "Chain $i (TOR port $tor_port -> WARP port $warp_port):"
+            
+            # Test 3 times to verify IP diversity
+            for attempt in {1..3}; do
+              ip=$(curl -s --socks5 127.0.0.1:$tor_port https://cloudflare.com/cdn-cgi/trace 2>/dev/null | grep "ip=" | cut -d= -f2)
+              warp_status=$(curl -s --socks5 127.0.0.1:$tor_port https://cloudflare.com/cdn-cgi/trace 2>/dev/null | grep "warp=" | cut -d= -f2)
+              echo "  Attempt $attempt: IP=$ip (warp=$warp_status)"
+              sleep 2
+            done
+            
+            echo ""
+          done
+          
+          echo "✅ All chains tested successfully!"
+
+      - name: Real account test through chain (port 9051)
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🎯 TESTING REAL ACCOUNT CREATION VIA CHAIN (9051)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          Xvfb :99 -screen 0 1920x1080x24 > /tmp/xvfb-99.log 2>&1 &
+          sleep 2
+
+          python3 -m pip install --quiet pysocks playwright invisible-playwright
+          python3 -m playwright install firefox 2>&1 | tail -1
+          python3 -m playwright install-deps firefox || echo "deps failed, continuing"
+          python3 -m invisible_playwright fetch || echo "engine fetch failed, continuing"
+
+          export DISPLAY=:99
+          export PROXY_PORT=9051
+          export USED_EMAILS_FILE=/tmp/used-tempmailhub-emails.txt
+          export CHIMERA_SKIP_MEGA_SYNC=1
+          export CHIMERA_SESSIONS_DIR="$PWD/scripts/sessions"
+          touch /tmp/used-tempmailhub-emails.txt
+
+          timeout 1200 python3 finals/core/lov-api.py --end > /tmp/lov-test.log 2>&1 || true
+
+          echo "---- LAST 30 LINES ----"
+          tail -30 /tmp/lov-test.log
+
+          if grep -q "SUCCESS" /tmp/lov-test.log; then
+            echo "ACCOUNT_CREATED=YES"
+          else
+            echo "ACCOUNT_CREATED=NO"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 FINAL SUMMARY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          echo "WARP Interfaces:"
+          sudo wg show | grep "interface:" || echo "  ⚠️ No WARP interfaces"
+          
+          echo ""
+          echo "Active Ports:"
+          for port in 40001 40002 40003 40004 9051 9052 9053 9054; do
+            if sudo lsof -i:$port > /dev/null 2>&1; then
+              echo "  ✅ Port $port: LISTENING"
+            else
+              echo "  ❌ Port $port: NOT LISTENING"
+            fi
+          done
+          
+          echo ""
+          echo "Done!"

@@ -1,0 +1,607 @@
+dispose.lol Mail Automation Reference
+
+Observed live on 2026-08-13 at https://dispose.lol/.
+
+This document covers the temporary Gmail/disposable-mail flow in depth: DOM selectors, UI state, observed network calls, request encoding, response decoding, polling, message details, old inboxes, and automation caveats.
+Executive Summary
+
+    The site is a SvelteKit application using SvelteKit remote functions, not a documented REST API.
+    The current remote-function prefix is /_app/remote/1i1fsx0/. The 1i1fsx0 build identifier can change after deployment; do not hard-code it permanently without a fallback.
+    No login is required for the anonymous current mailbox flow.
+    Mailbox state persisted across reloads through an HttpOnly, Secure cookie named dispose_mailbox. It was not present in localStorage, sessionStorage, or document.cookie.
+    Address creation is protected by Cloudflare Turnstile. The live form rendered the widget with response-field: false and passed a short-lived callback token to the server.
+    Remote responses use HTTP 200 for both successful results and many application errors. Always inspect the JSON envelope's type field.
+    The UI polls the current inbox about every 12 seconds while the page is focused and visible.
+
+Important Limits
+
+Use normal browser automation to obtain the mailbox cookie and Turnstile token. Do not forge, replay, or bypass CAPTCHA tokens. A direct HTTP client is only reliable when it preserves the same browser session state and uses a fresh, valid token for creation.
+
+The site has no public API documentation exposed in the mail page. The contract below is reconstructed from the live browser's requests and shipped JavaScript bundles, so the remote prefix and exact response details should be rediscovered after major site updates.
+Stable DOM Selectors
+
+Prefer these accessibility-based selectors. Tailwind class names are verbose and likely to change.
+Page and address
+Purpose	Selector	Notes
+Main mail section	section#service	Main temporary-mail page section.
+Page heading	h1#mail-address-heading	Text is Temporary Gmail & Disposable Email.
+Address region	[aria-labelledby="mail-address-heading"]	Contains the current address and action controls.
+Current address text	[aria-labelledby="mail-address-heading"] p	Read textContent, trim whitespace.
+Copy address	button[aria-label="Copy temporary Gmail or disposable email address"]	Copies the current address.
+Main navigation	nav[aria-label="Temp mail navigation"]	Contains Temp Mail, Notes, Files, Authenticator.
+Open mobile menu	button[aria-label="Open menu"]	There is no stable class/id.
+Address actions
+
+Scope button text lookups to [aria-label="Email actions"] so the duplicate inbox controls below are not selected.
+Purpose	Selector or lookup	Notes
+Action group	[aria-label="Email actions"]	Contains Change, Old Inbox, Clear.
+Change address	[aria-label="Email actions"] button whose trimmed text is Change	Opens the create-address form.
+Old inbox	[aria-label="Email actions"] button whose trimmed text is Old Inbox	Routes anonymous users to sign-in.
+Clear messages	[aria-label="Email actions"] button whose trimmed text is Clear	Calls clearMailboxMessages.
+Create-address form
+Purpose	Selector	Notes
+Form	form[aria-label="Create temporary Gmail or disposable email address"]	Appears after Change.
+Gmail mode	form[aria-label="Create temporary Gmail or disposable email address"] button whose text is Gmail	Selected by default.
+Custom-domain mode	Same scoped button whose text is Custom Domain	Shows username and domain controls.
+Close form	button[aria-label="Close create address form"]	Closes without creating.
+Custom username	input[aria-label="Username"]	No id or name; autocomplete="off".
+Custom domain	select[aria-label="Domain"]	Options are loaded from getMailDomains.
+Gmail submit	Scoped button[type="submit"] whose text contains Create Gmail	Creates a generated Gmail address.
+Custom submit	Scoped button[type="submit"] whose text contains Create Email	Creates the selected custom-domain address.
+
+The Gmail form does not expose a visible username input. The custom form uses a text input plus a select. Most controls have no useful id or name; use the labels and scoped text above.
+Inbox and message list
+Purpose	Selector	Notes
+Inbox section	section[aria-labelledby="inbox-heading"]	Stable inbox container.
+Inbox heading	#inbox-heading	Text is Your Inbox.
+Refresh	section[aria-labelledby="inbox-heading"] button whose trimmed text is Refresh	Calls getMailboxMessages.
+Message row	section[aria-labelledby="inbox-heading"] button[aria-label^="View "]	aria-label is generated from the subject, for example View Welcome.
+Selected row	button[aria-current="true"]	The open message row.
+Sender in row	messageRow.querySelector('p')	First paragraph.
+Subject in row	messageRow.querySelectorAll('p')[1]	Second paragraph; empty subjects render (no subject).
+Received time	messageRow.querySelector('time')	Formatted display string.
+Load older messages	section[aria-labelledby="inbox-heading"] button whose text is Load older messages	Only appears when nextCursor is non-null.
+Error message	section[aria-labelledby="inbox-heading"] [role="alert"]	Reads API/UI error text.
+Message detail
+Purpose	Selector	Notes
+Detail dialog	[role="dialog"][aria-labelledby="message-detail-heading"]	Present only while a message is open.
+Detail subject	#message-detail-heading	Subject heading.
+Close detail	[role="dialog"] button[aria-label="Close message detail"]	Closes the detail view; there is no separate Back button.
+HTML body	[role="dialog"] iframe[srcdoc]	Read getAttribute('srcdoc'); parent text is empty.
+Detail iframe title	[role="dialog"] iframe[title]	Title is the message subject.
+From/To/date	Detail header paragraphs under the dialog	Text is rendered as From ..., To ..., and the formatted received time.
+Attachments	[role="dialog"] a[href]	Attachment links are rendered when the API returns attachments.
+
+The message iframe has sandbox="allow-popups allow-popups-to-escape-sandbox" and referrerpolicy="no-referrer". Treat srcdoc as untrusted email HTML.
+Anonymous sign-in/old inbox selectors
+
+Clicking Old Inbox while anonymous navigates to:
+
+/login?returnTo=%2F%3FoldInbox%3D1
+
+Purpose	Selector	Notes
+Google sign-in	button whose text is Continue with Google	External OAuth flow.
+Email sign-in input	input[type="email"][autocomplete="email"]	Placeholder is you@example.com.
+Email sign-in submit	button[type="submit"] whose text is Send link	Disabled until a valid email is entered.
+Return to mail	Link/button whose text is Back to temporary mail	Returns to the temporary mail route.
+Old inbox search	#old-inbox-search	Only visible after authentication.
+Old inbox search form	form[role="search"]	Submit to search saved mailboxes.
+Old inbox assignment	role="dialog" button containing an address and Allocated	Assignment buttons do not have a dedicated aria label.
+UI State and Timing
+
+    Initial load calls getOrCreateMailbox and getMailDomains concurrently.
+    The current address is shown after getOrCreateMailbox succeeds.
+    The inbox then calls getMailboxMessages using the current mailbox cookie.
+    Refresh runs manually from the Refresh button or automatically about every 12 seconds when the tab is focused and visible.
+    Change opens the form; creating an address updates the mailbox cookie/server state and reloads the inbox.
+    Clear calls clearMailboxMessages, increments a local clear version, and empties the displayed list.
+    Clicking a message calls getMailboxMessage, then flips the inbox panel to the detail view.
+    Closing the detail view is local state only; it does not make another API call.
+
+Remote API Base
+
+Observed base:
+
+https://dispose.lol/_app/remote/1i1fsx0/
+
+The remote build prefix was extracted from the current page bundle:
+js
+
+const Ca = We("1i1fsx0/activateMailboxAssignment");
+const Ma = We("1i1fsx0/clearMailboxMessages");
+const Sa = We("1i1fsx0/createMailbox");
+const Ta = tt("1i1fsx0/getMailDomains");
+const Ga = tt("1i1fsx0/getMailboxHistory");
+const Da = We("1i1fsx0/getMailboxMessage");
+const nt = tt("1i1fsx0/getMailboxMessages");
+const Aa = We("1i1fsx0/getOrCreateMailbox");
+
+We is the site's POST remote-function wrapper. tt is the GET query wrapper.
+Request Envelope
+POST
+http
+
+POST /_app/remote/1i1fsx0/<function>
+Content-Type: application/json
+x-sveltekit-pathname: /
+x-sveltekit-search:
+
+Body:
+json
+
+{
+  "payload": "<base64url transport string>",
+  "refreshes": []
+}
+
+GET
+http
+
+GET /_app/remote/1i1fsx0/<function>?payload=<base64url transport string>
+x-sveltekit-pathname: /
+x-sveltekit-search:
+
+GET functions with no arguments omit the payload query parameter. The browser sends credentials: include; a client must preserve the mailbox cookie.
+Response envelope
+
+Successful response:
+json
+
+{
+  "type": "result",
+  "result": "<devalue transport string>"
+}
+
+Error response observed:
+json
+
+{
+  "type": "error",
+  "error": { "message": "Bad Request" },
+  "status": 400
+}
+
+The HTTP status for the error envelope was still 200. Check type before decoding result.
+API Operations
+getMailDomains
+
+GET /_app/remote/1i1fsx0/getMailDomains
+
+No payload. Observed decoded result:
+json
+
+{
+  "domains": ["astroai.eu.cc", "cdf.dgen.lat"]
+}
+
+Use the returned values rather than hard-coding the domain list.
+getOrCreateMailbox
+
+POST /_app/remote/1i1fsx0/getOrCreateMailbox
+
+Observed body:
+json
+
+{"payload":"","refreshes":[]}
+
+Observed decoded result shape:
+json
+
+{
+  "address": "<current-address>",
+  "showSet": false,
+  "error": null,
+  "needsCaptcha": false
+}
+
+The empty payload is important: this is a no-argument call, not a payload containing an empty object.
+createMailbox
+
+POST /_app/remote/1i1fsx0/createMailbox
+
+Logical argument for Gmail mode:
+json
+
+{
+  "type": "gmail",
+  "username": "<undefined>",
+  "domain": "<undefined>",
+  "turnstileToken": "<fresh token>"
+}
+
+Logical argument for custom-domain mode:
+json
+
+{
+  "type": "custom_domain",
+  "username": "<chosen username>",
+  "domain": "<domain returned by getMailDomains>",
+  "turnstileToken": "<fresh token>"
+}
+
+Observed decoded result shape:
+json
+
+{
+  "address": "<new-address>",
+  "showSet": false,
+  "error": null
+}
+
+The UI gets the token from a Turnstile callback and passes it as the turnstileToken argument. The observed public site key was 0x4AAAAAADIVYc8ZvYOIz-Bc; the token itself is short-lived and must not be hard-coded.
+getMailboxMessages
+
+GET /_app/remote/1i1fsx0/getMailboxMessages?payload=<encoded arguments>
+
+For the current anonymous mailbox, the UI sends an object with an explicit JavaScript undefined value:
+json
+
+{"assignmentId":"<undefined>"}
+
+Observed payload for that object:
+
+W3siYXNzaWdubWVudElkIjotMX1d
+
+Decoded result with no messages:
+json
+
+{
+  "address": "<current-address>",
+  "mailboxKey": "<current-address>",
+  "assignmentId": null,
+  "messages": [],
+  "nextCursor": null,
+  "readOnly": false,
+  "showSet": false,
+  "error": null
+}
+
+Decoded result with one message, abbreviated:
+json
+
+{
+  "address": "<current-address>",
+  "mailboxKey": "<current-address>",
+  "assignmentId": null,
+  "messages": [
+    {
+      "id": "<message-id>",
+      "avatar": "AB",
+      "sender": "Sender Name <sender@example.com>",
+      "subject": "Example subject",
+      "receivedAt": "Aug 13, 12:59 PM",
+      "receivedAtValue": "2026-08-13T12:59:25.000Z"
+    }
+  ],
+  "nextCursor": null,
+  "readOnly": false,
+  "showSet": false,
+  "error": null
+}
+
+The list request is safe to poll. The UI made duplicate GETs during initial rendering in the observed session, so a client should deduplicate concurrent polls.
+getMailboxMessage
+
+POST /_app/remote/1i1fsx0/getMailboxMessage
+
+Logical arguments for the current mailbox:
+json
+
+{
+  "id": "<message-id>",
+  "refresh": true
+}
+
+If reopening a historical assignment, include assignmentId as well.
+
+Observed decoded result shape:
+json
+
+{
+  "address": "<current-address>",
+  "mailboxKey": "<current-address>",
+  "message": {
+    "id": "<message-id>",
+    "sourceType": "<provider-type>",
+    "messageId": "<provider-message-id>",
+    "from": "Sender Name <sender@example.com>",
+    "fromLabel": "Sender Name <sender@example.com>",
+    "to": "<current-address>",
+    "toLabel": "<current-address>",
+    "subject": "Example subject",
+    "textBody": null,
+    "htmlBodySrcdoc": "<base target=\"_blank\">...",
+    "attachments": [],
+    "detailFetchedAt": "2026-08-13T12:59:53.525Z",
+    "receivedAt": "2026-08-13T12:59:25.000Z",
+    "receivedAtLabel": "Aug 13, 12:59 PM"
+  }
+}
+
+When the message is text-only, expect textBody to contain the body and htmlBodySrcdoc to be absent or empty. When HTML is present, the UI prefers it and renders it in the sandboxed iframe.
+clearMailboxMessages
+
+POST /_app/remote/1i1fsx0/clearMailboxMessages
+
+For the current mailbox, the UI uses the same explicit-undefined payload as message polling:
+
+W3siYXNzaWdubWVudElkIjotMX1d
+
+Observed decoded result:
+json
+
+{
+  "address": "<current-address>",
+  "mailboxKey": "<current-address>",
+  "ok": true
+}
+
+getMailboxHistory
+
+GET /_app/remote/1i1fsx0/getMailboxHistory?payload=<encoded arguments>
+
+The authenticated UI passes search and optionally a cursor. An empty search query is represented by the logical object { "search": "" }.
+
+Observed anonymous result:
+json
+
+{
+  "authenticated": false,
+  "assignments": [],
+  "nextCursor": null
+}
+
+Authentication is required for saved mailbox history. The server returned an application result rather than redirecting the remote call.
+
+Historical assignment entries render an address, an allocatedAt timestamp, and an active/current/expired status. The assignment object must be retained because its id is needed by activateMailboxAssignment.
+activateMailboxAssignment
+
+POST /_app/remote/1i1fsx0/activateMailboxAssignment
+
+Logical argument:
+json
+
+{ "assignmentId": "<numeric assignment id>" }
+
+Observed result shape:
+json
+
+{
+  "address": "<historical-address>",
+  "id": "<assignment-id>",
+  "readOnly": false
+}
+
+The UI passes this result to the main inbox, then calls getMailboxMessages with the assignment id. Expired assignments may be returned as read-only.
+Transport Encoding
+
+The payload is SvelteKit/devalue-style table serialization followed by UTF-8 and unpadded base64url encoding.
+
+Conceptually:
+
+transport(value) = base64url_no_padding(utf8(devalue_stringify(value)))
+
+Observed examples:
+Logical value	Serialized table form	Encoded payload
+No arguments	Empty payload	""
+{ assignmentId: undefined }	[{"assignmentId":-1}]	W3siYXNzaWdubWVudElkIjotMX1d
+{ id: "<id>", refresh: true }	[{"id":1,"refresh":2},"<id>",true]	Depends on <id>.
+{ type: "custom_domain", username: "<u>", domain: "<d>", turnstileToken: "<t>" }	Object keys point to later table entries	Depends on values.
+
+Important encoding rules:
+
+    undefined is the -1 sentinel. Do not replace it with null when matching the current-mailbox request.
+    Strings, booleans, numbers, objects, arrays, and dates are stored in a shared table and referenced by numeric indexes.
+    Dates are encoded as [ + "Date" + ISO-8601 string + ] and decoded back to Date objects.
+    The base64 is URL-safe (+ becomes -, / becomes _) and has no = padding.
+    Keep object key order stable if comparing payloads byte-for-byte.
+    The site currently uses ordinary mail arguments and Date-based cursors; no separate mail-specific transport handler was observed.
+
+In JavaScript, a pinned devalue package compatible with the site's SvelteKit version can provide the table stringify/parse behavior. If implementing the table format yourself, test against the exact payload above before using it in a client.
+Browser-Assisted JavaScript Client Skeleton
+
+This is a protocol skeleton, not a CAPTCHA bypass. It assumes it runs in the same browser origin/session as the page, so cookies are included automatically.
+js
+
+import { stringify, parse } from "devalue";
+
+const remotePrefix = "/_app/remote/1i1fsx0";
+
+function toBase64Url(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary)
+    .replaceAll("=", "")
+    .replaceAll("+", "-")
+    .replaceAll("/", "_");
+}
+
+function transport(value) {
+  return toBase64Url(stringify(value));
+}
+
+async function decodeEnvelope(response) {
+  const envelope = await response.json();
+  if (envelope.type === "error") {
+    throw new Error(envelope.error?.message || "Dispose remote call failed");
+  }
+  if (envelope.type !== "result") {
+    throw new Error(`Unexpected response type: ${envelope.type}`);
+  }
+  return parse(envelope.result);
+}
+
+async function remotePost(name, args) {
+  const response = await fetch(`${remotePrefix}/${name}`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "x-sveltekit-pathname": location.pathname,
+      "x-sveltekit-search": location.search
+    },
+    body: JSON.stringify({
+      payload: args === undefined ? "" : transport(args),
+      refreshes: []
+    })
+  });
+  return decodeEnvelope(response);
+}
+
+async function remoteGet(name, args) {
+  const query = args === undefined ? "" : `?payload=${encodeURIComponent(transport(args))}`;
+  const response = await fetch(`${remotePrefix}/${name}${query}`, {
+    credentials: "include",
+    headers: {
+      "x-sveltekit-pathname": location.pathname,
+      "x-sveltekit-search": location.search
+    }
+  });
+  return decodeEnvelope(response);
+}
+
+const domains = await remoteGet("getMailDomains");
+const current = await remotePost("getOrCreateMailbox");
+const messages = await remoteGet("getMailboxMessages", {
+  // The explicit undefined matches the site's current-mailbox call.
+  assignmentId: undefined
+});
+
+If devalue is not available, run the calls in the page and let the site's own SvelteKit transport wrapper handle encoding, or implement a tested table serializer. Plain JSON.stringify(args) is not compatible with this API.
+Recommended Polling Flow
+js
+
+async function waitForSubject(subject, timeoutMs = 120000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const result = await remoteGet("getMailboxMessages", {
+      assignmentId: undefined
+    });
+    const match = result.messages?.find((m) => m.subject === subject);
+    if (match) return match;
+    await new Promise((resolve) => setTimeout(resolve, 12000));
+  }
+  throw new Error(`Timed out waiting for ${subject}`);
+}
+
+async function openMessage(row) {
+  const result = await remotePost("getMailboxMessage", {
+    id: row.id,
+    refresh: true
+  });
+  return result.message;
+}
+
+Practical rules:
+
+    Avoid concurrent polling calls; the live UI can issue duplicate requests during transitions.
+    Match on id when possible. Subject text is not unique.
+    Use receivedAtValue for sorting, not the localized receivedAt label.
+    Check error, readOnly, and showSet on every message response.
+    Refresh only while the tab is visible/focused if mirroring the site's behavior.
+    If a detail response includes htmlBodySrcdoc, treat it as untrusted HTML and keep it sandboxed.
+
+Pagination
+Current mailbox messages
+
+When nextCursor is non-null, call getMailboxMessages again with:
+js
+
+{
+  assignmentId: assignmentId ?? undefined,
+  cursor: {
+    ...nextCursor,
+    receivedAt: new Date(nextCursor.receivedAt)
+  }
+}
+
+The UI specifically rehydrates receivedAt as a Date before serializing the next request. The server cursor may contain additional fields; preserve them unchanged.
+Historical mailbox search
+
+For getMailboxHistory, preserve the cursor and rehydrate its timestamp:
+js
+
+{
+  ...(search ? { search } : {}),
+  cursor: {
+    ...historyCursor,
+    allocatedAt: new Date(historyCursor.allocatedAt)
+  }
+}
+
+Do not send an ISO string without converting it to a Date if using the same transport format.
+Turnstile and Session Details
+
+The page loaded:
+
+https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit
+
+The current site bundle configured:
+
+sitekey: 0x4AAAAAADIVYc8ZvYOIz-Bc
+appearance: interaction-only
+response-field: false
+retry: never
+
+The callback token is passed to createMailbox as turnstileToken. It is not exposed as a normal form input. A direct client should either:
+
+    drive the real form in a browser and let the widget supply the token, or
+    use an approved/authorized integration that can supply a valid token.
+
+Do not copy a token from an earlier request. It is short-lived and tied to the browser/security challenge.
+
+The relevant cookie observed through the browser cookie store was:
+
+dispose_mailbox; domain=dispose.lol; path=/; Secure; HttpOnly; SameSite=Lax
+
+Its value is a mailbox-state token and should be treated as sensitive. Page JavaScript cannot read it with document.cookie, but browser fetch sends it automatically with credentials: include.
+Error Handling
+
+Handle all of these cases:
+
+    Network failure or timeout.
+    HTTP response that is not JSON.
+    JSON envelope with type: "error" even when HTTP status is 200.
+    Successful envelope whose decoded object has a non-null error.
+    needsCaptcha: true from mailbox creation.
+    showSet: true, which indicates the active mailbox is unavailable or changed.
+    readOnly: true for expired historical mailboxes.
+    Empty messages with nextCursor: null, which is a normal empty inbox.
+    Missing htmlBodySrcdoc and textBody, which should render as an empty/unavailable body rather than crashing.
+
+Auxiliary Route Selectors
+
+These were passively inspected but their create/upload API mutations were not traced because they are outside the mail flow.
+Notes: /notes
+
+    Content: textarea[aria-label="Note content"]
+    Expiry: select[aria-label="Expiry"]
+    Submit: button[type="submit"] with text Create link
+    Auth email input: input[type="email"][autocomplete="email"]
+
+Files: /files
+
+    File picker/drop zone: button[aria-label="Choose a file or drop it here"]
+    File input: input[type="file"]
+    Expiry: the page's select with options 10 minutes, 1 hour, 1 day, 1 week, 1 month, Burn after download
+    Submit: button[type="submit"] with text Create file link
+
+Authenticator: /2fa
+
+    Secret input: input[placeholder="Paste base32 secret"]
+    Paste: button[aria-label="Paste secret from clipboard"]
+    Copy code: button[aria-label="Copy authenticator code"]
+
+Maintenance Checklist
+
+After a site deployment, verify:
+
+    The remote prefix in the current nodes/*.js bundle.
+    The getOrCreateMailbox response and dispose_mailbox cookie behavior.
+    The exact getMailboxMessages payload for an anonymous current mailbox.
+    The current Turnstile configuration and creation response.
+    The message list and detail selectors, especially generated aria-label values.
+    The response envelope still uses type plus a serialized result string.
+    Cursor timestamp fields still require Date serialization.
+

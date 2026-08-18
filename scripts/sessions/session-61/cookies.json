@@ -1,0 +1,132 @@
+[
+  {
+    "name": "USER_COUNTRY",
+    "value": "US",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1787526861.518,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "USER_CURRENCY",
+    "value": "USD",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1787526861.518,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "LOCALE",
+    "value": "en",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1821482061.518,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "rs_visitor_id",
+    "value": "81cac432-fc3e-4d25-a733-aa682e2089df",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1818458061.518,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__cf_bm",
+    "value": "HnYXIuUd39CBMMH19nVjeHSbJkI7UNQesIRa3zgwA1g-1786922061.423963-1.0.1.1-jtrf3POvrzuibhCk.l7kFbXwZotj1H7d6kgZeGfxfmZACTgP9bG4lEORJrHkpAZaNicstA6ebERDcAEXzt.MqN_l2D.FtbyzpWQpmIDHCPqB9u_x9v5DiWdsB3RHosF8",
+    "domain": ".lovable.dev",
+    "path": "/",
+    "expires": 1786923861.518,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "__cuid",
+    "value": "0ab5cda508cd470fae86e378d9cfb024",
+    "domain": ".lovable.dev",
+    "path": "/",
+    "expires": 1821482086,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "lovable-session-id-v2",
+    "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjgwOXJRUSJ9.eyJpc3MiOiJodHRwczovL3Nlc3Npb24uZmlyZWJhc2UuZ29vZ2xlLmNvbS9ncHQtZW5naW5lZXItMzkwNjA3IiwibG9naW5fc2Vzc2lvbl9pZCI6IjRiMDdlMzI2LTZhYTEtNGQ5OC04MDczLTMyOTI1NjRhMDQ3NSIsImF1ZCI6ImdwdC1lbmdpbmVlci0zOTA2MDciLCJhdXRoX3RpbWUiOjE3ODY5MjIxMDAsInVzZXJfaWQiOiJBOEFyWGNDTzZEUm5sYWg2bHlkdE02WTZCbmQyIiwic3ViIjoiQThBclhjQ082RFJubGFoNmx5ZHRNNlk2Qm5kMiIsImlhdCI6MTc4NjkyMjEwMSwiZXhwIjoxNzg4MTMxNzAxLCJlbWFpbCI6Inpha2FybW11c2E4MzJAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsiemFrYXJtbXVzYTgzMkBnbWFpbC5jb20iXX0sInNpZ25faW5fcHJvdmlkZXIiOiJwYXNzd29yZCJ9fQ.n8u6LQ90JM_akE96vNUED7ma1H_a_KzQhYCPJqJ_hY4bQ9uwWHkI-CGZpVsZ--QiEifzOti0RCT3Qm3iIU9p366zi-XNVOTJDKeflzuNFrOY3kLDY-55EGfF32MIdVsJRuRaqk8UNSdaCtIqJbGDWjVGAWmeyENLCQyuW7ms9PnMzqHwhHeTGwOxOJLEbXpQWwQPQnTt46BIheyjd1H6cHH4K4QZgfmVNTuLh7nPxVBCVbeT82wsiapjFWSDdMTseVLXgZUsBWj-XHA5OJ_f2LWpCrfiP_3qspy0lUupNnIy2ZO_o4Hfsq8tgc_14EKJtE7V47LHTrDrzG_UzGwm7Q",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1788131701.446,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "lovable-flag-identity",
+    "value": "QThBclhjQ082RFJubGFoNmx5ZHRNNlk2Qm5kMg.adSPNECGVB_LYe6kG-8xdwqvCJODfP7_Wei7Z_e4mOo",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1818458101.446,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "lovable-flag-attrs",
+    "value": "eyJ1aWQiOiJBOEFyWGNDTzZEUm5sYWg2bHlkdE02WTZCbmQyIiwidXNlcl9jcmVhdGVkX2F0IjoiMjAyNS0wMi0wOVQyMzozMTozNVoifQ.ve_0UDMzydwp0NgqRKa5EUTeUU-M5KqgwL1eXfQy1QY",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1818458101.446,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__dpl",
+    "value": "18a4544ad7061170d19e8ed2da53b0334b2cf13cfcdb4de0ca85c4c61cf6c2df",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1787008501.532,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "lovable-workspace-id",
+    "value": "A8ArXcCO6DRnlah6lydtM6Y6Bnd2:ZDj1FFEagiaXa1pWxUSw",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1789514104.923,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "lovable-workspace-plan",
+    "value": "free",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1789514104.977,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__cf_bm",
+    "value": "71r6ma_55rQc08UBt672jOc82ecX5hbDZErhx8x9fBc-1786922019.6248975-1.0.1.1-rl6rFlkNIcWP_ls2BZxQ_SiBvId.sKSImH3j.PQS.uPD9dR.gPXQlsHRF6VvjVHUUB657m43ZBmXFij7rAXTOOpqSUl2vt1usFv4_UBPJ9u7M4jgTvy_.i7jwr1lafIL",
+    "domain": ".cloudflare.com",
+    "path": "/",
+    "expires": 1786923819.63,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  }
+]

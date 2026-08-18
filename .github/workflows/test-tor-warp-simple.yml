@@ -1,0 +1,25 @@
+name: Test TOR-WARP Simple
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Test basic setup
+        run: |
+          echo "Testing TOR and WARP setup..."
+          sudo apt-get update -qq
+          sudo apt-get install -y wireguard-tools tor curl
+          
+          echo "✅ Packages installed"
+          
+          # Test if TOR starts
+          sudo systemctl start tor
+          sleep 5
+          curl --socks5 127.0.0.1:9050 https://check.torproject.org/api/ip || echo "TOR failed"
+          
+          echo "✅ Basic test complete"

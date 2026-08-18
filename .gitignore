@@ -1,0 +1,22 @@
+# Local artifacts never to commit
+session-1/
+session-3/
+session-2/.railway/
+session-2/browser_cookies.json
+session-2/railway_cli_config.json
+session-2/railway_cli_sessions/
+session-3/.railway/
+session-3/browser_cookies.json
+session-3/railway_cli_config.json
+session-3/railway_cli_sessions/
+chimera-bridge/config.json
+chimera-bridge/config-test.json
+chimera-bridge/.git/
+railway_profile/
+__pycache__/
+*.pyc
+*.session
+browser_cookies.json
+railway_cli_config.json
+.railway/
+session-2/chimera-bridge

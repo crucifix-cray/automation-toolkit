@@ -1,0 +1,66 @@
+⚠️  ClickSolver error (checkbox may still be clicked): name 'page' is not defined
+✅ Checkbox likely clicked, continuing...
+Traceback (most recent call last):
+  File "/home/alan/Documents/automation-toolkit/railway-docker/railway-disposelol-full.py", line 1172, in <module>
+    asyncio.run(run(use_warp=args.warp))
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.14/asyncio/base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/home/alan/Documents/automation-toolkit/railway-docker/railway-disposelol-full.py", line 868, in run
+    session_dir = await register_cli_session(context, railway_page, SESSIONS_DIR)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alan/Documents/automation-toolkit/railway-docker/railway-disposelol-full.py", line 663, in register_cli_session
+    tokens = await get_oauth_tokens(railway_page)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alan/Documents/automation-toolkit/railway-docker/railway-disposelol-full.py", line 490, in get_oauth_tokens
+    await railway_page.goto(authorization_url, wait_until="domcontentloaded")
+          ^^^^^^^^^^^^
+NameError: name 'railway_page' is not defined
+============================================================
+🚂 Railway CLI Session Creator - Mail.tm Edition
+============================================================
+📁 Sessions directory: /home/alan/Documents/railways
+☁️  Mega remote: mega:railway_sessions
+🔁 Mode: SINGLE ACCOUNT
+
+📧 Creating dispose.lol Gmail...
+✅ Mailbox ready: rileywlnt.261@gmail.com
+
+🚂 Signing in to Railway...
+✓ Clicked 'Log in using email'
+✓ Filled email: rileywlnt.261@gmail.com
+🔍 Checking for Cloudflare Turnstile...
+✓ Found Cloudflare Turnstile iframe
+🤖 Auto-solving Cloudflare Turnstile checkbox...
+⏳ Waiting for Turnstile to validate...
+⏳ Waiting for Continue button to enable...
+✅ Button enabled!
+✅ Clicked 'Continue with Email'
+⏳ Waiting 15s for Railway to send email...
+📥 Waiting for Railway OTP...
+  Check #1: 1 message(s)
+  ✅ Found Railway message: 425932 is your Railway login code
+  🎯 Extracted OTP: 425932
+✅ Got OTP: 425932
+  Entering OTP...
+  DEBUG: Found 0 visible text inputs
+  ✅ Filled OTP (method 2 - iframe)
+✅ Logged in to dashboard
+
+📜 Accepting Terms of Service...
+  ✅ Clicked: I agree with Railway's Terms of Service
+  ✅ Clicked: I agree to the Fair Use Policy
+✅ ToS accepted
+
+🔧 Registering Railway CLI session...
+
+🔐 Getting OAuth tokens...
+
+❌ Error: name 'railway_page' is not defined

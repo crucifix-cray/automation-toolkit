@@ -1,0 +1,112 @@
+name: Lovable Swarm (20 Parallel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      session_start:
+        description: 'Starting session number'
+        required: true
+        default: '1'
+      num_sessions:
+        description: 'Number of sessions to run'
+        required: true
+        default: '20'
+
+jobs:
+  lovable-swarm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350  # 5:50 (leave 10min for cleanup)
+    
+    strategy:
+      matrix:
+        session_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+      max-parallel: 20
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            wireguard \
+            iptables \
+            iproute2 \
+            curl \
+            wget \
+            rclone
+          
+          # Install wgcf
+          wget -O /tmp/wgcf https://github.com/ViRb3/wgcf/releases/latest/download/wgcf_2.2.18_linux_amd64
+          chmod +x /tmp/wgcf
+          sudo mv /tmp/wgcf /usr/local/bin/wgcf
+          
+          # Install microsocks
+          git clone https://github.com/rofl0r/microsocks /tmp/microsocks
+          cd /tmp/microsocks && make && sudo cp microsocks /usr/local/bin/
+      
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install playwright invisible-playwright requests
+          playwright install chromium
+      
+      - name: Configure Mega (rclone)
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+
+          # Sync session data from Mega
+          rclone copy mega:lovable-sessions ./scripts/sessions/ -v
+      
+      - name: Start WARP Gateway (4 shared proxies)
+        run: |
+          sudo sysctl -w net.ipv4.ip_forward=1
+          python3 finals/core/warp_gateway.py &
+          sleep 60  # Wait for all 4 instances to start
+      
+      - name: Run Lovable automation (Session ${{ matrix.session_id }})
+        env:
+          SESSION_ID: ${{ matrix.session_id }}
+          BRIDGE_URL: ${{ secrets.BRIDGE_URL }}
+        run: |
+          # Stagger starts (anti-detection)
+          DELAY=$((RANDOM % 15 + 5))
+          echo "Waiting ${DELAY}s before starting session ${SESSION_ID}..."
+          sleep $DELAY
+          
+          # Run automation
+          python3 finals/core/lovable-swarm-runner.py \
+            --session ${SESSION_ID} \
+            --duration 340 \
+            --bridge ${BRIDGE_URL}
+      
+      - name: Trigger next workflow (baton pass)
+        if: matrix.session_id == 1  # Only first runner triggers next
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          # At 350min, trigger new workflow for seamless handoff
+          curl -X POST \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/lovable-swarm.yml/dispatches \
+            -d '{"ref":"main","inputs":{"session_start":"1","num_sessions":"20"}}'
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          # Stop WARP instances
+          pkill -9 python3 || true
+          sudo pkill -9 wg-quick || true
+          sudo pkill -9 microsocks || true
+          
+          # Upload logs to Mega
+          rclone copy ./logs/ mega:lovable-logs/ -v

@@ -1,0 +1,56 @@
+name: Runner Capacity Stress Check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stress-capacity:
+    name: Stress test and report capacity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show hardware specs
+        run: |
+          echo "=== CPU ==="
+          lscpu | grep -E "Model name|^CPU\(s\)|Thread|Core|Socket"
+          echo ""
+          echo "=== MEMORY ==="
+          free -h
+          echo ""
+          echo "=== DISK ==="
+          df -h / | tail -1
+          echo ""
+          echo "=== RUNNER LABEL ==="
+          uname -r && uname -m
+
+      - name: Install stress-ng
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq stress-ng
+
+      - name: CPU stress test (60s, all cores)
+        run: |
+          CORES=$(nproc)
+          echo "Stressing $CORES cores with stress-ng for 60 seconds..."
+          stress-ng --cpu "$CORES" --cpu-method all --timeout 60s --metrics-brief 2>&1 | tail -15
+
+      - name: Memory stress test (60s)
+        run: |
+          RAM_MB=$(free -m | awk '/^Mem:/{print int($2 * 0.7)}')
+          echo "Stressing $RAM_MB MB of RAM for 60 seconds..."
+          stress-ng --vm 1 --vm-bytes "${RAM_MB}M" --vm-method all --timeout 60s --metrics-brief 2>&1 | tail -10
+
+      - name: Report capacity
+        run: |
+          CORES=$(nproc)
+          echo ""
+          echo "=========== RUNNER CAPACITY ==========="
+          echo "CPU cores:        $CORES"
+          echo "CPU model:        $(lscpu | grep 'Model name' | sed 's/.*: *//')"
+          echo "Total RAM:        $(free -h | awk '/^Mem:/{print $2}')"
+          echo "Disk available:   $(df -h / | awk 'NR==2{print $4}')"
+          echo "Architecture:     $(uname -m)"
+          echo "Kernel:           $(uname -r)"
+          echo "======================================="

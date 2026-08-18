@@ -1,0 +1,222 @@
+name: Script 3 Miner Launch (TOR-WARP chains)
+on:
+  workflow_dispatch:
+    inputs:
+      sessions:
+        description: 'Comma-separated session IDs to run (empty = 4 healthy from DB)'
+        required: false
+        default: ''
+      mode:
+        description: 'Miner mode (gh = stop after ~5h, full = keep alive)'
+        required: false
+        default: 'gh'
+
+jobs:
+  miner-batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout automation-toolkit
+        uses: actions/checkout@v4
+        with:
+          path: automation-toolkit
+
+      - name: Checkout chimera-miner (mega_db)
+        uses: actions/checkout@v4
+        with:
+          repository: cold-pressed-hoodie/chimera-miner
+          token: ${{ secrets.GH_TOKEN }}
+          path: chimera-miner
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wireguard-tools tor curl jq xvfb x11-utils unzip
+          wget -q https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64 -O /tmp/wgcf
+          sudo mv /tmp/wgcf /usr/local/bin/wgcf && chmod +x /usr/local/bin/wgcf
+          wget -q https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz
+          gunzip gost-linux-amd64-2.11.5.gz
+          sudo mv gost-linux-amd64-2.11.5 /usr/local/bin/gost && chmod +x /usr/local/bin/gost
+          curl -sL -o /tmp/rclone.zip https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-linux-amd64.zip
+          cd /tmp && unzip -o -q rclone.zip && sudo mv rclone-v1.75.0-linux-amd64/rclone /usr/local/bin/rclone
+          python3 -m pip install --quiet playwright invisible-playwright pysocks
+          python3 -m playwright install firefox
+          python3 -m playwright install-deps firefox || echo "deps failed, continuing"
+          python3 -m invisible_playwright fetch
+
+      - name: Configure rclone from secret
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+
+      - name: Sync session cookies from Mega
+        run: |
+          cd automation-toolkit
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+            rclone copy mega:lovable_sessions ./scripts/sessions/ -v 2>&1 | tail -5 || echo "mega sync failed, using repo copy"
+
+      - name: Setup 4 WARP instances
+        run: |
+          echo "Setting up 4 WARP instances..."
+          for i in {1..4}; do
+            port=$((40000 + i))
+            echo "WARP instance $i (port $port)"
+            mkdir -p /tmp/warp$i
+            cd /tmp/warp$i
+            wgcf register --accept-tos 2>/dev/null || { echo "wgcf register failed for $i"; exit 1; }
+            wgcf generate
+            sed -i '/DNS/d' wgcf-profile.conf
+            sudo cp wgcf-profile.conf /etc/wireguard/wgcf$i.conf
+            sudo chmod 600 /etc/wireguard/wgcf$i.conf
+            sudo wg-quick up wgcf$i
+            sudo ip netns add warp$i 2>/dev/null || true
+            sudo mkdir -p /etc/netns/warp$i
+            echo "nameserver 1.1.1.1" | sudo tee /etc/netns/warp$i/resolv.conf > /dev/null
+            sudo ip link set wgcf$i netns warp$i
+            sudo ip netns exec warp$i ip addr add 172.16.$i.2/32 dev wgcf$i
+            sudo ip netns exec warp$i ip link set wgcf$i up
+            sudo ip netns exec warp$i ip route add default dev wgcf$i
+            V6=$(grep -oE '2606:4700:[0-9a-f:]+/[0-9]+' wgcf-profile.conf | head -1)
+            if [ -n "$V6" ]; then
+              sudo ip netns exec warp$i sysctl -w net.ipv6.conf.all.disable_ipv6=0 > /dev/null
+              sudo ip netns exec warp$i ip -6 addr add $V6 dev wgcf$i
+              sudo ip netns exec warp$i ip -6 route add default dev wgcf$i
+            fi
+            sudo ip link add veth-w$i type veth peer name veth-h$i
+            sudo ip link set veth-w$i netns warp$i
+            sudo ip addr add 172.18.$i.1/24 dev veth-h$i
+            sudo ip link set veth-h$i up
+            sudo ip netns exec warp$i ip addr add 172.18.$i.2/24 dev veth-w$i
+            sudo ip netns exec warp$i ip link set veth-w$i up
+            nohup sudo ip netns exec warp$i gost -L=socks5://0.0.0.0:$port > /tmp/gost$i.log 2>&1 &
+            sleep 3
+            ip=$(curl -s --socks5 172.18.$i.2:$port https://cloudflare.com/cdn-cgi/trace 2>/dev/null | grep "^ip=" | cut -d= -f2)
+            echo "  WARP $i egress: $ip"
+          done
+          echo "All 4 WARP instances ready!"
+
+      - name: Setup 4 TOR instances (routing through WARP)
+        run: |
+          echo "Setting up 4 TOR instances..."
+          for i in {1..4}; do
+            tor_port=$((9050 + i))
+            warp_port=$((40000 + i))
+            sudo mkdir -p /etc/tor/instances
+            printf '%s\n' \
+              "User debian-tor" \
+              "DataDirectory /var/lib/tor/tor$i" \
+              "PidFile /var/run/tor/tor$i.pid" \
+              "SocksPort 127.0.0.1:$tor_port" \
+              "ControlPort 127.0.0.1:$((9150 + i))" \
+              "Socks5Proxy 172.18.$i.2:$warp_port" \
+              "Log notice file /var/log/tor/tor$i.log" \
+              | sudo tee /etc/tor/instances/tor$i.conf > /dev/null
+            sudo mkdir -p /var/lib/tor/tor$i
+            sudo chown -R debian-tor:debian-tor /var/lib/tor/tor$i
+            sudo chmod 700 /var/lib/tor/tor$i
+            sudo tor -f /etc/tor/instances/tor$i.conf &
+            sleep 5
+            final_ip=$(curl -s --socks5 127.0.0.1:$tor_port https://check.torproject.org/api/ip 2>/dev/null | jq -r '.IP' 2>/dev/null || echo "error")
+            echo "  TOR $i -> $final_ip"
+          done
+          echo "All 4 TOR instances ready!"
+
+      - name: Verify chains unique
+        run: |
+          for i in {1..4}; do
+            ip=$(curl -s --socks5 127.0.0.1:$((9050 + i)) https://check.torproject.org/api/ip 2>/dev/null | jq -r '.IP' 2>/dev/null)
+            echo "Chain $i exit IP: $ip"
+          done
+
+      - name: Pick sessions from Mega DB
+        env:
+          CHIMERA_MINER_DIR: ${{ github.workspace }}/chimera-miner
+          SESSIONS_INPUT: ${{ github.event.inputs.sessions }}
+        run: |
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+            python3 -c "
+          import sys, os
+          sys.path.insert(0, os.environ['CHIMERA_MINER_DIR'])
+          from mega_db import load_db
+          db = load_db()
+          inp = os.environ.get('SESSIONS_INPUT', '').strip()
+          if inp:
+              sessions = [s.strip() for s in inp.split(',') if s.strip()]
+          else:
+              sessions = [s['id'] for s in db.data['sessions'] if s.get('status') == 'active'][:4]
+          if not sessions:
+              print('NO_SESSIONS'); raise SystemExit(1)
+          print(f'Picked {len(sessions)} sessions: {sessions}')
+          with open('/tmp/sessions.txt', 'w') as f:
+              f.write('\n'.join(sessions))
+          "
+
+      - name: Run 4 miners in parallel (one chain each)
+        run: |
+          cd automation-toolkit
+          mapfile -t SESSIONS < /tmp/sessions.txt
+          PIDS=()
+          for i in $(seq 1 ${#SESSIONS[@]}); do
+            SID=${SESSIONS[$((i-1))]}
+            PORT=$((9050 + i))
+            DISP=$((98 + i))
+            Xvfb :$DISP -screen 0 1920x1080x24 > /tmp/xvfb-$DISP.log 2>&1 &
+            env \
+              DISPLAY=:$DISP \
+              PROXY_PORT=$PORT \
+              CHIMERA_TOOLKIT_CORE=$PWD/finals/core \
+              CHIMERA_MINER_DIR=${{ github.workspace }}/chimera-miner \
+              CHIMERA_SESSIONS_DIR=$PWD/scripts/sessions \
+              USED_EMAILS_FILE=/tmp/used-emails.txt \
+              HOME=/home/runner \
+              python3 ${{ github.workspace }}/chimera-miner/script3_launch_miner.py \
+                --session $SID --mode ${{ github.event.inputs.mode }} --threads 64 \
+              > /tmp/miner-$i.log 2>&1 &
+            PIDS+=($!)
+            echo "instance $i: session $SID chain :$PORT pid $!"
+            sleep 20
+          done
+          echo "All launched, waiting..."
+          for pid in ${PIDS[@]}; do
+            wait $pid
+            echo "miner pid $pid exited with $?"
+          done
+
+      - name: Report results
+        if: always()
+        run: |
+          cd automation-toolkit
+          mapfile -t SESSIONS < /tmp/sessions.txt 2>/dev/null || true
+          for i in $(seq 1 ${#SESSIONS[@]}); do
+            SID=${SESSIONS[$((i-1))]}
+            LOG=/tmp/miner-$i.log
+            if [ -f "$LOG" ]; then
+              echo "=== Instance $i (session $SID) ==="
+              if grep -q "Worker is running" $LOG; then
+                echo "  MINER: RUNNING"
+              else
+                echo "  MINER: FAILED"
+                tail -15 $LOG
+              fi
+            fi
+          done
+
+      - name: Push session updates back to repo
+        if: always()
+        run: |
+          cd automation-toolkit
+          git config user.email "ci@cold-pressed-hoodie.local"
+          git config user.name "CI Script 3"
+          git add -A scripts/sessions/
+          git commit -m "Script 3 session updates from GH runner" 2>/dev/null || echo "Nothing to commit"
+          for attempt in 1 2 3 4 5; do
+            if git push origin main 2>/dev/null; then
+              echo "PUSHED"
+              break
+            fi
+            git pull --rebase origin main 2>/dev/null || true
+            sleep 5
+          done

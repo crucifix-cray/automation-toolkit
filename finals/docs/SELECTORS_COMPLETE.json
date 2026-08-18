@@ -1,0 +1,132 @@
+{
+  "templates_page": {
+    "template_card": "section[aria-label=\"All templates\"] article",
+    "remix_button": "button:has-text(\"Use template\")"
+  },
+  "chat_interface": {
+    "chat_input": "[data-testid=\"chat-composer-editor\"] [role=\"textbox\"]",
+    "send_button": "[data-testid=\"chat-input-send\"]",
+    "loading_indicator": "[data-testid=\"chat-timeline\"] > [role=\"status\"]",
+    "pause_button": "[data-testid=\"chat-input-stop\"]"
+  },
+  "invite_generation_HIGH_CREDIT": {
+    "share_button": "button[data-testid=\"collaboration-invite-trigger\"]",
+    "share_button_css": "button[type=\"button\"][data-button][data-testid=\"collaboration-invite-trigger\"]",
+    "dialog_css": "div[data-open][role=\"dialog\"]",
+    "copy_invite_link_button": "div[data-open][role=\"dialog\"] button[data-button]:has-text(\"Copy invite link\")",
+    "invite_link_disabled_button": "div[data-open][role=\"dialog\"] button[aria-haspopup=\"menu\"]:has-text(\"Invite link disabled\")",
+    "anyone_with_invite_link_menuitem": "[role=\"menu\"] [role=\"menuitemradio\"]:has-text(\"Anyone with the invite link\")",
+    "flow": [
+      {
+        "step": 1,
+        "action": "click",
+        "selector": "button[data-testid=\"collaboration-invite-trigger\"]",
+        "description": "Click Share button (top right)"
+      },
+      {
+        "step": 2,
+        "action": "click",
+        "playwright": "getByRole('dialog').getByRole('button', {name: 'Invite link disabled'})",
+        "description": "Click 'Invite link disabled' to open menu"
+      },
+      {
+        "step": 3,
+        "action": "click",
+        "playwright": "getByRole('menuitemradio', {name: 'Anyone with the invite link'})",
+        "description": "Select 'Anyone with the invite link'"
+      },
+      {
+        "step": 4,
+        "action": "click",
+        "playwright": "getByRole('dialog').getByRole('button', {name: 'Copy invite link'})",
+        "description": "Click 'Copy invite link'"
+      },
+      {
+        "step": 5,
+        "action": "extract_clipboard",
+        "javascript": "await navigator.clipboard.readText()",
+        "description": "Read invite link from clipboard"
+      }
+    ],
+    "example_link": "https://lovable.dev/projects/9cf56f3f-eec1-4055-bf25-274fd2079af1?magic_link=mc_5e0cd6cc-a3a6-4eb5-90ca-541c36bf9dfa",
+    "link_format": "https://lovable.dev/projects/{PROJECT_ID}?magic_link={MAGIC_TOKEN}",
+    "notes": "Invite link is copied to clipboard, not visible as text. CSP (strict-dynamic) blocks JS injection on lovable.dev - use real CDP mouse clicks (page.mouse) for all steps and read the clipboard via a real Ctrl+V paste into a textarea on a CSP-free data: page. Button ids are dynamic (base-ui-*), match by text or stable class instead."
+  },
+  "invite_acceptance_LOW_CREDIT": {
+    "flow": [
+      {
+        "step": 1,
+        "action": "navigate",
+        "description": "Open invite link URL (with magic_link param)"
+      },
+      {
+        "step": 2,
+        "action": "check_if_logged_in",
+        "description": "If not logged in, will show 'You don't have access' page"
+      },
+      {
+        "step": 3,
+        "action": "click",
+        "selector": "getByRole('button', {name: 'Sign in'}).first()",
+        "xpath": "(//button[normalize-space(.)='Sign in'])[1]",
+        "description": "Click 'Sign in' button"
+      },
+      {
+        "step": 4,
+        "action": "login",
+        "selectors": {
+          "email": "input#email",
+          "continue": "getByRole('button', {name: 'Continue'})"
+        },
+        "description": "Enter email and continue (will redirect back to invite link after auth)"
+      },
+      {
+        "step": 5,
+        "action": "wait_for_redirect",
+        "description": "After login, automatically redirected to project with access granted"
+      },
+      {
+        "step": 6,
+        "action": "remix",
+        "option_a": {
+          "description": "From editor - open project menu",
+          "selector": "getByRole('button', {name: /project name/i})",
+          "then": "getByText('Remix this project')"
+        },
+        "option_b": {
+          "description": "From project settings",
+          "selector": "getByText('Project actions')",
+          "then": "getByRole('button', {name: 'Remix'})"
+        },
+        "option_c": {
+          "description": "From dashboard card",
+          "selector": "project-card menu button",
+          "then": "getByText('Remix')"
+        }
+      },
+      {
+        "step": 7,
+        "action": "confirm",
+        "selector": "getByRole('button', {name: 'Remix'})",
+        "alt_selector": "getByRole('button', {name: 'Acknowledge and remix'})",
+        "description": "Confirm remix in dialog"
+      }
+    ],
+    "notes": "Must be logged in to accept invite. Magic link grants access automatically after login."
+  },
+  "project_url_format": {
+    "editor": "https://lovable.dev/projects/{PROJECT_ID}",
+    "preview": "https://{PROJECT_ID}.lovableproject.com",
+    "invite": "https://lovable.dev/projects/{PROJECT_ID}?magic_link={MAGIC_TOKEN}"
+  },
+  "status": "COMPLETE",
+  "discovered_by": "Browser-Use Cloud API v4",
+  "discovered_at": "2026-08-14T16:00:00Z",
+  "browser_use_runs": {
+    "templates": "cc77a953-1674-49b9-aa31-d77afbdc9073",
+    "chat": "eb94b772-7378-4613-a2c6-c54d85413bfc",
+    "invite_gen_v1": "71dd9a5d-5549-48f6-9bdb-19ede71c0442",
+    "invite_gen_v2_CORRECT": "3a0889bb-c5ff-415a-ae38-12e3984727cf",
+    "invite_accept": "ee30fb17-dccf-4f90-94fc-38e310f6f2c9"
+  }
+}

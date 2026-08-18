@@ -1,0 +1,265 @@
+name: Script 2 Project Creation
+on:
+  workflow_dispatch:
+    inputs:
+      sessions:
+        description: 'Comma-separated session IDs to process (empty = auto-pick active sessions without projects)'
+        required: false
+        default: ''
+      count:
+        description: 'Projects to create per session'
+        required: false
+        default: '1'
+      mode:
+        description: 'Creation mode: template | remix | accept'
+        required: false
+        default: 'accept'
+
+jobs:
+  create-projects:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout automation-toolkit (sessions + selectors + invisible_playwright)
+        uses: actions/checkout@v4
+        with:
+          repository: cold-pressed-hoodie/automation-toolkit
+          path: automation-toolkit
+
+      - name: Checkout chimera-miner (mega_db + script2)
+        uses: actions/checkout@v4
+        with:
+          repository: cold-pressed-hoodie/chimera-miner
+          path: chimera-miner
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb x11-utils build-essential wireguard-tools unzip
+          python3 -m pip install --quiet playwright invisible-playwright
+
+      - name: Install wgcf (WARP account generator)
+        run: |
+          curl -sL -o /tmp/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64
+          sudo install -m 755 /tmp/wgcf /usr/local/bin/wgcf
+
+      - name: Install Google Chrome
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb
+          sudo apt-get install -y -qq /tmp/chrome.deb 2>/dev/null || sudo apt-get -f install -y -qq
+          google-chrome --version
+
+      - name: Install rclone static binary (mega backend)
+        run: |
+          curl -sL -o /tmp/rclone.zip https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-linux-amd64.zip
+          cd /tmp && unzip -o -q rclone.zip && sudo mv rclone-v1.75.0-linux-amd64/rclone /usr/local/bin/rclone
+          rclone version | head -1
+
+      - name: Configure rclone from secret
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+          rclone about mega:
+
+      - name: Fetch WARP profile pool from Mega
+        run: |
+          mkdir -p /tmp/wgcf-pool
+          timeout 30 bash -c '
+            env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+              rclone copy mega:chimera/wgcf-pool /tmp/wgcf-pool --timeout 20s --retries 1 2>&1
+          ' || echo "Pool fetch timed out or failed, will register fresh"
+          ls -d /tmp/wgcf-pool/wg-* 2>/dev/null | wc -l
+
+      - name: Select sessions to process
+        env:
+          CHIMERA_MINER_DIR: ${{ github.workspace }}/chimera-miner
+          MANUAL_SESSIONS: ${{ inputs.sessions }}
+        run: |
+          if [ -n "$MANUAL_SESSIONS" ]; then
+            echo "$MANUAL_SESSIONS" | tr ',' '\n' | sed '/^[[:space:]]*$/d' > /tmp/sessions.txt
+          else
+            env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+              python3 -c "
+          import sys, os
+          sys.path.insert(0, os.environ['CHIMERA_MINER_DIR'])
+          from mega_db import load_db
+          db = load_db()
+          needs = []
+          for s in db.data['sessions']:
+            if s.get('status') != 'active':
+              continue
+            has_ready = any(
+              p.get('created_by') == s['id'] and p.get('status') in ('ready', 'in_use')
+              for p in db.data['projects']
+            )
+            if not has_ready:
+              needs.append(s['id'].replace('session-', '', 1))
+          print('\n'.join(needs))
+          " > /tmp/sessions.txt
+          fi
+          wc -l /tmp/sessions.txt
+          echo "Target sessions:" && cat /tmp/sessions.txt
+
+      - name: Start WARP instances 0-5
+        run: |
+          echo "===== CLEANING OLD WARP CONFIGS ====="
+          sudo rm -rf /tmp/wgcf-{0..5} 2>/dev/null || true
+
+          # Get ALL pool profiles sorted by timestamp (oldest first for diversity)
+          POOL_PROFILES=($(ls -dt /tmp/wgcf-pool/wg-* 2>/dev/null))
+          TOTAL=${#POOL_PROFILES[@]}
+          echo "Found $TOTAL profiles in pool"
+
+          # Pick profiles with MAXIMUM spacing (every Nth profile for diversity)
+          if [ $TOTAL -ge 6 ]; then
+            STEP=$((TOTAL / 6))
+            echo "Using every ${STEP}th profile for maximum diversity"
+            SELECTED=()
+            for i in 0 1 2 3 4 5; do
+              IDX=$((i * STEP))
+              SELECTED+=("${POOL_PROFILES[$IDX]}")
+            done
+          else
+            SELECTED=("${POOL_PROFILES[@]}")
+          fi
+
+          for i in 0 1 2 3 4 5; do
+            if [ $i -lt ${#SELECTED[@]} ]; then
+              PROFILE_DIR="${SELECTED[$i]}"
+              echo "instance $i using pooled profile: $(basename $PROFILE_DIR)"
+              sudo -E WG_PROFILE_DIR="$PROFILE_DIR" bash automation-toolkit/finals/core/warp_multi_instance.sh $i start || true
+            else
+              echo "instance $i: no pool profile, registering fresh"
+              sudo bash automation-toolkit/finals/core/warp_multi_instance.sh $i start || true
+            fi
+            sleep 3
+          done
+
+      - name: Start Xvfb displays
+        run: |
+          for d in 99 100 101 102; do
+            Xvfb :$d -screen 0 1920x1080x24 > /tmp/xvfb-$d.log 2>&1 &
+          done
+          sleep 2
+          DISPLAY=:99 xdpyinfo | head -2
+
+      - name: Run Script 2 per session (verified WARP instances)
+        env:
+          CHIMERA_MINER_DIR: ${{ github.workspace }}/chimera-miner
+          CHIMERA_TOOLKIT_CORE: ${{ github.workspace }}/automation-toolkit/finals/core
+          CHIMERA_SESSIONS_DIR: ${{ github.workspace }}/automation-toolkit/scripts/sessions
+          CHIMERA_SELECTORS_FILE: ${{ github.workspace }}/automation-toolkit/finals/docs/SELECTORS_COMPLETE.json
+          MODE: ${{ inputs.mode }}
+          COUNT: ${{ inputs.count }}
+        run: |
+          HEALTHY=""
+          for i in 0 1 2 3 4 5; do
+            sudo ip netns exec warp-$i sysctl -w net.ipv6.conf.all.disable_ipv6=1 > /dev/null 2>&1 || true
+            sudo ip netns exec warp-$i sysctl -w net.ipv6.conf.default.disable_ipv6=1 > /dev/null 2>&1 || true
+            IP=""
+            for t in $(seq 1 6); do
+              IP=$(sudo ip netns exec warp-$i curl -4 -s --max-time 12 \
+                https://www.cloudflare.com/cdn-cgi/trace | grep -E "^ip=" || true)
+              if [ -n "$IP" ]; then
+                echo "instance $i WARP egress: $IP"
+                break
+              fi
+              sleep 5
+            done
+            if [ -n "$IP" ]; then
+              HEALTHY="$HEALTHY $i"
+            else
+              echo "instance $i WARP FAILED - skipping"
+            fi
+          done
+          echo "Healthy instances:$HEALTHY"
+          echo "$HEALTHY" > /tmp/healthy.txt
+
+          mapfile -t SESSIONS < /tmp/sessions.txt
+          NS=${#SESSIONS[@]}
+          echo "Processing $NS sessions across instances: $HEALTHY"
+          if [ $NS -eq 0 ]; then
+            echo "No sessions to process - done"
+            exit 0
+          fi
+
+          INSTANCES=($HEALTHY)
+          NI=${#INSTANCES[@]}
+          if [ $NI -eq 0 ]; then
+            echo "No healthy WARP instances - aborting"
+            exit 1
+          fi
+
+          # Round-robin assign sessions to instances; each instance processes its
+          # sessions SEQUENTIALLY (one unique IP per session).
+          for i in "${INSTANCES[@]}"; do
+            (
+              DISP=$((99 + (i % 4)))
+              n=0
+              for ((idx = 0; idx < NS; idx++)); do
+                if [ $((idx % NI)) -ne "$i" ]; then continue; fi
+                SID="${SESSIONS[$idx]}"
+                echo "===== instance $i processing session-$SID ====="
+                sudo ip netns exec warp-$i sudo -u runner env \
+                  DISPLAY=:$DISP \
+                  HOME=/home/runner \
+                  CHIMERA_TOOLKIT_CORE="$CHIMERA_TOOLKIT_CORE" \
+                  CHIMERA_SESSIONS_DIR="$CHIMERA_SESSIONS_DIR" \
+                  CHIMERA_SELECTORS_FILE="$CHIMERA_SELECTORS_FILE" \
+                  CHIMERA_MINER_DIR="$CHIMERA_MINER_DIR" \
+                  KEEP_BROWSER_OPEN=0 \
+                  python3 "$CHIMERA_MINER_DIR/script2_remix_link.py" \
+                    --session "$SID" --count "$COUNT" --mode "$MODE"
+                n=$((n + 1))
+              done
+              echo "instance $i done (processed $n sessions)"
+            ) > /tmp/s2-$i.log 2>&1 &
+          done
+          wait || true
+          echo "---- RESULTS ----"
+          for i in "${INSTANCES[@]}"; do
+            if [ ! -f /tmp/s2-$i.log ]; then continue; fi
+            OK=$(grep -c "✅ Project .* created successfully" /tmp/s2-$i.log 2>/dev/null || true)
+            echo "instance $i: $OK projects created"
+            echo "--- last 25 lines of instance $i log:"
+            tail -25 /tmp/s2-$i.log || true
+          done
+
+      - name: Verify DB after run
+        env:
+          CHIMERA_MINER_DIR: ${{ github.workspace }}/chimera-miner
+        run: |
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+            python3 -c "
+          import sys, os
+          sys.path.insert(0, os.environ['CHIMERA_MINER_DIR'])
+          from mega_db import load_db
+          db = load_db()
+          db.print_stats()
+          released = sum(1 for s in db.data['sessions'] if s.get('status') == 'released')
+          ready = sum(1 for p in db.data['projects'] if p.get('status') == 'ready')
+          print('RELEASED_SESSIONS:', released)
+          print('READY_PROJECTS:', ready)
+          "
+
+      - name: Upload healthy WARP profiles to pool (best effort)
+        run: |
+          mkdir -p /tmp/wgcf-pool
+          for i in $(cat /tmp/healthy.txt 2>/dev/null); do
+            if [ -f "/tmp/wgcf-$i/wgcf-profile.conf" ]; then
+              ENTRY="/tmp/wgcf-pool/wg-${{ github.run_id }}-$i"
+              mkdir -p "$ENTRY"
+              sudo cp /tmp/wgcf-$i/wgcf-account.toml "$ENTRY/" 2>/dev/null || true
+              sudo cp /tmp/wgcf-$i/wgcf-profile.conf "$ENTRY/"
+              sudo chown runner:runner "$ENTRY"/* 2>/dev/null || true
+              env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+                rclone copyto "$ENTRY/wgcf-profile.conf" "mega:chimera/wgcf-pool/wg-${{ github.run_id }}-$i/wgcf-profile.conf" 2>/dev/null || true
+              env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+                rclone copyto "$ENTRY/wgcf-account.toml" "mega:chimera/wgcf-pool/wg-${{ github.run_id }}-$i/wgcf-account.toml" 2>/dev/null || true
+              echo "Uploaded profile for instance $i"
+            fi
+          done
+        if: always()

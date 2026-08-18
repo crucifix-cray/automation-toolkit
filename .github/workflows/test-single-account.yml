@@ -1,0 +1,154 @@
+name: TEST Single Account Creation
+on:
+  workflow_dispatch:
+
+jobs:
+  test-single:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout automation-toolkit
+        uses: actions/checkout@v4
+        with:
+          path: automation-toolkit
+
+      - name: Checkout chimera-miner (mega_db)
+        uses: actions/checkout@v4
+        with:
+          repository: cold-pressed-hoodie/chimera-miner
+          token: ${{ secrets.GH_TOKEN }}
+          path: chimera-miner
+
+      - name: Install system deps and Firefox
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb x11-utils build-essential wireguard-tools unzip
+          python3 -m pip install --quiet playwright invisible-playwright
+          python3 -m playwright install firefox
+          python3 -m playwright install-deps firefox || echo "install-deps failed, continuing"
+
+      - name: Install wgcf (WARP account generator)
+        run: |
+          curl -sL -o /tmp/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64
+          sudo install -m 755 /tmp/wgcf /usr/local/bin/wgcf
+
+      - name: Install Google Chrome
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb
+          sudo apt-get install -y -qq /tmp/chrome.deb 2>/dev/null || sudo apt-get -f install -y -qq
+          google-chrome --version
+
+      - name: Install rclone static binary (mega backend)
+        run: |
+          curl -sL -o /tmp/rclone.zip https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-linux-amd64.zip
+          cd /tmp && unzip -q rclone.zip && sudo mv rclone-v1.75.0-linux-amd64/rclone /usr/local/bin/rclone
+          rclone version | head -1
+
+      - name: Configure rclone from secret
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+          rclone about mega:
+
+      - name: Seed used-emails from Mega DB
+        run: |
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+            python3 -c "
+          import sys, os
+          sys.path.insert(0, os.environ['CHIMERA_MINER_DIR'])
+          from mega_db import load_db
+          db = load_db()
+          emails = [s.get('email','') for s in db.data['sessions'] if s.get('email')]
+          with open(os.environ['USED_EMAILS_FILE'], 'w') as f:
+              f.write('\n'.join(e.lower() for e in emails) + '\n')
+          print(f'Seeded {len(emails)} used emails')
+          "
+        env:
+          CHIMERA_MINER_DIR: ${{ github.workspace }}/chimera-miner
+          USED_EMAILS_FILE: ${{ github.workspace }}/used-tempmailhub-emails.txt
+
+      - name: Fetch WARP profile pool from Mega
+        run: |
+          mkdir -p /tmp/wgcf-pool
+          timeout 30 bash -c '
+            env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+              rclone copy mega:chimera/wgcf-pool /tmp/wgcf-pool --timeout 20s --retries 1 2>&1
+          ' || echo "Pool fetch timed out or failed, will register fresh"
+          ls -d /tmp/wgcf-pool/wg-* 2>/dev/null | wc -l
+
+      - name: Start SINGLE WARP instance
+        run: |
+          echo "===== CLEANING OLD WARP CONFIGS ====="
+          sudo rm -rf /tmp/wgcf-0 2>/dev/null || true
+          
+          # Get ALL pool profiles sorted by timestamp (oldest first for diversity)
+          POOL_PROFILES=($(ls -dt /tmp/wgcf-pool/wg-* 2>/dev/null))
+          TOTAL=${#POOL_PROFILES[@]}
+          echo "Found $TOTAL profiles in pool"
+          
+          if [ $TOTAL -gt 0 ]; then
+            # Pick a random profile for diversity
+            RANDOM_IDX=$((RANDOM % TOTAL))
+            PROFILE_DIR="${POOL_PROFILES[$RANDOM_IDX]}"
+            echo "Using random pooled profile: $(basename $PROFILE_DIR)"
+            sudo -E WG_PROFILE_DIR="$PROFILE_DIR" bash automation-toolkit/finals/core/warp_multi_instance.sh 0 start || true
+          else
+            echo "No pool profile, registering fresh"
+            sudo bash automation-toolkit/finals/core/warp_multi_instance.sh 0 start || true
+          fi
+
+      - name: Check WARP IP
+        run: |
+          sudo ip netns exec warp-0 sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1 || true
+          sudo ip netns exec warp-0 sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null 2>&1 || true
+          
+          for attempt in 1 2 3; do
+            IP=$(sudo ip netns exec warp-0 curl -4 -s --max-time 12 https://www.cloudflare.com/cdn-cgi/trace | grep -E "^ip=" || true)
+            if [ -n "$IP" ]; then
+              echo "WARP egress: $IP"
+              break
+            fi
+            sleep 5
+          done
+
+      - name: Start Xvfb display
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 > /tmp/xvfb-99.log 2>&1 &
+          sleep 2
+          DISPLAY=:99 xdpyinfo | head -2
+
+      - name: Run SINGLE account creation
+        run: |
+          sudo ip netns exec warp-0 sudo -u runner env \
+            DISPLAY=:99 \
+            HOME=/home/runner \
+            USED_EMAILS_FILE=${{ github.workspace }}/used-tempmailhub-emails.txt \
+            CHIMERA_SESSIONS_DIR=${{ github.workspace }}/automation-toolkit/scripts/sessions \
+            CHIMERA_MINER_DIR=${{ github.workspace }}/chimera-miner \
+            CHIMERA_SKIP_MEGA_SYNC=1 \
+            RUNNER_ID=${{ github.run_id }}-test \
+            KEEP_BROWSER_OPEN=0 \
+            python3 ${{ github.workspace }}/automation-toolkit/finals/core/lov-api.py --end 2>&1 | tee /tmp/acc-test.log
+
+      - name: Check result
+        run: |
+          if grep -q "🎉 SUCCESS!" /tmp/acc-test.log; then
+            SID=$(grep -oP 'session_number": "\K[^"]+' /tmp/acc-test.log | head -1)
+            echo "✅ SUCCESS: $SID"
+            exit 0
+          else
+            echo "❌ FAILED"
+            echo "=== FULL LOG ==="
+            cat /tmp/acc-test.log
+            exit 1
+          fi
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-single-logs
+          path: /tmp/acc-test.log

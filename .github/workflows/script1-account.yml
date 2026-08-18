@@ -1,0 +1,227 @@
+name: Script 1 Account Creation
+on:
+  workflow_dispatch:
+
+jobs:
+  create-account:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout automation-toolkit
+        uses: actions/checkout@v4
+        with:
+          path: automation-toolkit
+
+      - name: Checkout chimera-miner (mega_db)
+        uses: actions/checkout@v4
+        with:
+          repository: cold-pressed-hoodie/chimera-miner
+          token: ${{ secrets.GH_TOKEN }}
+          path: chimera-miner
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb x11-utils build-essential wireguard-tools unzip
+          python3 -m pip install --quiet playwright invisible-playwright
+          python3 -m playwright install firefox
+          python3 -m playwright install-deps firefox || echo "install-deps failed, continuing"
+          python3 -m invisible_playwright fetch
+
+      - name: Install wgcf (WARP account generator)
+        run: |
+          curl -sL -o /tmp/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64
+          sudo install -m 755 /tmp/wgcf /usr/local/bin/wgcf
+
+      - name: Install Google Chrome
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb
+          sudo apt-get install -y -qq /tmp/chrome.deb 2>/dev/null || sudo apt-get -f install -y -qq
+          google-chrome --version
+
+      - name: Install rclone static binary (mega backend)
+        run: |
+          curl -sL -o /tmp/rclone.zip https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-linux-amd64.zip
+          cd /tmp && unzip -o -q rclone.zip && sudo mv rclone-v1.75.0-linux-amd64/rclone /usr/local/bin/rclone
+          rclone version | head -1
+
+      - name: Configure rclone from secret
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+          rclone about mega:
+
+      - name: Seed used-emails from Mega DB
+        run: |
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+            python3 -c "
+          import sys, os
+          sys.path.insert(0, os.environ['CHIMERA_MINER_DIR'])
+          from mega_db import load_db
+          db = load_db()
+          emails = [s.get('email','') for s in db.data['sessions'] if s.get('email')]
+          with open(os.environ['USED_EMAILS_FILE'], 'w') as f:
+              f.write('\n'.join(e.lower() for e in emails) + '\n')
+          print(f'Seeded {len(emails)} used emails')
+          "
+        env:
+          CHIMERA_MINER_DIR: ${{ github.workspace }}/chimera-miner
+          USED_EMAILS_FILE: ${{ github.workspace }}/used-tempmailhub-emails.txt
+
+      - name: Skip WARP profile pool (force fresh registrations)
+        run: |
+          echo "⚠️  Skipping pool - old profiles get same IPs"
+          echo "🔄 Will register 6 FRESH WARP accounts for unique IPs"
+          mkdir -p /tmp/wgcf-pool
+
+      - name: Start WARP instance 0 only (1 per runner for unique IP)
+        run: |
+          echo "===== REGISTERING 1 WARP ACCOUNT ====="
+          sudo rm -rf /tmp/wgcf-0 2>/dev/null || true
+          echo "🔄 instance 0: registering NEW WARP account"
+          sudo bash automation-toolkit/finals/core/warp_multi_instance.sh 0 start || true
+
+      - name: Start Xvfb display
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 > /tmp/xvfb-99.log 2>&1 &
+          sleep 2
+          DISPLAY=:99 xdpyinfo | head -2
+
+      - name: Run parallel account creations (ONE instance per runner to get unique IP)
+        run: |
+          echo "⚠️  Strategy: 1 instance per runner = 1 unique Cloudflare egress IP"
+          echo "   Multiple instances on same runner = same IP = TempMailHub 429"
+          
+          HEALTHY=""
+          for i in 0; do
+            sudo ip netns exec warp-$i sysctl -w net.ipv6.conf.all.disable_ipv6=1 > /dev/null 2>&1 || true
+            sudo ip netns exec warp-$i sysctl -w net.ipv6.conf.default.disable_ipv6=1 > /dev/null 2>&1 || true
+            IP=""
+            for t in $(seq 1 6); do
+              IP=$(sudo ip netns exec warp-$i curl -4 -s --max-time 12 \
+                https://www.cloudflare.com/cdn-cgi/trace | grep -E "^ip=" || true)
+              if [ -n "$IP" ]; then
+                echo "instance $i WARP egress: $IP"
+                break
+              fi
+              sleep 5
+            done
+            if [ -n "$IP" ]; then
+              HEALTHY="$HEALTHY $i"
+            else
+              echo "instance $i WARP FAILED - skipping"
+            fi
+          done
+          echo "Healthy instances:$HEALTHY"
+          echo "$HEALTHY" > /tmp/healthy.txt
+          
+          # Run ONLY ONE instance (multiple = same IP = 429)
+          # tee = stream output live to CI log while keeping file for RESULTS grep
+          sudo ip netns exec warp-0 sudo -u runner env \
+            DISPLAY=:99 \
+            HOME=/home/runner \
+            USED_EMAILS_FILE=${{ github.workspace }}/used-tempmailhub-emails.txt \
+            CHIMERA_SESSIONS_DIR=${{ github.workspace }}/automation-toolkit/scripts/sessions \
+            CHIMERA_MINER_DIR=${{ github.workspace }}/chimera-miner \
+            CHIMERA_SKIP_MEGA_SYNC=1 \
+            RUNNER_ID=${{ github.run_id }}-0 \
+            KEEP_BROWSER_OPEN=0 \
+            python3 ${{ github.workspace }}/automation-toolkit/finals/core/lov-api.py --end \
+            > >(tee /tmp/acc-0.log) 2>&1 || true
+          
+          echo "---- RESULTS ----"
+          if grep -q "🎉 SUCCESS!" /tmp/acc-0.log; then
+            SID=$(grep -oP 'session_number": "\K[^"]+' /tmp/acc-0.log | head -1)
+            echo "instance 0: SUCCESS ($SID)"
+          else
+            echo "instance 0: FAILED"
+            echo "--- last 40 lines of instance 0 log:"
+            tail -40 /tmp/acc-0.log || true
+          fi
+
+      - name: Sync new sessions to Mega DB (single lock)
+        env:
+          CHIMERA_MINER_DIR: ${{ github.workspace }}/chimera-miner
+          CHIMERA_SESSIONS_DIR: ${{ github.workspace }}/automation-toolkit/scripts/sessions
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+            python3 -c "
+          import sys, os, json
+          sys.path.insert(0, os.environ['CHIMERA_MINER_DIR'])
+          from pathlib import Path
+          from mega_db import load_db, save_db, mega_distributed_lock
+          sessions_dir = Path(os.environ['CHIMERA_SESSIONS_DIR'])
+          new_dirs = sorted(d for d in sessions_dir.glob('session-' + os.environ['RUN_ID'] + '-*') if d.is_dir())
+          print('Found new session dirs:', [d.name for d in new_dirs])
+          if not new_dirs:
+              print('No new sessions to sync')
+              raise SystemExit(0)
+          added = []
+          with mega_distributed_lock(timeout=600):
+              db = load_db()
+              for d in new_dirs:
+                  try:
+                      with open(d / 'config.json') as f:
+                          cfg = json.load(f)
+                      sid = d.name
+                      email = cfg.get('email', 'unknown')
+                      if db.get_session(sid):
+                          print(f'Already in DB: {sid}')
+                          continue
+                      db.add_session(sid, email, status='active')
+                      added.append(sid)
+                  except Exception as e:
+                      print(f'SKIP {d.name}: {e}')
+              if added:
+                  save_db(db)
+          print('Synced to Mega:', added)
+          "
+
+      - name: Verify count in Mega DB
+        env:
+          CHIMERA_MINER_DIR: ${{ github.workspace }}/chimera-miner
+        run: |
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+            python3 -c "
+          import sys, os
+          sys.path.insert(0, os.environ['CHIMERA_MINER_DIR'])
+          from mega_db import load_db
+          db = load_db()
+          ids = [s['id'] for s in db.data['sessions']]
+          print('TOTAL_SESSIONS:', len(ids))
+          "
+
+      - name: Push session folders back to repo
+        run: |
+          cd automation-toolkit
+          git config user.email "ci@cold-pressed-hoodie.local"
+          git config user.name "CI Script 1"
+          git add -f scripts/sessions/session-*/
+          git commit -m "Script 1 new sessions from GH runner" 2>/dev/null || echo "Nothing new to commit"
+          for attempt in 1 2 3 4 5; do
+            if git push origin main 2>/dev/null; then
+              echo "PUSHED_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+              break
+            fi
+            echo "Push attempt $attempt failed, retrying..."
+            git pull --rebase origin main 2>/dev/null || true
+            sleep 5
+          done
+
+      - name: Report result
+        run: |
+          if grep -q "🎉 SUCCESS!" /tmp/acc-0.log; then
+            SID=$(grep -oP 'session_number": "\K[^"]+' /tmp/acc-0.log | head -1)
+            echo "instance 0: SUCCESS ($SID)"
+          else
+            echo "instance 0: FAILED (see log)"
+          fi
+          echo "Pushed commit: ${PUSHED_COMMIT:-none}"
+
+      - name: Skip WARP profile upload (not reusing profiles)
+        run: echo "⚠️  Skipping profile upload - fresh registrations each run"
+        if: always()

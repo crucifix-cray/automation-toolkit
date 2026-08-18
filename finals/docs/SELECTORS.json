@@ -1,0 +1,88 @@
+{
+  "templates_page": {
+    "template_card": "section[aria-label=\"All templates\"] article",
+    "remix_button": "button:has-text(\"Use template\")"
+  },
+  "chat_interface": {
+    "chat_input": "[data-testid=\"chat-composer-editor\"] [role=\"textbox\"]",
+    "send_button": "[data-testid=\"chat-input-send\"]",
+    "loading_indicator": "[data-testid=\"chat-timeline\"] > [role=\"status\"]",
+    "pause_button": "[data-testid=\"chat-input-stop\"]"
+  },
+  "invite_generation": {
+    "flow": [
+      {
+        "step": 1,
+        "action": "click",
+        "selector": "[data-testid=\"collaboration-invite-trigger\"]",
+        "description": "Click Share button to open Share project dialog"
+      },
+      {
+        "step": 2,
+        "action": "click",
+        "selector": "xpath=//div[@role='dialog']//button[normalize-space()='Invite link disabled']",
+        "description": "Open invite-link access menu"
+      },
+      {
+        "step": 3,
+        "action": "click",
+        "selector": "xpath=//*[@role='menuitemradio'][.//span[normalize-space()='Anyone with the invite link']]",
+        "description": "Enable link sharing - select 'Anyone with the invite link'"
+      },
+      {
+        "step": 4,
+        "action": "click",
+        "selector": "xpath=//div[@role='dialog']//button[normalize-space()='Copy invite link']",
+        "description": "Copy invite link (link is copied to clipboard, not visible as text)"
+      }
+    ],
+    "invite_link_extraction": "clipboard",
+    "notes": "Invite link is NOT displayed as text - must be extracted from clipboard after clicking Copy button. CSP (strict-dynamic) blocks JS injection on lovable.dev - use real CDP mouse clicks (page.mouse) for all steps and read the clipboard via a real Ctrl+V paste into a textarea on a CSP-free data: page. Button ids are dynamic (base-ui-*), match by text or stable class instead.",
+    "share_button_css": "button[type=\"button\"][data-button][data-testid=\"collaboration-invite-trigger\"]",
+    "dialog_css": "div[data-open][role=\"dialog\"]",
+    "copy_invite_link_button": "div[data-open][role=\"dialog\"] button[data-button]:has-text(\"Copy invite link\")",
+    "invite_link_disabled_button": "div[data-open][role=\"dialog\"] button[aria-haspopup=\"menu\"]:has-text(\"Invite link disabled\")",
+    "anyone_with_invite_link_menuitem": "[role=\"menu\"] [role=\"menuitemradio\"]:has-text(\"Anyone with the invite link\")"
+  },
+  "invite_acceptance": {
+    "flow": [
+      {
+        "step": 1,
+        "action": "navigate",
+        "url_pattern": "https://lovable.dev/invite/{code}",
+        "description": "Opens invite link, redirects to signup with referral_code"
+      },
+      {
+        "step": 2,
+        "action": "login",
+        "description": "User must sign up or log in with referral code preserved"
+      },
+      {
+        "step": 3,
+        "action": "navigate_to_project",
+        "description": "Invite link is for referral only - must navigate to actual project URL to remix"
+      },
+      {
+        "step": 4,
+        "action": "click",
+        "selector": "[role=\"menuitem\"]:has-text(\"Remix this project\")",
+        "description": "Open project menu and select 'Remix this project'"
+      },
+      {
+        "step": 5,
+        "action": "click",
+        "selector": "[role=\"dialog\"] button:has-text(\"Remix\")",
+        "description": "Confirm remix in dialog"
+      }
+    ],
+    "notes": "Invite link format /invite/{code} is for REFERRAL only, NOT project sharing. For low-credit flow, need actual project URL like /projects/{id}"
+  },
+  "status": "COMPLETE - All selectors discovered via Browser-Use Cloud API",
+  "discovered_at": "2026-08-14T15:45:00Z",
+  "browser_use_runs": {
+    "templates": "cc77a953-1674-49b9-aa31-d77afbdc9073",
+    "chat": "eb94b772-7378-4613-a2c6-c54d85413bfc",
+    "invite_gen": "71dd9a5d-5549-48f6-9bdb-19ede71c0442",
+    "invite_accept": "a7510fc1-c4ba-468c-ad85-789b27a86a1f"
+  }
+}

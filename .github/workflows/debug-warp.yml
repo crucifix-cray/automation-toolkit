@@ -1,0 +1,154 @@
+name: DEBUG WARP Unique IPs
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-warp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wireguard-tools
+          curl -sL -o /tmp/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64
+          sudo install -m 755 /tmp/wgcf /usr/local/bin/wgcf
+          curl -sL -o /tmp/rclone.zip https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-linux-amd64.zip
+          cd /tmp && unzip -q rclone.zip && sudo mv rclone-v1.75.0-linux-amd64/rclone /usr/local/bin/rclone
+
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+
+      - name: "[DIAG 1] Fetch pool with VERBOSE logging"
+        run: |
+          mkdir -p /tmp/wgcf-pool
+          echo "===== STARTING POOL FETCH ====="
+          timeout 45 bash -c '
+            env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+              rclone copy mega:chimera/wgcf-pool /tmp/wgcf-pool -vv --timeout 30s --retries 1
+          ' || echo "FETCH FAILED OR TIMED OUT"
+          echo "===== POOL FETCH COMPLETE ====="
+          echo ""
+          echo "===== CHECKING DOWNLOADED FILES ====="
+          ls -lah /tmp/wgcf-pool/ || echo "Pool dir empty or doesn't exist"
+          echo ""
+          echo "===== CHECKING wg-* DIRECTORIES ====="
+          ls -d /tmp/wgcf-pool/wg-* 2>/dev/null || echo "No wg-* dirs found"
+          echo ""
+          echo "===== CHECKING FILE CONTENTS ====="
+          for d in /tmp/wgcf-pool/wg-*; do
+            if [ -d "$d" ]; then
+              echo "Directory: $d"
+              ls -lah "$d/"
+              if [ -f "$d/wgcf-profile.conf" ]; then
+                echo "  Profile exists, first 5 lines:"
+                head -5 "$d/wgcf-profile.conf"
+              fi
+            fi
+          done
+
+      - name: "[DIAG 2] Test array indexing"
+        run: |
+          echo "===== TESTING BASH ARRAY ====="
+          POOL_PROFILES=($(ls -d /tmp/wgcf-pool/wg-* 2>/dev/null | sort))
+          echo "Array length: ${#POOL_PROFILES[@]}"
+          for i in 0 1 2 3 4 5; do
+            if [ $i -lt ${#POOL_PROFILES[@]} ]; then
+              echo "[$i] = ${POOL_PROFILES[$i]}"
+            else
+              echo "[$i] = OUT OF BOUNDS"
+            fi
+          done
+
+      - name: "[DIAG 3] Test sudo -E env passing"
+        run: |
+          echo "===== TESTING ENV VAR PASSING ====="
+          export TEST_VAR="hello-from-runner"
+          echo "Before sudo: TEST_VAR=$TEST_VAR"
+          sudo bash -c 'echo "Without -E: TEST_VAR=$TEST_VAR"'
+          sudo -E bash -c 'echo "With -E: TEST_VAR=$TEST_VAR"'
+          
+          echo ""
+          echo "===== TESTING WG_PROFILE_DIR ====="
+          POOL_PROFILES=($(ls -d /tmp/wgcf-pool/wg-* 2>/dev/null | sort))
+          if [ ${#POOL_PROFILES[@]} -gt 0 ]; then
+            PROFILE_DIR="${POOL_PROFILES[0]}"
+            echo "Setting WG_PROFILE_DIR=$PROFILE_DIR"
+            sudo -E WG_PROFILE_DIR="$PROFILE_DIR" bash -c 'echo "Inside sudo: WG_PROFILE_DIR=$WG_PROFILE_DIR"'
+          fi
+
+      - name: "[DIAG 4] Start 2 WARP instances with FULL LOGGING"
+        run: |
+          POOL_PROFILES=($(ls -d /tmp/wgcf-pool/wg-* 2>/dev/null | sort))
+          echo "===== STARTING WARP INSTANCES ====="
+          echo "Pool size: ${#POOL_PROFILES[@]}"
+          
+          for i in 0 1; do
+            echo ""
+            echo "=========================================="
+            echo "INSTANCE $i"
+            echo "=========================================="
+            
+            if [ $i -lt ${#POOL_PROFILES[@]} ]; then
+              PROFILE_DIR="${POOL_PROFILES[$i]}"
+              echo "Using pooled profile: $PROFILE_DIR"
+              echo "Checking if profile files exist:"
+              ls -lah "$PROFILE_DIR/"
+              
+              echo ""
+              echo "Starting with WG_PROFILE_DIR set..."
+              sudo -E WG_PROFILE_DIR="$PROFILE_DIR" bash -x finals/core/warp_multi_instance.sh $i start 2>&1 | head -80
+            else
+              echo "No pool profile, registering fresh"
+              sudo bash -x finals/core/warp_multi_instance.sh $i start 2>&1 | head -80
+            fi
+            
+            echo ""
+            echo "Checking config dir /tmp/wgcf-$i:"
+            sudo ls -lah /tmp/wgcf-$i/ || echo "Config dir doesn't exist"
+            
+            sleep 5
+          done
+
+      - name: "[DIAG 5] Check WARP egress IPs"
+        run: |
+          echo "===== CHECKING WARP IPS ====="
+          for i in 0 1; do
+            echo "Instance $i:"
+            sudo ip netns exec warp-$i sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1 || true
+            
+            for attempt in 1 2 3; do
+              IP=$(sudo ip netns exec warp-$i curl -4 -s --max-time 10 https://www.cloudflare.com/cdn-cgi/trace 2>&1 | grep "^ip=" || echo "FAILED")
+              echo "  Attempt $attempt: $IP"
+              if echo "$IP" | grep -q "^ip="; then
+                break
+              fi
+              sleep 5
+            done
+            echo ""
+          done
+
+      - name: "[DIAG 6] Compare profiles in use"
+        run: |
+          echo "===== COMPARING PROFILES ====="
+          for i in 0 1; do
+            echo "Instance $i profile:"
+            sudo grep "^PrivateKey" /tmp/wgcf-$i/wgcf-profile.conf 2>/dev/null || echo "No profile found"
+            echo ""
+          done
+          
+          echo "===== CHECKING IF SAME PRIVATE KEY ====="
+          KEY0=$(sudo grep "^PrivateKey" /tmp/wgcf-0/wgcf-profile.conf 2>/dev/null || echo "NONE")
+          KEY1=$(sudo grep "^PrivateKey" /tmp/wgcf-1/wgcf-profile.conf 2>/dev/null || echo "NONE")
+          
+          if [ "$KEY0" = "$KEY1" ]; then
+            echo "❌ SAME PRIVATE KEY - THIS IS THE BUG!"
+          else
+            echo "✅ DIFFERENT PRIVATE KEYS"
+          fi
