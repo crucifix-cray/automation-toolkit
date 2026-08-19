@@ -72,6 +72,11 @@ def proxy_settings() -> dict | None:
     """Check proxies in order: PROXY_PORT env → chain ports 9051-9054 → TOR 9050 → WARP 40000 → direct."""
     import socket
 
+    # Check for --raw flag (force no proxy)
+    if os.environ.get("FORCE_NO_PROXY") == "1":
+        print("🌐 --raw flag: forcing direct connection (no proxy)", file=sys.stderr)
+        return None
+
     candidates = []
     forced = os.environ.get("PROXY_PORT") or os.environ.get("LOV_PROXY_PORT")
     if forced:
@@ -130,6 +135,7 @@ def api_request(endpoint: str, method: str = "POST", data: dict = None, timeout:
     }
     
     # Setup SOCKS proxy for TempMailHub API (unique IP per instance!)
+    _ORIGINAL_SOCKET = None
     proxy = proxy_settings()
     if proxy:
         import socks
@@ -166,8 +172,9 @@ def api_request(endpoint: str, method: str = "POST", data: dict = None, timeout:
         # Don't raise - return error
         return 0, f"API failed: {last_error}"
     finally:
-        import socket as _socket
-        _socket.socket = _ORIGINAL_SOCKET
+        if _ORIGINAL_SOCKET is not None:
+            import socket as _socket
+            _socket.socket = _ORIGINAL_SOCKET
 
 
 def lovable_email_available(email: str) -> bool:
@@ -967,9 +974,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Create Lovable account via TempMailHub API-ONLY")
     parser.add_argument("--cdp-url", help="Connect to existing browser via CDP")
     parser.add_argument("--end", action="store_true", help="Close browser when done (don't wait for Enter)")
+    parser.add_argument("--raw", action="store_true", help="Force direct connection (no proxy/WARP)")
     args = parser.parse_args()
     
     cdp = args.cdp_url or os.getenv("BU_CDP_WS")
+    
+    # Pass --raw flag to run() via environment
+    if args.raw:
+        os.environ["FORCE_NO_PROXY"] = "1"
     
     try:
         result = asyncio.run(run(cdp, auto_close=args.end))
