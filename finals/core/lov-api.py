@@ -265,8 +265,15 @@ def create_working_email() -> tuple[str, str]:
             print(f"  ❌ Auth failed - trying next...", file=sys.stderr)
             continue
         elif not msg_response or msg_response == "":
-            print(f"  ❌ Empty response - trying next...", file=sys.stderr)
-            continue
+            # Empty body = freshly created mailbox with no mail yet. That is a
+            # working inbox, not a failure — the verification email arrives after
+            # the signup form is submitted, not before.
+            if not lovable_email_available(email):
+                print(f"  ⚠️  Email already registered on Lovable - trying next...", file=sys.stderr)
+                time.sleep(1)
+                continue
+            print(f"  ✅ Mailbox working (empty, ready for verification mail)", file=sys.stderr)
+            return email, email_id
         elif status == 200:
             # Check if mailbox is working
             if "norecentemails" in msg_response.lower() or '"emails":[' in msg_response:
