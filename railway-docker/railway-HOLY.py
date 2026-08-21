@@ -365,20 +365,21 @@ async def sign_in_to_railway(page, mailbox):
     await email_input.fill(mailbox.address)
     print(f"✓ Filled email: {mailbox.address}")
     
-    # Check for Cloudflare Turnstile
+    # Check for Cloudflare Turnstile - poll up to 10s (sandbox wireproxy late load)
     print("🔍 Checking for Cloudflare Turnstile...")
     await page.wait_for_timeout(2000)
-    
     turnstile_exists = False
-    try:
-        turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
-        count = await turnstile_iframe.count()
-        if count > 0:
-            turnstile_exists = True
-            print(f"✓ Found Cloudflare Turnstile iframe")
-    except:
-        pass
-    
+    for _ in range(20):
+        try:
+            turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+            count = await turnstile_iframe.count()
+            if count > 0 and await turnstile_iframe.first.is_visible():
+                turnstile_exists = True
+                print(f"✓ Found Cloudflare Turnstile iframe")
+                break
+        except:
+            pass
+        await page.wait_for_timeout(500)
     if not turnstile_exists:
         try:
             has_turnstile = await page.evaluate('''() => {
@@ -389,6 +390,15 @@ async def sign_in_to_railway(page, mailbox):
             if has_turnstile:
                 turnstile_exists = True
                 print(f"✓ Found Cloudflare Turnstile widget")
+        except:
+            pass
+    if not turnstile_exists:
+        await page.wait_for_timeout(2000)
+        try:
+            turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+            if await turnstile_iframe.count() > 0:
+                turnstile_exists = True
+                print(f"✓ Found Cloudflare Turnstile iframe (late)")
         except:
             pass
     
