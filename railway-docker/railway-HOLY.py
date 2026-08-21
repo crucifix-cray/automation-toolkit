@@ -57,149 +57,86 @@ EMAIL_TIMEOUT = 300_000
 # DISPOSE.LOL INBOX - SCRAPING APPROACH (PROVEN WORKING)
 # ============================================================================
 class DisposeLolInbox:
-    """
-    Dispose.lol Gmail inbox using HTML scraping
-    Based on working test_dispose_inbox.py
-    
-    FIXED: Uses separate browser page for dispose.lol to avoid navigating Railway page
-    """
-    
+    """Dispose.lol - ephemeral page (1 tab at a time, lightweight)"""
     BASE_URL = "https://dispose.lol"
-    
     def __init__(self, context):
-        """
-        Args:
-            context: Playwright browser context (to create separate pages)
-        """
         self.context = context
-        self.dispose_page = None  # Separate page for dispose.lol operations
-        self.railway_page = None  # Reference to Railway page (set externally)
         self.address = None
         self.session_initialized = False
-    
     async def _ensure_session(self):
-        """Load dispose.lol to initialize session on separate page"""
         if not self.session_initialized:
-            print("🌐 Initializing dispose.lol session...")
-            
-            # Create separate page for dispose.lol if not exists
-            if not self.dispose_page:
-                self.dispose_page = await self.context.new_page()
-                print("  ✅ Created separate dispose.lol page")
-            
-            await self.dispose_page.goto(self.BASE_URL, wait_until="load", timeout=60000)
-            await self.dispose_page.wait_for_timeout(3000)
+            print("🌐 Initializing dispose.lol session (ephemeral page)...")
+            pg = await self.context.new_page()
+            await pg.goto(self.BASE_URL, wait_until="load", timeout=60000)
+            await pg.wait_for_timeout(2000)
+            await pg.close()
             self.session_initialized = True
             print("✅ Session initialized")
-    
     async def create(self):
-        """
-        Create dispose.lol Gmail address by scraping page
-        Returns: Gmail address (e.g., "user123@gmail.com")
-        """
         print("\n📧 Creating dispose.lol Gmail...")
         await self._ensure_session()
-        
         print("  🔍 Scraping email address...")
-        
-        # Get page content and find @gmail.com address
+        pg = await self.context.new_page()
         try:
-            content = await self.dispose_page.content()
+            await pg.goto(self.BASE_URL, wait_until="load", timeout=60000)
+            await pg.wait_for_timeout(2000)
+            content = await pg.content()
             import re
-            gmail_match = re.search(r'\b[a-zA-Z0-9._%+-]+@gmail\.com\b', content)
-            
-            if gmail_match:
-                self.address = gmail_match.group(0)
+            m = re.search(r"\b[a-zA-Z0-9._%+-]+@gmail\.com\b", content)
+            if m:
+                self.address = m.group(0)
                 print(f"✅ Mailbox ready: {self.address}")
                 return self.address
-            else:
-                raise Exception("No @gmail.com address found on page")
-                
-        except Exception as e:
-            print(f"❌ Failed to scrape email: {e}")
-            raise
-    
+            raise Exception("No @gmail.com address found")
+        finally:
+            await pg.close()
     async def wait_for_railway_code(self, timeout_seconds=300):
-        """
-        Poll dispose.lol inbox for Railway OTP by scraping HTML
-        
-        FIXED: Uses separate dispose_page, does NOT navigate Railway page
-        
-        Args:
-            timeout_seconds: Max time to wait for OTP
-            
-        Returns:
-            str: 6-digit OTP code
-        """
-        print("\n📥 Waiting for Railway OTP...")
-        pattern = re.compile(r'\b(\d{6})\b')
-        deadline = time.time() + timeout_seconds
-        check_count = 0
-        
-        # Ensure dispose page is ready
+        print("\n📥 Waiting for Railway OTP (ephemeral, Railway untouched)...")
+        pattern = re.compile(r"\b(\d{6})\b")
+        deadline = __import__("time").time() + timeout_seconds
+        cnt=0
         await self._ensure_session()
-        
-        print("  ✅ Using separate dispose.lol page (Railway page stays untouched)")
-        
-        while time.time() < deadline:
-            check_count += 1
-            
-            # Navigate dispose_page ONLY (Railway page stays on OTP modal)
-            await self.dispose_page.goto(self.BASE_URL, wait_until="load")
-            await self.dispose_page.wait_for_timeout(2000)
-            
-            # Scrape messages using aria-label selector
-            # Format: <button aria-label="View 312925 is your Railway login code">
-            message_buttons = await self.dispose_page.locator('button[aria-label^="View "]').all()
-            
-            if check_count % 10 == 1:
-                print(f"  Check #{check_count}: {len(message_buttons)} message(s)")
-            
-            for button in message_buttons:
-                aria_label = await button.get_attribute('aria-label')
-                
-                if aria_label and 'railway' in aria_label.lower():
-                    # Extract subject: "View 312925 is your Railway login code" -> "312925 is your Railway login code"
-                    subject = aria_label.replace('View ', '')
-                    print(f"  ✅ Found Railway message: {subject}")
-                    
-                    # Extract 6-digit OTP
-                    match = pattern.search(subject)
-                    if match:
-                        otp = match.group(1)
-                        print(f"  🎯 Extracted OTP: {otp}")
-                        
-                        # DON'T navigate Railway page - just return OTP
-                        # Railway page is still on OTP modal, ready for input
-                        print(f"  ✅ Railway page untouched - ready for OTP entry")
-                        
-                        return otp
-            
-            await asyncio.sleep(3)
-        
-        raise TimeoutError(f"Railway OTP not received within {timeout_seconds}s")
-    
+        print("  ✅ Polling via ephemeral page")
+        while __import__("time").time() < deadline:
+            cnt+=1
+            pg = await self.context.new_page()
+            try:
+                await pg.goto(self.BASE_URL, wait_until="load", timeout=60000)
+                await pg.wait_for_timeout(1500)
+                btns = await pg.locator('button[aria-label^="View "]').all()
+                if cnt % 10 == 1:
+                    print(f"  Check #{cnt}: {len(btns)} message(s)")
+                for b in btns:
+                    aria = await b.get_attribute("aria-label")
+                    if aria and "railway" in aria.lower():
+                        subj = aria.replace("View ", "")
+                        print(f"  ✅ Found: {subj}")
+                        m = pattern.search(subj)
+                        if m:
+                            otp=m.group(1)
+                            print(f"  🎯 OTP: {otp}")
+                            return otp
+            finally:
+                await pg.close()
+            await __import__("asyncio").sleep(3)
+        raise TimeoutError("OTP timeout")
     async def close(self):
-        """Close dispose.lol page"""
-        if self.dispose_page:
-            await self.dispose_page.close()
-            print("✅ Closed dispose.lol page")
+        print("✅ Closed")
 
 
 # ============================================================================
 # WARP IP ROTATION
 # ============================================================================
 def _warp_proxy_alive():
-    """Check warp-cli WarpProxy 40000 is Connected and SOCKS5 alive"""
+    """Check SOCKS5 40000 alive"""
     try:
-        r = subprocess.run(["warp-cli", "status"], capture_output=True, text=True, timeout=5)
-        if "Connected" not in r.stdout:
-            return False
         import socket
         with socket.create_connection(("127.0.0.1", 40000), timeout=2):
             return True
     except:
         return False
+    return False
+    return False
 
 def rotate_warp_ip():
     """Rotate WARP IP - proxy mode: warp-cli disconnect/connect"""
@@ -824,19 +761,25 @@ async def run(use_warp=False):
         # Initialize browser - ONLY browser uses proxy, system/direct stays warp=off
         # CRITICAL: use socks4 for railway.com (socks5 fails with ERR_SOCKS_CONNECTION_FAILED code 5 due IPv6 NAT64)
         async with async_playwright() as p:
-            proxy_settings = {"server": "socks4://127.0.0.1:40000", "bypass": "127.0.0.1,localhost"} if use_warp else None
+            proxy_settings = {"server": "socks5://127.0.0.1:40000", "bypass": "127.0.0.1,localhost"} if use_warp else None
             if proxy_settings:
-                print(f"🌐 Browser proxy: {proxy_settings['server']} bypass={proxy_settings['bypass']} (isolated, socks4 for railway.com compat)")
+                print(f"🌐 Browser proxy: {proxy_settings['server']} bypass={proxy_settings['bypass']} (isolated, wireproxy socks5)")
             browser = await p.chromium.launch(
                 headless=False,
                 args=[
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-extensions',
+                    '--no-first-run',
+                    '--window-size=1280,720',
+                    '--js-flags=--max-old-space-size=512',
+                    '--memory-pressure-off',
                     '--disable-blink-features=AutomationControlled'
                 ]
             )
-            context = await browser.new_context(proxy=proxy_settings)
+            context = await browser.new_context(proxy=proxy_settings, viewport={"width": 1280, "height": 720})
             context.set_default_timeout(ACTION_TIMEOUT)
             page = await context.new_page()
             # verify egress inside browser
