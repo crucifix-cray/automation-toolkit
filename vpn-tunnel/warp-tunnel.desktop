@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=WARP Tunnel Browser
+Comment=Chrome through OpenVPN + WARP isolated tunnel
+Exec=/home/alae/.vpn-tunnel/vpn-launcher.sh
+Icon=google-chrome
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+StartupNotify=true
