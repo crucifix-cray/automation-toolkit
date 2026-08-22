@@ -34,3 +34,9 @@ xvfb-run -a python3 -u /root/repos/automation-toolkit/test_22do.py --recov "g92w
 
 - Keepalive `while true; curl --socks5 ... ifconfig.me; sleep 240` to avoid 5m idle kill.
 - Per-run: `shuf` different `*.ovpn` (ca/ch/jp/us) + `random.choice(HANDLERS)` 10 handlers + warp above.
+
+## Status 2026-08-22 11:05 — Paused
+
+- Test `railway-HOLY-22do-full.py --domain @linshiyou.com` halted at `patchright install` (needed `patchright install` not `playwright install`, branch mismatch). Dependencies: `apt xvfb` + `pip patchright playwright` + `patchright install` + `playwright install-deps firefox` done, next run ready via `xvfb-run -a`.
+- Sandbox still RUNNING `ad7ce0dc` — pool + warp stack verified, ready for next test. Stopped per user request before full Railway account creation attempt.
+- Next: `xvfb-run -a python3 -u /root/repos/automation-toolkit/railway-docker/railway-HOLY-22do-full.py` (random pool) after `patchright install` completes.
