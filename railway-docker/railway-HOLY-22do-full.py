@@ -66,7 +66,6 @@ HANDLERS = [
     ("@tnbeta.com", "https://22.do/", "@tnbeta.com"),
     ("@fft.edu.do", "https://22.do/", "@fft.edu.do"),
     ("@gmail.com (Fake Gmail)", "https://22.do/fake-gmail-generator", "@gmail.com"),
-    ("@googlemail.com (Fake Gmail)", "https://22.do/fake-gmail-generator", "@googlemail.com"),
     ("@hotmail.com", "https://22.do/temporary-hotmail", "@hotmail.com"),
     ("@outlook.com", "https://22.do/temporary-outlook", "@outlook.com"),
 ]
@@ -129,7 +128,7 @@ class TwoTwoDoInbox:
             except: pass
 
             # For main-page domains: select domain from Choices.js dropdown
-            if handler_domain not in ("@gmail.com", "@googlemail.com", "@hotmail.com", "@outlook.com"):
+            if handler_domain not in ("@gmail.com", "@hotmail.com", "@outlook.com"):
                 try:
                     await pg.locator(".choices__inner").click(timeout=3000)
                     await pg.wait_for_timeout(500)
@@ -144,8 +143,8 @@ class TwoTwoDoInbox:
             await pg.wait_for_timeout(1000)
             local = await pg.locator("#mail-input").input_value(timeout=5000)
 
-            # For fake-gmail: enforce correct variant (@gmail vs @googlemail)
-            if handler_domain in ("@gmail.com", "@googlemail.com"):
+            # For fake-gmail: enforce @gmail.com
+            if handler_domain == "@gmail.com":
                 for _ in range(5):
                     v = (await pg.locator("#mail-input").input_value()).strip()
                     if v.lower().endswith(handler_domain.lower()):
@@ -970,7 +969,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Railway account creator — 22.do pool edition")
     parser.add_argument("--no-warp", action="store_true", help="Disable WARP proxy")
-    parser.add_argument("--domain", type=str, default=None, help="Enforce 22.do handler domain, e.g. @linshiyou.com, @gmail.com, @googlemail.com, @hotmail.com, @outlook.com (default: random)")
+    parser.add_argument("--domain", type=str, default=None, help="Enforce 22.do handler domain, e.g. @linshiyou.com, @gmail.com, @hotmail.com, @outlook.com (default: random) — @googlemail.com banned")
     parser.add_argument("--recov", type=str, default=None, help="Recover existing 22.do inbox, e.g. g92w@colabeta.com (skips creation, opens https://22.do/inbox/#/<mail>)")
     args = parser.parse_args()
 

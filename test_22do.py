@@ -12,7 +12,6 @@ HANDLERS = [
     ("@tnbeta.com", "https://22.do/", "@tnbeta.com"),
     ("@fft.edu.do", "https://22.do/", "@fft.edu.do"),
     ("@gmail.com (Fake Gmail)", "https://22.do/fake-gmail-generator", "@gmail.com"),
-    ("@googlemail.com (Fake Gmail)", "https://22.do/fake-gmail-generator", "@googlemail.com"),
     ("@hotmail.com", "https://22.do/temporary-hotmail", "@hotmail.com"),
     ("@outlook.com", "https://22.do/temporary-outlook", "@outlook.com"),
 ]
@@ -130,8 +129,8 @@ async def run(handler=None):
                 email = f"{maybe_full.strip()}{dom.strip()}"
         except:
             email = f"{local.strip()}@linshiyou.com"
-        # fallback: if target_domain is googlemail/gmail, enforce differentiation
-        if target_domain in ("@gmail.com","@googlemail.com"):
+        # fallback: if target_domain is gmail, enforce
+        if target_domain == "@gmail.com":
             # page may have generated the other variant → retry Random until match
             for _ in range(5):
                 if email.lower().endswith(target_domain.lower()):
@@ -143,7 +142,19 @@ async def run(handler=None):
                     v = await page.locator("#mail-input").input_value()
                     email = v.strip() if "@" in v else f"{v.strip()}{target_domain}"
                 except: pass
-        print(f"📧 generated: {email}  (handler {target_domain or 'auto'} → {'@gmail' if email.lower().endswith('@gmail.com') else '@googlemail' if email.lower().endswith('@googlemail.com') else email.split('@')[-1]})")
+        print(f"📧 generated: {email}  (handler {target_domain or 'auto'} → {email.split('@')[-1]})")
+        if email.lower().endswith("@googlemail.com"):
+            print("⛔ @googlemail.com is banned — retrying")
+            for _ in range(5):
+                try: await page.locator("#mail-random").click(timeout=3000); await page.wait_for_timeout(800)
+                except: pass
+                try:
+                    v = await page.locator("#mail-input").input_value()
+                    email = v.strip() if "@" in v else f"{v.strip()}@gmail.com"
+                    if not email.lower().endswith("@googlemail.com"):
+                        break
+                except: pass
+            print(f"→ corrected to {email}")
 
         # click Open and wait for inbox
         print("→ Opening inbox…")

@@ -25,9 +25,8 @@
 | 6 | `@tnbeta.com` | `https://22.do/` | Main page, dropdown select |
 | 7 | `@fft.edu.do` | `https://22.do/` | Main page, dropdown select |
 | 8 | `@gmail.com` | `https://22.do/fake-gmail-generator` | Fake Gmail generator |
-| 9 | `@googlemail.com` | `https://22.do/fake-gmail-generator` | Fake Googlemail generator |
-| 10 | `@hotmail.com` | `https://22.do/temporary-hotmail` | Temporary Hotmail |
-| 11 | `@outlook.com` | `https://22.do/temporary-outlook` | Temporary Outlook |
+| 9 | `@hotmail.com` | `https://22.do/temporary-hotmail` | Temporary Hotmail |
+| 10 | `@outlook.com` | `https://22.do/temporary-outlook` | Temporary Outlook |
 
 **Key distinction:** #8 vs #9 are **different** addresses from the same fake-gmail page — tool enforces which one you want (retries Random until match).
 
@@ -101,7 +100,7 @@ page.locator("#email-list-wrap .tr .item.time")     # time text
 ### Why it fits Railway automation
 - **Per-run heterogeneity:** `random.choice(HANDLERS)` → each Railway account gets different `@domain` (diverse MX, different WAF scores).
 - **Recovery without re-gen:** `--recov` reuses existing inbox → Railway OTP arrives to same mailbox without new address.
-- **Gmail/Googlemail split:** 22.do fake-gmail produces both `@gmail.com` and `@googlemail.com` — tool enforces which (Railway may treat differently).
+- **@googlemail.com banned:** 22.do fake-gmail can produce `@googlemail.com` but Railway treats it as alias — banned in pool (auto-corrected to `@gmail.com`).
 - **Diverse MX:** linshiyou/colabeta/youxiang/colaname/usdtbeta/tnbeta/fft.edu.do → different mail infra per run.
 
 ### Pool integration for Railway
