@@ -36,6 +36,30 @@ P="--socks5 10.200.0.2:40000 --resolve api.github.com:443:$GHIP"
 curl -s $P -H "Authorization: Bearer <token>" https://api.github.com/rate_limit
 ```
 
+## 🎮 Game Credentials - This Railway Acc Playing With (2026-08-21)
+
+**Game:** `fix/script2-3mode` 3-mode heavy - separated docs: `chimera-miner/docs/GAME-3MODE-STUDY.md` + `GAME-CREDENTIALS.md` + `GAME-WARP-ISOLATION-STUDY.md`
+
+- **Railway VPN Sandbox (isolated, this acc):**
+  - Email: `g.runsts.wain36+jywh3i0b@gmail.com`
+  - Token: `[REDACTED-RAILWAY-TOKEN - see railway-token.txt]` (verbati `railway-token.txt`)
+  - Session: `/tmp/my-railway-session/.railway/config.json` (`HOME=/tmp/my-railway-session`)
+  - Sandbox: `6d37bdd4-35e6-46e1-a014-0776000ddc13` project `ubuntu-sbx` `4df298dd-1ab8-4ce5-8aa0-20bdf0ffa567` `us-west2` checkpoint `vpn`
+  - Egress: `152.55.177.190` US via `tun0 10.8.0.1/10.8.0.2` `tcp 1194` `AES-256-CBC` split `curl --interface tun0 ifconfig.me`
+  - Client: `railway-vpn-sandbox/client.ovpn` + `static.key`
+  - Git: `crucifix-cray` token `[REDACTED-GH-TOKEN - see local]` branch `fix/script2-3mode`
+
+- **Lovable Game Sessions:**
+  - `session-19 Josephgrant651@gmail.com` (52 cookies, `Home | Lovable`, `active`)
+  - `session-21 mariepeterson749@gmail.com` (52 cookies, `active`)
+  - Path: `/home/alan/Documents/automation-toolkit/scripts/sessions/session-{19,21}/`
+  - DB: `mega:chimera/database.json` (69 sessions, 19 projects)
+
+- **WARP Game Proxy:**
+  - `socks5://127.0.0.1:40000` `bypass api.tempmailhub.org,api.lovable.dev,127.0.0.1,localhost` (fixes `ERR_SOCKS_CONNECTION_FAILED api.lovable.dev`)
+  - `warp-cli WarpProxy` `colo LIS warp=on` vs `direct warp=off` isolated
+  - Verify: `browser warp=on` / `direct warp=off`
+
 ## Mega Cloud Storage
 
 **Encrypted credentials (AES-256-CBC):**

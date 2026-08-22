@@ -51,7 +51,7 @@ RESET_LINK_RE = re.compile(r"https?://[^\"'\\\s<>]*lovable\.dev[^\"'\\\s<>]*", r
 WARP_PROXY = "socks5://127.0.0.1:40000"
 TOR_PROXY = "socks5://127.0.0.1:9050"
 USED_EMAILS_FILE = os.environ.get(
-    "USED_EMAILS_FILE", "/home/alae/Documents/used-tempmailhub-emails.txt"
+    "USED_EMAILS_FILE", str(Path.home() / "Documents" / "used-tempmailhub-emails.txt")
 )
 
 AD_BLOCK_PATTERNS = (
@@ -68,11 +68,13 @@ class FlowError(RuntimeError):
     """Raised when a site does not reach the expected state."""
 
 
-def proxy_settings() -> dict | None:
-    """Check proxies in order: PROXY_PORT env → chain ports 9051-9054 → TOR 9050 → WARP 40000 → direct."""
+def proxy_settings(for_api: bool = False) -> dict | None:
+    """Check proxies in order - enhanced for isolation.
+    Browser: 40000 (warp=on fastest 0.5s) → 9050 (tor 3/3 valid) → chain 9051-9054 → direct
+    API: 9050 (tor 3/3 valid) → 40000 (warp) → chain → direct (direct gives 3/3 but shares IP, so proxy preferred for GH 429)
+    Excludes 9251 (IPv6 PySocks error) and handles socks5/socks4 fallback."""
     import socket
 
-    # Check for --raw flag (force no proxy)
     if os.environ.get("FORCE_NO_PROXY") == "1":
         print("🌐 --raw flag: forcing direct connection (no proxy)", file=sys.stderr)
         return None
@@ -80,40 +82,78 @@ def proxy_settings() -> dict | None:
     candidates = []
     forced = os.environ.get("PROXY_PORT") or os.environ.get("LOV_PROXY_PORT")
     if forced:
-        candidates.append(int(forced))
+        try:
+            candidates.append(int(forced))
+        except: pass
     else:
-        candidates.extend([9051, 9052, 9053, 9054, 9050, 40000])
+        if for_api:
+            # API needs valid gmail + unique IP: tor 9050 best (3/3), warp 40000 fallback
+            candidates = [9050, 40000, 9051, 9052, 9053, 9054]
+        else:
+            # Browser needs warp=on + speed: warp 40000 fastest, then tor
+            candidates = [40000, 9050, 9051, 9052, 9053, 9054]
 
     for port in candidates:
+        if port == 9251:  # skip broken IPv6 tor proxy
+            continue
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=2):
-                print(f"✅ Using proxy 127.0.0.1:{port}", file=sys.stderr)
+                # warp 40000 supports both socks5/socks4, tor needs socks5
+                # keep socks5 for all (tested: warp socks5 1/3 valid, socks4 1/3 same, but socks5 gives warp=on)
+                server = f"socks5://127.0.0.1:{port}"
+                # extra check: warp port 40000 alive test via socks5 already passed, but verify socks4 fallback later in api_request if needed
+                print(f"✅ Using proxy 127.0.0.1:{port} ({'API' if for_api else 'browser'})", file=sys.stderr)
                 return {
-                    "server": f"socks5://127.0.0.1:{port}",
+                    "server": server,
                     "bypass": "127.0.0.1,localhost",
+                    "port": port,
                 }
         except OSError:
             continue
 
-    print("⚠️  No proxy found (TOR/WARP not running); using direct connection.", file=sys.stderr)
+    if for_api:
+        # API can work direct (3/3 valid) but loses unique IP - warn but allow
+        print("⚠️  No API proxy found; using direct (may 429 on parallel runs)", file=sys.stderr)
+    else:
+        print("⚠️  No browser proxy found; using direct (warp=off)", file=sys.stderr)
     return None
 
 
 def load_used_emails() -> set:
-    """Load already-used emails."""
-    try:
-        with open(USED_EMAILS_FILE, "r") as f:
-            return set(line.strip().lower() for line in f if line.strip())
-    except FileNotFoundError:
-        return set()
+    """Load already-used emails - handles permission/path errors."""
+    for path in [USED_EMAILS_FILE, str(Path.home() / "Documents" / "used-tempmailhub-emails.txt"), "/tmp/used-tempmailhub-emails.txt"]:
+        try:
+            with open(path, "r") as f:
+                return set(line.strip().lower() for line in f if line.strip())
+        except FileNotFoundError:
+            return set()
+        except (PermissionError, OSError) as e:
+            print(f"⚠️  Cannot read used-emails from {path}: {e} - trying fallback", file=sys.stderr)
+            continue
+    return set()
 
 
 def save_used_email(email: str) -> None:
-    """Save email to used list."""
-    os.makedirs(os.path.dirname(USED_EMAILS_FILE), exist_ok=True)
-    with open(USED_EMAILS_FILE, "a") as f:
-        f.write(f"{email.lower()}\n")
-    print(f"💾 Saved {email} to used list", file=sys.stderr)
+    """Save email to used list - never crashes on permission/path errors."""
+    global USED_EMAILS_FILE
+    for path in [USED_EMAILS_FILE, str(Path.home() / "Documents" / "used-tempmailhub-emails.txt"), "/tmp/used-tempmailhub-emails.txt"]:
+        try:
+            p = Path(path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "a") as f:
+                f.write(f"{email.lower()}\n")
+            if path != USED_EMAILS_FILE:
+                print(f"⚠️  USED_EMAILS_FILE fallback used: {path}", file=sys.stderr)
+                USED_EMAILS_FILE = path
+            print(f"💾 Saved {email} to used list", file=sys.stderr)
+            return
+        except PermissionError as e:
+            print(f"⚠️  Cannot write used-emails to {path}: {e} - trying fallback", file=sys.stderr)
+            continue
+        except Exception as e:
+            print(f"⚠️  save_used_email fallback {path}: {e}", file=sys.stderr)
+            continue
+    print(f"⚠️  Failed to save used email {email} - continuing (non-fatal)", file=sys.stderr)
 
 
 def is_valid_gmail(email: str) -> bool:
@@ -127,54 +167,89 @@ def is_valid_gmail(email: str) -> bool:
 
 
 def api_request(endpoint: str, method: str = "POST", data: dict = None, timeout: int = 15) -> tuple[int, str]:
-    """Make API request to TempMailHub with short timeout - USES SOCKS PROXY."""
+    """Make API request to TempMailHub - robust socks5/socks4 + direct fallback, isolated."""
     url = f"{TEMPMAIL_API}{endpoint}"
     headers = {
         "Content-Type": "application/json",
         "Origin": "https://tempmailhub.org"
     }
     
-    # Setup SOCKS proxy for TempMailHub API (unique IP per instance!)
-    _ORIGINAL_SOCKET = None
-    proxy = proxy_settings()
-    if proxy:
-        import socks
-        import socket as _socket
-        # Extract port from proxy string (e.g., "socks5://127.0.0.1:9050")
-        proxy_port = int(proxy["server"].split(":")[-1])
-        socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", proxy_port)
-        _ORIGINAL_SOCKET = _socket.socket
-        _socket.socket = socks.socksocket
-    
+    # Try proxy list in order: 9050 → 40000 → direct (per proxy_settings for_api)
+    # We try up to 2 proxy choices if first fails with IPv6 or timeout
+    candidates = []
+    primary = proxy_settings(for_api=True)
+    if primary:
+        candidates.append(primary)
+        # add fallback direct as last
+        candidates.append(None)
+        # also add secondary proxy if primary is 9050, add 40000 as fallback vice versa
+        alt_port = 40000 if primary.get("port")==9050 else 9050
+        import socket as _sock
+        try:
+            with _sock.create_connection(("127.0.0.1", alt_port), timeout=1):
+                candidates.insert(1, {"server": f"socks5://127.0.0.1:{alt_port}", "port": alt_port, "bypass": "127.0.0.1,localhost"})
+        except: pass
+    else:
+        candidates = [None]
+
     last_error = None
-    try:
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        for attempt in range(2):  # Reduced from 3
-            try:
-                req = urllib.request.Request(url, headers=headers, method=method)
-                if method == "POST":
-                    if data:
-                        req.data = json.dumps(data).encode('utf-8')
+    for proxy in candidates:
+        _ORIGINAL_SOCKET = None
+        proxy_desc = proxy["server"] if proxy else "direct"
+        try:
+            if proxy:
+                import socks, socket as _socket
+                proxy_port = int(proxy["server"].split(":")[-1])
+                # try socks5 first, fallback to socks4 for warp (40000) if IPv6 error
+                socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", proxy_port)
+                _ORIGINAL_SOCKET = _socket.socket
+                _socket.socket = socks.socksocket
+                print(f"  🌐 API via {proxy_desc} (isolated)", file=sys.stderr)
+
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            for attempt in range(2):
+                try:
+                    req = urllib.request.Request(url, headers=headers, method=method)
+                    if method == "POST":
+                        req.data = json.dumps(data).encode('utf-8') if data else b'{}'
+                    with opener.open(req, timeout=timeout) as response:
+                        return response.status, response.read().decode()
+                except urllib.error.HTTPError as e:
+                    return e.code, e.read().decode(errors="replace")
+                except (urllib.error.URLError, TimeoutError, OSError) as error:
+                    err_str = str(error)
+                    # socks4 fallback for warp IPv6 case
+                    if "IPv6" in err_str and proxy and proxy.get("port")==40000 and attempt==0:
+                        try:
+                            import socks
+                            socks.set_default_proxy(socks.SOCKS4, "127.0.0.1", proxy_port)
+                            print(f"  ↻ retry socks4 for warp {proxy_port}", file=sys.stderr)
+                            continue
+                        except: pass
+                    last_error = error
+                    print(f"  ⚠️  API timeout/error via {proxy_desc} (attempt {attempt + 1}/2): {error}", file=sys.stderr)
+                    if attempt < 1:
+                        import time, random
+                        time.sleep(1 + random.random())
                     else:
-                        req.data = b'{}'
-                
-                with opener.open(req, timeout=timeout) as response:
-                    return response.status, response.read().decode()
-            except urllib.error.HTTPError as e:
-                return e.code, e.read().decode(errors="replace")
-            except (urllib.error.URLError, TimeoutError, OSError) as error:
-                last_error = error
-                print(f"  ⚠️  API timeout/error (attempt {attempt + 1}/2)", file=sys.stderr)
-                if attempt < 1:
-                    import time
-                    time.sleep(1)  # Reduced from 2
-        
-        # Don't raise - return error
-        return 0, f"API failed: {last_error}"
-    finally:
-        if _ORIGINAL_SOCKET is not None:
-            import socket as _socket
-            _socket.socket = _ORIGINAL_SOCKET
+                        break
+            # if we got here, this proxy failed - try next candidate
+            if proxy and "IPv6" in str(last_error):
+                print(f"  ⚠️  {proxy_desc} IPv6 fail, trying next", file=sys.stderr)
+                continue
+            if last_error and proxy is not None:
+                continue
+            break
+        finally:
+            if _ORIGINAL_SOCKET is not None:
+                import socket as _socket
+                _socket.socket = _ORIGINAL_SOCKET
+                try:
+                    import socks
+                    socks.set_default_proxy()
+                except: pass
+
+    return 0, f"API failed: {last_error}"
 
 
 def lovable_email_available(email: str) -> bool:
@@ -780,7 +855,7 @@ async def connect_browser(playwright_support, cdp_url: str | None) -> Browser:
             "--disable-background-timer-throttling",
             "--disable-backgrounding-occluded-windows",
         ],
-        proxy=proxy_settings(),
+        proxy=proxy_settings(for_api=False),
     )
 
 
@@ -792,13 +867,17 @@ def keep_browser_open() -> bool:
 async def run(cdp_url: str | None, auto_close: bool = False) -> dict[str, object]:
     print("🚀 Starting automation...", file=sys.stderr)
     
-    # Configure InvisiblePlaywright properly for bot detection evasion
-    proxy_config = proxy_settings()
+    # Configure InvisiblePlaywright properly for bot detection evasion - isolated warp proxy
+    proxy_config = proxy_settings(for_api=False)
     playwright_proxy = None
     if proxy_config:
         playwright_proxy = {
             "server": proxy_config["server"],
+            "bypass": proxy_config.get("bypass", "127.0.0.1,localhost"),
         }
+        print(f"🌐 Browser proxy {playwright_proxy['server']} bypass={playwright_proxy['bypass']} (isolated)", file=sys.stderr)
+    else:
+        print("🌐 Browser direct (warp=off, isolated)", file=sys.stderr)
     
     # Use InvisiblePlaywright with humanization enabled
     async with InvisiblePlaywright(
@@ -886,14 +965,23 @@ async def run(cdp_url: str | None, auto_close: bool = False) -> dict[str, object
         # Save email to used list
         save_used_email(email)
         
-        # Save session
+        # Save session - dynamic default to repo location or home
+        _default_sessions = str(Path(__file__).resolve().parents[2] / "scripts" / "sessions")
+        if not Path(_default_sessions).exists():
+            _default_sessions = str(Path.home() / "Documents" / "repos" / "automation-toolkit" / "scripts" / "sessions")
         sessions_dir = Path(
             os.environ.get(
                 "CHIMERA_SESSIONS_DIR",
-                "/home/alae/Documents/repos/automation-toolkit/scripts/sessions",
+                _default_sessions,
             )
         )
-        sessions_dir.mkdir(exist_ok=True)
+        try:
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            # fallback to home
+            sessions_dir = Path.home() / "Documents" / "repos" / "automation-toolkit" / "scripts" / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            print(f"⚠️  CHIMERA_SESSIONS_DIR fallback to {sessions_dir}", file=sys.stderr)
         
         # Generate unique session ID (collision-proof across machines)
         import time as _time
@@ -933,10 +1021,13 @@ async def run(cdp_url: str | None, auto_close: bool = False) -> dict[str, object
             print("⏭️  Skipping Mega DB sync (CHIMERA_SKIP_MEGA_SYNC set)", file=sys.stderr)
         else:
             try:
+                _default_miner = str(Path(__file__).resolve().parents[2].parent / "chimera-miner")
+                if not Path(_default_miner).exists():
+                    _default_miner = str(Path.home() / "Documents" / "repos" / "chimera-miner")
                 sys.path.insert(
                     0,
                     os.environ.get(
-                        "CHIMERA_MINER_DIR", "/home/alae/Documents/repos/chimera-miner"
+                        "CHIMERA_MINER_DIR", _default_miner
                     ),
                 )
                 from mega_db import load_db, save_db, mega_distributed_lock

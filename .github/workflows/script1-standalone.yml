@@ -1,0 +1,94 @@
+name: Script 1 Standalone (No chimera-miner)
+on:
+  workflow_dispatch:
+
+jobs:
+  create-account:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: automation-toolkit
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb x11-utils build-essential wireguard-tools unzip
+          python3 -m pip install --quiet playwright invisible-playwright
+          python3 -m playwright install firefox
+          python3 -m playwright install-deps firefox || echo "install-deps failed, continuing"
+          python3 -m invisible_playwright fetch
+
+      - name: Install wgcf (WARP)
+        run: |
+          curl -sL -o /tmp/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64
+          sudo install -m 755 /tmp/wgcf /usr/local/bin/wgcf
+
+      - name: Start WARP
+        run: |
+          sudo rm -rf /tmp/wgcf-0 2>/dev/null || true
+          mkdir -p /tmp/wgcf-pool
+          echo "Registering WARP account..."
+          cd /tmp && wgcf register --accept-tos && wgcf generate && \
+          sudo ip link add dev wgcf type wireguard 2>/dev/null || true && \
+          sudo wg setconf wgcf wgcf-profile.conf 2>/dev/null && \
+          WARP_IP=$(grep Address wgcf-profile.conf | awk '{print $3}') && \
+          sudo ip addr add $WARP_IP dev wgcf 2>/dev/null && \
+          sudo ip link set wgcf up 2>/dev/null && \
+          sudo ip route add default dev wgcf table 51820 2>/dev/null && \
+          sudo ip rule add from $(echo $WARP_IP | cut -d/ -f1) table 51820 2>/dev/null && \
+          sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 2>/dev/null || true && \
+          echo "WARP ready" || echo "WARP failed, will run without proxy"
+
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 > /tmp/xvfb-99.log 2>&1 &
+          sleep 2
+          DISPLAY=:99 xdpyinfo | head -2
+
+      - name: Run Script 1
+        run: |
+          echo "Running Script 1 - standalone mode (no Mega DB sync)"
+          HEALTHY=""
+          sudo ip netns add warp-0 2>/dev/null || true
+          sudo ip netns exec warp-0 sysctl -w net.ipv6.conf.all.disable_ipv6=1 > /dev/null 2>&1 || true
+          
+          # Run the account creation
+          DISPLAY=:99 \
+          USED_EMAILS_FILE=${{ github.workspace }}/used-emails.txt \
+          CHIMERA_SESSIONS_DIR=${{ github.workspace }}/automation-toolkit/scripts/sessions \
+          CHIMERA_SKIP_MEGA_SYNC=1 \
+          RUNNER_ID=${{ github.run_id }}-0 \
+          KEEP_BROWSER_OPEN=0 \
+          FORCE_NO_PROXY=0 \
+          python3 ${{ github.workspace }}/automation-toolkit/finals/core/lov-api.py --end \
+          > >(tee /tmp/acc-0.log) 2>&1 || true
+          
+          echo "---- RESULTS ----"
+          if grep -q "🎉 SUCCESS!" /tmp/acc-0.log; then
+            SID=$(grep -oP 'session_number": "\K[^"]+' /tmp/acc-0.log | head -1)
+            EMAIL=$(grep -oP '"email": "\K[^"]+' /tmp/acc-0.log | head -1)
+            echo "instance 0: SUCCESS ($SID)"
+            echo "Email: $EMAIL"
+            # Save result to output
+            echo "session_id=$SID" >> $GITHUB_ENV
+            echo "account_email=$EMAIL" >> $GITHUB_ENV
+          else
+            echo "instance 0: FAILED"
+            echo "--- last 40 lines of log:"
+            tail -40 /tmp/acc-0.log || true
+          fi
+
+      - name: Push sessions back
+        run: |
+          cd automation-toolkit
+          git config user.email "ci@standalone.local"
+          git config user.name "CI Script 1"
+          git add -f scripts/sessions/session-*/
+          git commit -m "Script 1 standalone: new session ${{ github.run_id }}" 2>/dev/null || echo "Nothing to commit"
+          for attempt in 1 2 3; do
+            if git push origin main 2>/dev/null; then break; fi
+            git pull --rebase origin main 2>/dev/null || true
+            sleep 5
+          done
