@@ -179,7 +179,12 @@ class TwoTwoDoInbox:
         pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
         deadline = time.time() + timeout_seconds
         check_count = 0
-        pg = await self.context.new_page()
+        # use direct (no-proxy) context for 22.do to avoid warp ERR_PROXY_CONNECTION_FAILED
+        try:
+            direct_ctx = await self.context.browser.new_context()
+            pg = await direct_ctx.new_page()
+        except Exception:
+            pg = await self.context.new_page()
         await pg.goto(f"https://22.do/inbox/#/{self.address}", wait_until="domcontentloaded", timeout=60000)
         await pg.wait_for_timeout(3000)
         try:
@@ -384,9 +389,14 @@ async def sign_in_to_railway(page, mailbox):
     """
     print("\n🚂 Signing in to Railway...")
     
-    # Navigate to Railway login
-    await page.goto(RAILWAY_LOGIN, wait_until="domcontentloaded")
-    await page.wait_for_load_state("networkidle", timeout=15000)
+    # Navigate to Railway login (bypass warp via direct, commit for speed)
+    await page.goto(RAILWAY_LOGIN, wait_until="commit", timeout=60000)
+    try:
+        await page.wait_for_load_state("networkidle", timeout=15000)
+    except Exception:
+        try:
+            await page.wait_for_load_state("load", timeout=15000)
+        except: pass
     
     # Click "Log in using email"
     email_btn = page.get_by_role("button", name="Log in using email", exact=True)
@@ -397,11 +407,20 @@ async def sign_in_to_railway(page, mailbox):
     
     await page.wait_for_timeout(2000)
     
-    # Fill email
+    # Fill email - human typing
     email_input = page.get_by_placeholder("hello@email.com")
     await expect(email_input).to_be_visible(timeout=15000)
-    await email_input.fill(mailbox.address)
-    print(f"✓ Filled email: {mailbox.address}")
+    await email_input.click(timeout=5000)
+    await page.wait_for_timeout(300)
+    import random
+    for ch in mailbox.address:
+        await email_input.press_sequentially(ch, delay=random.randint(40, 180))
+        if random.random() < 0.08:
+            await page.wait_for_timeout(random.randint(80, 250))
+    await page.wait_for_timeout(random.randint(200, 500))
+    await email_input.evaluate("el => el.blur()")
+    await page.mouse.move(random.randint(100,700), random.randint(100,500), steps=random.randint(3,7))
+    print(f"✓ Filled email: {mailbox.address} (human)")
     
     # Check for Cloudflare Turnstile - poll up to 10s (sandbox wireproxy late load)
     print("🔍 Checking for Cloudflare Turnstile...")
@@ -862,7 +881,7 @@ async def run(use_warp=False):
         # Initialize browser - ONLY browser uses proxy, system/direct stays warp=off
         # CRITICAL: use socks4 for railway.com (socks5 fails with ERR_SOCKS_CONNECTION_FAILED code 5 due IPv6 NAT64)
         async with async_playwright() as p:
-            proxy_settings = {"server": "socks5://127.0.0.1:40000", "bypass": "127.0.0.1,localhost"} if use_warp else None
+            proxy_settings = {"server": "socks5://127.0.0.1:40000", "bypass": "127.0.0.1,localhost,22.do,*.22.do,railway.com,*.railway.com,*.railway.app,backboard.railway.com"} if use_warp else None
             if proxy_settings:
                 print(f"🌐 Browser proxy: {proxy_settings['server']} bypass={proxy_settings['bypass']} (isolated, wireproxy socks5)")
             browser = await p.chromium.launch(
@@ -883,18 +902,29 @@ async def run(use_warp=False):
             context = await browser.new_context(proxy=proxy_settings, viewport={"width": 1280, "height": 720})
             context.set_default_timeout(ACTION_TIMEOUT)
             page = await context.new_page()
-            # verify egress inside browser
+            # --- crash safe: detect tab/browser crash and retry ---
+            def _on_crash(p):
+                try:
+                    print(f"💥 tab crashed at {p.url if not p.is_closed() else 'closed'} — safe will retry")
+                except Exception:
+                    print("💥 tab crashed — safe will retry")
             try:
-                await page.goto("https://cloudflare.com/cdn-cgi/trace", timeout=10000)
+                page.on("crash", _on_crash)
+                page.on("close", lambda _: print("❌ tab closed — safe will retry"))
+                context.on("close", lambda _: print("❌ context closed"))
+            except Exception:
+                pass
+            # verify egress inside browser (bypass warp for this check, direct)
+            try:
+                await page.goto("https://cloudflare.com/cdn-cgi/trace", timeout=15000, wait_until="domcontentloaded")
                 body = await page.content()
                 if "warp=on" in body:
                     print("✅ Browser egress warp=on verified (isolated tunnel)")
-                    # grab ip for log
                     for l in body.splitlines():
                         if l.startswith("ip=") or l.startswith("warp="):
                             print(f"  {l.strip()}")
                 else:
-                    print("⚠️  Browser egress not via WARP")
+                    print("⚠️  Browser egress not via WARP (direct)")
                 await page.goto("about:blank")
             except Exception as e:
                 print(f"⚠️  Egress check failed: {e}")
@@ -906,12 +936,37 @@ async def run(use_warp=False):
             recovery_email = globals().get("CLI_RECOVERY_EMAIL")  # set from CLI --recov
             _handler_desc = recovery_email or target_domain or "random pool"
             print(f"📧 22.do handler: {_handler_desc} (pool {len(HANDLERS)} handlers)")
-            mailbox = TwoTwoDoInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
-            mailbox.railway_page = page  # keep compat with close()
-            await mailbox.create()
-            
-            # Sign in to Railway
-            await sign_in_to_railway(page, mailbox)
+            # --- retry wrapper: don't exit on tab crash, retry fresh tab/handler (minimal) ---
+            for _crash_attempt in range(3):
+                try:
+                    mailbox = TwoTwoDoInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                    mailbox.railway_page = page  # keep compat with close()
+                    await mailbox.create()
+                    # Sign in to Railway
+                    await sign_in_to_railway(page, mailbox)
+                    break
+                except Exception as _e:
+                    _msg = str(_e)
+                    _is_crash = ("Target crashed" in _msg or "TargetClosed" in _msg or "Page crashed" in _msg or "has been closed" in _msg or page.is_closed())
+                    if _is_crash:
+                        print(f"💥 crash detected (attempt {_crash_attempt+1}/3): {_msg[:180]} — retrying fresh tab/handler")
+                        try:
+                            if not page.is_closed():
+                                await page.close()
+                        except Exception:
+                            pass
+                        try:
+                            page = await context.new_page()
+                            page.on("crash", _on_crash)
+                            page.on("close", lambda _: print("❌ tab closed — safe will retry"))
+                        except Exception:
+                            pass
+                        if not target_domain and not recovery_email:
+                            print("🔄 retrying with new random handler")
+                        continue
+                    raise
+            else:
+                raise RuntimeError("tab crashed 3x — aborting run")
             
             # Accept policies
             await accept_railway_policies(page)
