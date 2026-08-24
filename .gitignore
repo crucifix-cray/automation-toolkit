@@ -20,3 +20,10 @@ browser_cookies.json
 railway_cli_config.json
 .railway/
 session-2/chimera-bridge
+
+# OpenCode session backups contain credentials (GH PAT, ProtonVPN, Mega) - never commit.
+# Full session transcripts are stored on Mega (railway_sessions/opencode-sessions).
+opencode backups/opencode.db
+opencode backups/opencode.db-shm
+opencode backups/opencode.db-wal
+opencode backups/sessions/
