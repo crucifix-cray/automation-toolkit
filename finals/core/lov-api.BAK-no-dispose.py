@@ -69,10 +69,7 @@ class FlowError(RuntimeError):
 
 
 def proxy_settings(for_api: bool = False) -> dict | None:
-    """Check proxies in order - enhanced for isolation.
-    Browser: 40000 (warp=on fastest 0.5s) → 9050 (tor 3/3 valid) → chain 9051-9054 → direct
-    API: 9050 (tor 3/3 valid) → 40000 (warp) → chain → direct (direct gives 3/3 but shares IP, so proxy preferred for GH 429)
-    Excludes 9251 (IPv6 PySocks error) and handles socks5/socks4 fallback."""
+    """Warp on 127.0.0.1:40000 (wireproxy). API works direct (checked 2026-08-24); Tor 9050 dead, 9251 slow."""
     import socket
 
     if os.environ.get("FORCE_NO_PROXY") == "1":
@@ -87,21 +84,16 @@ def proxy_settings(for_api: bool = False) -> dict | None:
         except: pass
     else:
         if for_api:
-            # API needs valid gmail + unique IP: tor 9050 best (3/3), warp 40000 fallback
-            candidates = [9050, 40000, 9051, 9052, 9053, 9054]
+            # ponytail: direct works for tempmailhub; warp also works but direct fastest
+            candidates = []
         else:
-            # Browser needs warp=on + speed: warp 40000 fastest, then tor
-            candidates = [40000, 9050, 9051, 9052, 9053, 9054]
+            # ponytail: warp 40000 wireproxy now dual-stack (IPv4+IPv6) — warp=on verified
+            candidates = [40000]
 
     for port in candidates:
-        if port == 9251:  # skip broken IPv6 tor proxy
-            continue
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=2):
-                # warp 40000 supports both socks5/socks4, tor needs socks5
-                # keep socks5 for all (tested: warp socks5 1/3 valid, socks4 1/3 same, but socks5 gives warp=on)
                 server = f"socks5://127.0.0.1:{port}"
-                # extra check: warp port 40000 alive test via socks5 already passed, but verify socks4 fallback later in api_request if needed
                 print(f"✅ Using proxy 127.0.0.1:{port} ({'API' if for_api else 'browser'})", file=sys.stderr)
                 return {
                     "server": server,
@@ -112,8 +104,7 @@ def proxy_settings(for_api: bool = False) -> dict | None:
             continue
 
     if for_api:
-        # API can work direct (3/3 valid) but loses unique IP - warn but allow
-        print("⚠️  No API proxy found; using direct (may 429 on parallel runs)", file=sys.stderr)
+        print("⚠️  No API proxy found; using direct (works for tempmailhub)", file=sys.stderr)
     else:
         print("⚠️  No browser proxy found; using direct (warp=off)", file=sys.stderr)
     return None
@@ -685,7 +676,12 @@ async def do_password_reset(page: Page, email: str) -> None:
     await password_input.wait_for(timeout=20_000)
     if not (await password_input.input_value()).strip():
         await password_input.fill("dummy1234")
-    await click_exact(page, "Forgot password?")
+    # ponytail: force click — button is visible per log but Playwright's "scrolling into view" marks it not visible on this viewport
+    try:
+        await click_exact(page, "Forgot password?")
+    except Exception:
+        btn = page.get_by_text("Forgot password?", exact=True)
+        await btn.last.click(timeout=5000, force=True)
     
     # Wait for reset form to appear
     await asyncio.sleep(1)
@@ -807,15 +803,61 @@ async def set_password_and_verify(page: Page, reset_url: str, password: str) -> 
     await wait_for_dashboard(page, timeout=60)
 
 
+async def handle_lovable_onboarding(page: Page) -> None:
+    """4-step onboarding after verify: Pick style → Name → Role → Company → chat."""
+    try:
+        for _ in range(3):
+            if "Pick your style" in await body_text(page):
+                btn = page.locator('button').filter(has_text='Next')
+                if await btn.count(): await btn.first.click(timeout=5000)
+                else: await page.get_by_role("button", name="Next").first.click(timeout=5000)
+                await page.wait_for_timeout(2000)
+            else: break
+        for _ in range(2):
+            if "What's your name" in await body_text(page):
+                inp = page.get_by_placeholder("Enter your name")
+                if await inp.count(): await inp.fill("Sam Dad")
+                btn = page.locator('button').filter(has_text='Next')
+                if await btn.count(): await btn.first.click(timeout=5000)
+                else: await page.get_by_role("button", name="Next").first.click(timeout=5000)
+                await page.wait_for_timeout(2000)
+            else: break
+        if "Which role fits you best" in await body_text(page):
+            founder = page.get_by_role("button", name="Founder")
+            if await founder.count(): await founder.first.click(timeout=5000)
+            else: await page.locator('button').filter(has_text='Founder').first.click(timeout=5000)
+            await page.wait_for_timeout(1500)
+            nxt = page.locator('button').filter(has_text='Next')
+            if await nxt.count():
+                try: await nxt.first.click(timeout=3000)
+                except: pass
+                await page.wait_for_timeout(2000)
+        if "How many people work at your company" in await body_text(page):
+            solo = page.get_by_role("button", name="Solo")
+            if await solo.count(): await solo.first.click(timeout=5000)
+            else: await page.locator('button').filter(has_text='Solo').first.click(timeout=5000)
+            await page.wait_for_timeout(3000)
+    except Exception as e:
+        print(f"  onboarding helper: {e}", file=sys.stderr)
+    await page.wait_for_timeout(3000)
+
 async def wait_for_dashboard(page: Page, timeout: float = 60) -> None:
-    """Wait for dashboard to load with account menu verification."""
+    """Wait for dashboard/chat — handles /dashboard and onboarding /getting-started."""
     deadline = asyncio.get_running_loop().time() + timeout
     while asyncio.get_running_loop().time() < deadline:
         current = await body_text(page)
         if "/dashboard" in page.url and "Dashboard" in current:
-            # Verify account menu is present
             account_menu = page.locator('button[aria-label="Account menu"]')
             if await account_menu.count():
+                return
+        if any(s in current for s in ("Pick your style", "What's your name", "Which role fits you best", "How many people work at your company")):
+            await handle_lovable_onboarding(page)
+            continue
+        if "Ask Lovable" in current or "What's the vision" in current:
+            chat = page.locator('textarea[placeholder*="Ask"], div[contenteditable="true"], input[placeholder*="Ask"]')
+            if await chat.count():
+                return
+            if "Ask Lovable to make a document" in current or "What's the vision" in current:
                 return
         await page.wait_for_timeout(1_000)
     
@@ -879,13 +921,22 @@ async def run(cdp_url: str | None, auto_close: bool = False) -> dict[str, object
     else:
         print("🌐 Browser direct (warp=off, isolated)", file=sys.stderr)
     
-    # Use InvisiblePlaywright with humanization enabled
-    async with InvisiblePlaywright(
-        headless=False,
-        proxy=playwright_proxy,
-        humanize=True,  # Human-like mouse movements and typing
-        locale='en-US',
-    ) as browser:
+    # Use InvisiblePlaywright with humanization enabled — fallback to plain if geo probe fails (warp 40000 stalls checkip)
+    _pw_ctx = None
+    _ip_ctx = None
+    try:
+        _ip_ctx = InvisiblePlaywright(headless=False, proxy=playwright_proxy, humanize=True, locale='en-US')
+        browser = await _ip_ctx.__aenter__()
+    except Exception as e:
+        if "GeoTimezone" in type(e).__name__ or "egress IP discovery" in str(e) or "Host unreachable" in str(e):
+            print(f"⚠️  Invisible geo failed ({e}) — fallback plain chromium", file=sys.stderr)
+            from playwright.async_api import async_playwright as _pw
+            _pw_ctx = _pw()
+            _pw_enter = await _pw_ctx.__aenter__()
+            browser = await _pw_enter.chromium.launch(headless=False, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-blink-features=AutomationControlled"], proxy=playwright_proxy)
+        else:
+            raise
+    try:
         print("✅ Browser launched (InvisiblePlaywright)", file=sys.stderr)
         
         # InvisiblePlaywright returns Browser directly
@@ -912,7 +963,7 @@ async def run(cdp_url: str | None, auto_close: bool = False) -> dict[str, object
                 # TRUE API-ONLY: Create email via API (no page at all)
                 print(f"\n🔄 Attempt {attempt}/3: Creating account via TRUE API-ONLY mode...", file=sys.stderr)
                 email, email_id = create_working_email()
-                password = email if re.search(r"\d", email) else f"{email}1"
+                password = f"{email}K0"
                 
                 mode = await request_login(lovable_page, email)
                 
@@ -951,16 +1002,13 @@ async def run(cdp_url: str | None, auto_close: bool = False) -> dict[str, object
         else:
             raise FlowError(f"All attempts failed: {last_error}") from last_error
         
-        # Verify dashboard
-        dashboard_text = await body_text(lovable_page)
-        account_menu = lovable_page.locator('button[aria-label="Account menu"]')
+        # Verify dashboard — ponytail: onboarding-aware (dashboard OR getting-started/chat both count)
         try:
-            await account_menu.wait_for(state="visible", timeout=20_000)
-        except PlaywrightTimeoutError as exc:
-            raise FlowError("Dashboard account menu did not render") from exc
-        
-        if "/dashboard" not in lovable_page.url or "Dashboard" not in dashboard_text:
-            raise FlowError("Dashboard loaded but account not verified")
+            await wait_for_dashboard(lovable_page, timeout=60)
+        except FlowError as exc:
+            dashboard_text = await body_text(lovable_page)
+            print(f"⚠️  wait_for_dashboard failed: {exc} url={lovable_page.url} text={dashboard_text[:200]!r}", file=sys.stderr)
+            raise
         
         # Save email to used list
         save_used_email(email)
@@ -1057,15 +1105,27 @@ async def run(cdp_url: str | None, auto_close: bool = False) -> dict[str, object
         if auto_close:
             print("\n✅ Auto-closing browser (--end flag set)", file=sys.stderr)
             if not cdp_url:
-                await browser.close()
+                try: await browser.close()
+                except: pass
         elif keep_browser_open() and not cdp_url:
             print("\n✋ Browser staying open. Press Enter to close...", file=sys.stderr)
             input()
-            await browser.close()
+            try: await browser.close()
+            except: pass
         elif not cdp_url:
-            await browser.close()
+            try: await browser.close()
+            except: pass
         
         return result
+    finally:
+        try:
+            if _ip_ctx:
+                await _ip_ctx.__aexit__(None, None, None)
+        except: pass
+        try:
+            if _pw_ctx:
+                await _pw_ctx.__aexit__(None, None, None)
+        except: pass
 
 
 def main() -> None:

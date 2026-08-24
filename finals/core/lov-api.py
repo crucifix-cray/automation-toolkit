@@ -43,6 +43,11 @@ from playwright.async_api import (
     Page,
     TimeoutError as PlaywrightTimeoutError,
 )
+try:
+    from playwright_captcha import ClickSolver, CaptchaType, FrameworkType
+    CAPTCHA_SOLVER_AVAILABLE = True
+except ImportError:
+    CAPTCHA_SOLVER_AVAILABLE = False
 
 
 TEMPMAIL_API = "https://api.tempmailhub.org"
@@ -191,30 +196,15 @@ def proxy_settings(for_api: bool = False) -> dict | None:
         except: pass
     else:
         if for_api:
-            # TempmailHub API host is IPv6-only => only Tor (9050 socks5h/rdns, 9251)
-            # can reach it. WARP/direct cannot, so don't waste attempts there.
-            candidates = [9050, 9251]
-        else:
-            # Browser uses DIRECT host egress. WARP egress IPs are Cloudflare-
-            # flagged (signup "Create your account" button stays disabled / bot
-            # score), and Tor exits are likewise blocked. The working commit
-            # 46c7d29 ("direct browser (no WARP)") confirmed direct works.
-            # Force direct: empty candidate list -> falls through to "using
-            # direct". PROXY_PORT can still override for testing.
+            # ponytail: tempmailhub direct works; no Tor (prohibited) — keep direct
             candidates = []
+        else:
+            # ponytail: warp 40000 dual-stack fixed (wireproxy IPv6) warp=on 2a09:bac5:: — dispose needs warp, direct flagged per older commit but warp now works
+            candidates = [40000]
 
     for port in candidates:
-        if port == 9251:  # skip broken IPv6 tor proxy
-            continue
         try:
-            # warp 40000 is served by microsocks INSIDE the warp-1 netns
-            # (10.200.1.2:40001). The old socat host hop (127.0.0.1:40000)
-            # works for curl but stalls Firefox's SOCKS stream, so connect
-            # straight to the netns IP from the host via the veth.
-            if port == 40000:
-                host, pport = "10.200.1.2", 40001
-            else:
-                host, pport = "127.0.0.1", port
+            host, pport = "127.0.0.1", port
             with socket.create_connection((host, pport), timeout=2):
                 server = f"socks5://{host}:{pport}"
                 # extra check: warp port 40000 alive test via socks5 already passed, but verify socks4 fallback later in api_request if needed
@@ -891,6 +881,75 @@ async def do_signup(page: Page, email: str, password: str) -> str:
         await human_type(passwords.nth(0), password)
         if await passwords.count() >= 2:
             await human_type(passwords.nth(1), password)
+        # --- Turnstile handling like toerhs/railway (warp flagged) — retry loop ---
+        for _ts_try in range(3):
+            try:
+                # if Verification failed -> click Troubleshoot to retry (re-exposes Verify checkbox)
+                try:
+                    vf = page.get_by_text("Verification failed", exact=False)
+                    if await vf.count():
+                        troubleshoot = page.get_by_text("Troubleshoot", exact=True)
+                        if await troubleshoot.count():
+                            print("🔧 Verification failed — clicking Troubleshoot...", file=sys.stderr)
+                            await troubleshoot.first.click(timeout=3000, force=True)
+                            await page.wait_for_timeout(3000)
+                except: pass
+                # wait for Turnstile iframe to appear (Verify you are human)
+                try:
+                    await page.wait_for_selector('iframe[src*="challenges.cloudflare.com"]', timeout=5000)
+                except: pass
+                turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+                if await turnstile_iframe.count() > 0:
+                    print(f"🤖 Turnstile detected (try {_ts_try+1}/3) — solving...", file=sys.stderr)
+                    if CAPTCHA_SOLVER_AVAILABLE:
+                        try:
+                            # try PATCHRIGHT first, fallback to PLAYWRIGHT (dispose uses plain playwright)
+                            try:
+                                solver_framework = FrameworkType.PATCHRIGHT
+                                async with ClickSolver(framework=solver_framework, page=page, max_attempts=1, attempt_delay=2) as solver:
+                                    await solver.solve_captcha(captcha_container=page, captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE)
+                            except Exception as _e1:
+                                # fallback to PLAYWRIGHT framework for plain Firefox
+                                async with ClickSolver(framework=FrameworkType.PLAYWRIGHT, page=page, max_attempts=1, attempt_delay=2) as solver:
+                                    await solver.solve_captcha(captcha_container=page, captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE)
+                            print("✅ Turnstile solved via ClickSolver", file=sys.stderr)
+                        except Exception as e:
+                            print(f"⚠️ ClickSolver failed: {e}", file=sys.stderr)
+                            # fallback: manual checkbox click inside iframe
+                            try:
+                                frame = page.frame_locator('iframe[src*="challenges.cloudflare.com"]').first
+                                checkbox = frame.get_by_role("checkbox", name="Verify you are human")
+                                if await checkbox.count():
+                                    await checkbox.click(timeout=5000, force=True)
+                                    print("✅ Manual checkbox clicked", file=sys.stderr)
+                                else:
+                                    # direct iframe click
+                                    await turnstile_iframe.first.click(timeout=5000, force=True)
+                            except Exception as ee:
+                                print(f"manual checkbox fail: {ee}", file=sys.stderr)
+                    else:
+                        try:
+                            await turnstile_iframe.first.click(timeout=5000, force=True)
+                        except: pass
+                    await page.wait_for_timeout(3000)
+                # check if Create button enabled
+                create_btn = page.get_by_role("button", name="Create your account", exact=True)
+                try:
+                    from playwright.async_api import expect
+                    await expect(create_btn).to_be_enabled(timeout=10000)
+                    print("✅ Create button enabled", file=sys.stderr)
+                    break
+                except:
+                    token_len = await page.evaluate('''() => document.querySelector('input[name="cf-turnstile-response"]')?.value?.length || 0''')
+                    is_disabled = await create_btn.is_disabled() if await create_btn.count() else True
+                    print(f"⚠️ Token len {token_len}, disabled={is_disabled} — retry Solve...", file=sys.stderr)
+                    if token_len > 20 and not is_disabled:
+                        break
+                    await page.wait_for_timeout(2000)
+                    continue
+            except Exception as e:
+                print(f"turnstile helper try {_ts_try}: {e}", file=sys.stderr)
+                await page.wait_for_timeout(1000)
         await click_exact(page, "Create your account")
         
         deadline = asyncio.get_running_loop().time() + 60

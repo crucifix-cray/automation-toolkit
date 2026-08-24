@@ -26,7 +26,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from patchright.async_api import async_playwright, expect, TimeoutError as PlaywrightTimeout
+from playwright.async_api import async_playwright, expect, TimeoutError as PlaywrightTimeout
 
 # Import playwright-captcha for auto Cloudflare Turnstile solving
 try:
