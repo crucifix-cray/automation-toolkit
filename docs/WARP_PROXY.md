@@ -1,5 +1,12 @@
 # WARP Proxy Setup
 
+> ⚠️ **OUTDATED BELOW (pre-2026-08-24).** The "SOCKS4 for API" note is wrong: the
+> TempMailHub API host (`api.tempmailhub.org`) is **IPv6-only** and is reachable **only via
+> Tor** (`127.0.0.1:9050` / `9251`), not via WARP at all. The current architecture is a
+> `warp-1` netns with microsocks at `10.200.1.2:40001` (see "Current reality" at the bottom).
+> Also: WARP egress IPs are **Cloudflare-flagged** → Lovable signup button stays disabled; use
+> ProtonVPN egress (netns `default dev tun0`) instead. See `opencode backups/SESSION.md`.
+
 The browser automation routes its traffic through Cloudflare WARP as a SOCKS proxy so requests egress from a Cloudflare WARP IP **without affecting your system's network**.
 
 ## CRITICAL: SOCKS4 vs SOCKS5
@@ -173,3 +180,78 @@ The script loads cookies from `/home/alae/Downloads/tu-cookies.txt` (Netscape fo
 | TOR | 1.4s | 10-40s | ⚠️ Slow but works |
 
 **Recommendation:** Use WARP for browser, direct for API.
+
+---
+
+## Current reality (2026-08-24 session)
+
+The setup above (`warp-cli mode proxy` on `127.0.0.1:40000`) no longer matches the running
+architecture. What is actually deployed now:
+
+### Netns `warp-1` chain (no `warp-cli`)
+- veth pair `10.200.1.1` (host) ⇄ `10.200.1.2` (netns `warp-1`); host NATs `10.200.1.0/30`
+  out `wlan0`.
+- Inside netns: `openvpn` → ProtonVPN NL (`tun0`, egress e.g. `41.92.x` / `169.150.x`); then a
+  **real kernel `wg0`** WARP interface (profile from `/home/alan/Documents/mega_dumps/chimera/wgcf-pool/`,
+  endpoint `162.159.192.1:2408`, route `162.159.192.1/32 via 10.96.0.1 dev tun0`, `default dev wg0`).
+- `microsocks -i 10.200.1.2 -p 40001` runs **inside** the netns. Host reaches it directly at
+  `10.200.1.2:40001` — **do NOT put socat in front of it**: the `socat 127.0.0.1:40000 →
+  10.200.1.2:40001` hop works for `curl` but **stalls Firefox's SOCKS stream** (button/timeout).
+- Rebuild script: `opencode backups/rebuild_warp_chain.sh`.
+
+### Proxy routing in `lov-api.py` (commit `e787d13`)
+- **API (TempMailHub):** Tor only — `[9050, 9251]`. Host is IPv6-only-reachable solely via Tor.
+  (The old "SOCKS4 for API" advice is obsolete; WARP cannot reach the API at all.)
+- **Browser:** currently forced **direct** in `proxy_settings(for_api=False)` because WARP egress
+  is Cloudflare-flagged (Lovable "Create your account" button disabled). On this Tor-wrapped host
+  "direct" = Tor, so the real unflagged path is to point the browser at `10.200.1.2:40001` with the
+  netns default route set to `dev tun0` (ProtonVPN egress), not `dev wg0` (WARP). Flip the browser
+  candidate back to the netns IP when using ProtonVPN egress.
+
+### Required out-of-repo patch
+`invisible_core/_geo.py` must use `socks5` (not `socks5h`) and cloudflare/ipify echo endpoints,
+or the browser launch's egress-discovery hangs. Details in `opencode backups/SESSION.md` §4.
+
+---
+
+## Persistent Railway Sandbox approach (2026-08-24, session with Alan)
+
+### Key finding: Browser must go DIRECT for22.do + Turnstile
+- **WARP blocks22.do**: Cloudflare 403 from `104.28.219.140` (all wgcf profiles give same AMS colo)
+- **Turnstile fails through WARP SOCKS5**: `challenges.cloudflare.com` unreachable; Chromium's
+  SOCKS5 handling stalls the TLS handshake
+- **22.do works direct** from sandbox IP (`152.55.184.157`)
+- **Solution**: `proxy_settings = None` (browser goes direct) + mail.tm API as email fallback
+
+### Fallback chain (22.do → dispose.lol → mail.tm)
+When 22.do is unreachable or blocked:
+1. **22.do** (browser-based, primary) — works direct, blocked via WARP
+2. **dispose.lol** (browser-based, fallback) — sometimes returns `ERR_CONNECTION_CLOSED` through WARP
+3. **mail.tm API** (no browser, last resort) — works through any proxy, API-based email creation
+
+### Gost HTTP proxy (SOCKS5 → HTTP conversion for Chromium)
+Chromium has broken SOCKS5 handling in Playwright. Solution: use `gost` to convert:
+```bash
+# Install gost
+curl -sL https://github.com/ginuerzh/gost/releases/download/v2.12.0/gost_2.12.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin/
+
+# Run: HTTP proxy on 40001 forwarding to WARP SOCKS5 on 40000
+gost -L http://127.0.0.1:40001 -F socks5://127.0.0.1:40000
+
+# Browser proxy setting
+proxy_settings = {"server": "http://127.0.0.1:40001"}
+```
+This works with curl but **still times out with Playwright/patchright** — unverified.
+
+### WARP on persistent sandbox (no systemd)
+- `warp-cli 2026.6.880.0` installed but daemon won't start (no systemd in container)
+- **wireproxy** works: `wireproxy -c /tmp/warp.conf` → SOCKS5 on 40000, WARP IP `104.28.219.140`
+- WARP IP is **always the same** regardless of wgcf profile (colocation determined at registration)
+- ProtonVPN OVPN tunsocks chain works but not needed for browser (direct is better for 22.do)
+
+### Railway SSH access
+```bash
+railway ssh -s "Ubuntu 24.04" "command"  # uses jzw2 key
+```
+Persistent sandbox service: `d1970e69` on project `test-ubuntu-6` (`2e7ef06d-660e-4da2-87e3-1cc37693889b`)
+

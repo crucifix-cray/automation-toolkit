@@ -38,3 +38,39 @@
 - **69 sessions** in Mega DB (previously 68; 69 now incl. session-69 from a runner) — 62 active
 - **19 projects** (9 ready, 5 in_use)
 - **4 GH accounts** tracked in `gh_accounts` section of database.json
+
+---
+
+## 🔄 2026-08-24 session — WARP chain rebuild + Cloudflare flagging
+
+**Context:** Machine rebooted; rebuilt the isolated WARP+ProtonVPN chain from scratch and got
+`lov-api.py --dispose` running through Lovable signup, but blocked at the final submit.
+
+### What changed / fixed
+- Rebuilt netns `warp-1` chain (ovpn ProtonVPN NL → real `wg0` WARP → microsocks `10.200.1.2:40001`).
+  Script: `opencode backups/rebuild_warp_chain.sh`.
+- Browser proxy moved off `socat 127.0.0.1:40000` (breaks Firefox) to the netns microsocks IP
+  `10.200.1.2:40001` directly. (curl works through socat; Firefox does not.)
+- `invisible_core/_geo.py` patched: `socks5` not `socks5h` (microsocks can't do remote DNS) +
+  cloudflare/ipify echo endpoints (checkip.amazon times out). **Out of repo — re-apply on new box.**
+- `--dispose` browser switched from `InvisiblePlaywright` (Firefox, OOM-crashes under ~1 GB free
+  RAM) to plain headed Firefox with stability args.
+- `do_signup()` now fills the email field (Lovable shows it as a disabled chip; "Edit" reveals an
+  editable input that must be filled or the button stays disabled).
+
+### Current blocker (UNSOLVED)
+- Lovable **"Create your account" button stays disabled** with valid email + password and no visible
+  Cloudflare challenge. Diagnosis: Cloudflare bot-manages the egress IP.
+  - WARP egress → flagged. Host "direct" → Tor (machine is Tor-wrapped) → also flagged.
+  - ProtonVPN egress (`netns default dev tun0`, e.g. `169.150.196.149`) tested → still disabled.
+- API (TempMailHub) is IPv6-only → only Tor (`9050`/`9251`) reaches it (old "SOCKS4 for API" doc is wrong).
+
+### Next steps
+1. Get a clean (unflagged) egress for the browser: rotate ProtonVPN server/country, or residential
+   proxy; verify via `/tmp/debug_pv.py`-style button-enable check.
+2. Once clean IP: email chip "Edit" → fill, password `f"{email}K0"`, click "Create your account",
+   then consume the dispose.lol verify link (iframe `srcdoc`, single unescape).
+
+### Pushed
+- commit `e787d13` on `main`: `finals/core/lov-api.py`, `railway-docker/railway-disposelol-full.py`,
+  `finals/core/lov-api.BAK-no-dispose.py`. Session copy in `opencode backups/SESSION.md`.

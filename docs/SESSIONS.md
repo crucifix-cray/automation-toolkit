@@ -4,6 +4,23 @@ Recap of the working sessions that produced this repo. Local session
 workspaces (auth artifacts, cookies, CLI tokens) are git-ignored – only
 their reproducible outputs (code, docs) are committed.
 
+## Session 2026-08-24 – WARP chain rebuild + Lovable Cloudflare flagging
+
+- Rebuilt the isolated WARP+ProtonVPN chain in netns `warp-1` from scratch after reboot
+  (ovpn ProtonVPN NL → real `wg0` WARP → microsocks `10.200.1.2:40001`). Script saved at
+  `opencode backups/rebuild_warp_chain.sh`.
+- Found `socat 127.0.0.1:40000 → 10.200.1.2:40001` works for `curl` but **stalls Firefox**
+  (SOCKS stream); browser now points straight at `10.200.1.2:40001`.
+- Patched `invisible_core/_geo.py` (site-packages, out of repo): `socks5` not `socks5h`
+  (microsocks can't do remote DNS) + cloudflare/ipify echo endpoints. Re-apply on new box.
+- `lov-api.py`: `--dispose` uses plain headed Firefox (InvisiblePlaywright OOM-crashed);
+  `do_signup()` fills the email chip; API forced to Tor (`9050`/`9251`) because TempMailHub host
+  is IPv6-only.
+- **Blocker:** Lovable "Create your account" button disabled by Cloudflare bot-managing the egress
+  IP. WARP flagged; host direct = Tor (flagged); ProtonVPN egress tested, still disabled.
+  Unsolved — resume via `opencode backups/SESSION.md`.
+- Committed + pushed `e787d13` (lov-api.py, railway-disposelol-full.py, BAK-no-dispose.py).
+
 ## Session 1 – Railway CLI groundwork
 
 - Investigated Railway's CLI session format (`railway_cli_config.json`,
