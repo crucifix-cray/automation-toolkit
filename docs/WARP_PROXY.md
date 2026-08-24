@@ -199,6 +199,49 @@ architecture. What is actually deployed now:
   10.200.1.2:40001` hop works for `curl` but **stalls Firefox's SOCKS stream** (button/timeout).
 - Rebuild script: `opencode backups/rebuild_warp_chain.sh`.
 
+### CRITICAL FIX (Railway-holy session, 2026-08-24): WARP endpoint must be the hostname, not a hardcoded IP
+
+The WARP colo is assigned by Cloudflare from the **source IP** of the handshake to the WARP
+endpoint. If the wgcf profile pins `Endpoint = 162.159.192.1:2408` (or `162.159.193.1:2408`),
+the handshake always leaves from the host raw egress, so WARP **always lands on `colo=MAD` /
+`loc=MA` (Morocco)** regardless of which ProtonVPN country you chained underneath it. That
+defeats the whole point of running ovpn under warp.
+
+Fix: set the WARP Endpoint to the **hostname** so wireproxy resolves it at handshake time from
+inside the netns (i.e. through the ovpn egress):
+
+```bash
+sed -i 's/^Endpoint = .*/Endpoint = engage.cloudflareclient.com:2408/' \
+  /home/alan/Documents/mega_dumps/chimera/wgcf-pool/<pool>/wgcf-profile.conf
+```
+
+With ProtonVPN NL (`185.177.x.x`) as the egress, `engage.cloudflareclient.com:2408` resolves
+and the WARP handshake egresses from NL → Cloudflare picks the **nearest colo (AMS, NL)**, so
+`curl --socks5 127.0.0.1:40000 …/cdn-cgi/trace` shows `warp=on` + `loc=` near NL, **not MA**.
+This is the required behavior: WARP IP rides on top of the ovpn IP; the host raw IP is never
+the WARP source.
+
+### Confirmed working chain (Railway-holy / `railway-HOLY-22do-full.py`)
+
+1. `rclone copy mega:protonvpn /tmp/proton --mega-use-https` (host is Tor-wrapped → `--mega-use-https` required).
+2. `printf '0yqflkJmsb5Xr6Rz\nZ1zZ0ikBbZJ5IE5imnJwbWFvOneuYINO\n' > /tmp/auth.txt`.
+3. netns `warp-1` (veth `10.200.1.1` host ⇄ `10.200.1.2` ns, host NATs out `wlan0`). Local box
+   has `/dev/net/tun`, so **real `openvpn tun0` inside the netns** is used (no tunsocks needed
+   locally — tunsocks/openvpn-tunpipe were only needed on the Railway container which has no tun).
+4. Inside netns: `openvpn --config <random /tmp/proton/*.ovpn, proto tcp, remote <ip> 443> --auth-user-pass /tmp/auth.txt`
+   → egress `185.177.x.x` NL.
+5. Inside netns: `wireproxy` (userspace, no tun) SOCKS `127.0.0.1:40001` using a pool wgcf
+   profile whose Endpoint is `engage.cloudflareclient.com:2408` → `warp=on` IP `104.28.x.x` AMS.
+6. Host reaches it at `127.0.0.1:40000` (socat is fine here for the holy browser since holy uses
+   `curl`-style polling + playwright; for the lov-api Firefox case keep the direct `10.200.1.2:40001`).
+7. `railway-HOLY-22do-full.py` (commit `c6fb3f0`) runs with
+   `proxy_settings socks5://127.0.0.1:40000`, `bypass=127.0.0.1,localhost,22.do,*.22.do,railway.com,*.railway.com,*.railway.app,backboard.railway.com`,
+   human blur/mouse, poll1 OTP. Host raw IP stays clean — only the netns is tunneled.
+8. Loop with `shuf` wgcf pool + `shuf` proton per run until `Got OTP` / `Logged in`; sync good
+   sessions to `mega:railway_sessions` with `--mega-use-https`.
+
+Session backup for this work: `opencode backups/SESSION_HOLY.md`.
+
 ### Proxy routing in `lov-api.py` (commit `e787d13`)
 - **API (TempMailHub):** Tor only — `[9050, 9251]`. Host is IPv6-only-reachable solely via Tor.
   (The old "SOCKS4 for API" advice is obsolete; WARP cannot reach the API at all.)
