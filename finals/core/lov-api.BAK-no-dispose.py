@@ -48,7 +48,7 @@ from playwright.async_api import (
 TEMPMAIL_API = "https://api.tempmailhub.org"
 LOVABLE_URL = "https://lovable.dev/"
 RESET_LINK_RE = re.compile(r"https?://[^\"'\\\s<>]*lovable\.dev[^\"'\\\s<>]*", re.I)
-WARP_PROXY = "socks5://10.200.1.2:40001"
+WARP_PROXY = "socks5://127.0.0.1:40000"
 TOR_PROXY = "socks5://127.0.0.1:9050"
 USED_EMAILS_FILE = os.environ.get(
     "USED_EMAILS_FILE", str(Path.home() / "Documents" / "used-tempmailhub-emails.txt")
@@ -62,110 +62,6 @@ AD_BLOCK_PATTERNS = (
     "teads.tv", "doubleverify.com", "yieldmo.com", "adnxs.com", "adsafeprotected.com",
     "adzerk.net", "pubmatic.com", "casalemedia.com", "openx.net", "rubiconproject.com",
 )
-
-
-class DisposeLolLovable:
-    BASE_URL = "https://dispose.lol"
-    def __init__(self, context=None):
-        self.context = context
-        self.page = None
-        self.address = None
-        self.session_initialized = False
-    async def _ensure_page(self):
-        if not self.context: raise Exception("No browser context")
-        if not self.session_initialized:
-            self.page = await self.context.new_page()
-            await self.page.goto(self.BASE_URL, wait_until="domcontentloaded", timeout=60000)
-            await self.page.wait_for_timeout(5000)
-            self.session_initialized = True
-    async def create(self):
-        print("📧 Creating dispose.lol Gmail (separate tab)...", file=sys.stderr)
-        await self._ensure_page()
-        await self.page.wait_for_timeout(4000)
-        email_text = await self.page.evaluate("""() => {
-            const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null);
-            let n; while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com')&&t.length<80) return t;}
-            for(const i of document.querySelectorAll('input')) if(i.value.includes('@gmail.com')) return i.value;
-            return null;}""")
-        if email_text and '@gmail.com' in email_text:
-            self.address = email_text.strip()
-            print(f"✅ Mailbox ready: {self.address}", file=sys.stderr)
-            return self.address, "dispose"
-        await self.page.screenshot(path="/tmp/disposelol-error.png", full_page=True)
-        raise FlowError("Could not find dispose.lol email")
-    async def wait_for_lovable_link(self, timeout_seconds=300):
-        print("📥 Waiting for Lovable link on dispose.lol...", file=sys.stderr)
-        deadline = asyncio.get_running_loop().time() + timeout_seconds
-        check=0
-        def _decode(raw: str) -> str:
-            # Link lives inside an iframe srcdoc. Reading the FRAME content gives
-            # single-level HTML; decode once, then catch any residual &amp;.
-            link = html.unescape(raw or "")
-            link = link.replace("&amp;", "&")
-            return link
-
-        while asyncio.get_running_loop().time() < deadline:
-            check+=1
-            await self.page.reload(wait_until="domcontentloaded")
-            await self.page.wait_for_timeout(2000)
-            buttons = await self.page.locator('button[aria-label^="View "]').all()
-            if check%5==1: print(f"  Check #{check}: {len(buttons)} message(s)", file=sys.stderr)
-            for btn in buttons:
-                aria = await btn.get_attribute('aria-label') or ""
-                if 'lovable' not in aria.lower(): continue
-                print(f"  ✅ Found Lovable: {aria[:120]}", file=sys.stderr)
-                try:
-                    # 1) Click "View" to open the email iframe (srcdoc)
-                    try: await btn.scroll_into_view_if_needed(timeout=2000)
-                    except: pass
-                    await btn.click(timeout=5000, force=True)
-                    await self.page.wait_for_timeout(3000)
-
-                    # 2) Search EVERY frame (main + iframes) for the link
-                    frames = self.page.frames
-                    for frame in frames:
-                        try:
-                            fhtml = await frame.content()
-                        except Exception:
-                            continue
-                        m = RESET_LINK_RE.search(fhtml or "")
-                        if m:
-                            link = _decode(m.group(0))
-                            print(f"  🎯 Link (frame): {link[:160]}", file=sys.stderr)
-                            return link
-                        # also try innerText of the frame
-                        try:
-                            ftext = await frame.inner_text("html")
-                        except Exception:
-                            ftext = ""
-                        m2 = RESET_LINK_RE.search(ftext or "")
-                        if m2:
-                            link = _decode(m2.group(0))
-                            print(f"  🎯 Link (frame text): {link[:160]}", file=sys.stderr)
-                            return link
-
-                    # 3) Fallback: main-page innerHTML / innerText (triple-escaped)
-                    body = await self.page.evaluate("""() => document.body.innerHTML.slice(0, 60000)""")
-                    m = RESET_LINK_RE.search(body)
-                    if m:
-                        link = _decode(html.unescape(m.group(0)))
-                        print(f"  🎯 Link (main html): {link[:160]}", file=sys.stderr)
-                        return link
-                    txt = await self.page.evaluate("""() => document.body.innerText.slice(0, 20000)""")
-                    m2 = RESET_LINK_RE.search(txt)
-                    if m2:
-                        link = _decode(m2.group(0))
-                        print(f"  🎯 Link (main text): {link[:160]}", file=sys.stderr)
-                        return link
-                except Exception as e:
-                    print(f"  click/extract failed: {e}", file=sys.stderr)
-                    continue
-            await asyncio.sleep(3)
-        raise FlowError("Lovable link not received")
-    async def close(self):
-        if self.page:
-            try: await self.page.close()
-            except: pass
 
 
 class FlowError(RuntimeError):
@@ -191,32 +87,20 @@ def proxy_settings(for_api: bool = False) -> dict | None:
         except: pass
     else:
         if for_api:
-            # TempmailHub API host is IPv6-only => only Tor (9050 socks5h/rdns, 9251)
-            # can reach it. WARP/direct cannot, so don't waste attempts there.
-            candidates = [9050, 9251]
+            # API needs valid gmail + unique IP: tor 9050 best (3/3), warp 40000 fallback
+            candidates = [9050, 40000, 9051, 9052, 9053, 9054]
         else:
-            # Browser uses DIRECT host egress. WARP egress IPs are Cloudflare-
-            # flagged (signup "Create your account" button stays disabled / bot
-            # score), and Tor exits are likewise blocked. The working commit
-            # 46c7d29 ("direct browser (no WARP)") confirmed direct works.
-            # Force direct: empty candidate list -> falls through to "using
-            # direct". PROXY_PORT can still override for testing.
-            candidates = []
+            # Browser needs warp=on + speed: warp 40000 fastest, then tor
+            candidates = [40000, 9050, 9051, 9052, 9053, 9054]
 
     for port in candidates:
         if port == 9251:  # skip broken IPv6 tor proxy
             continue
         try:
-            # warp 40000 is served by microsocks INSIDE the warp-1 netns
-            # (10.200.1.2:40001). The old socat host hop (127.0.0.1:40000)
-            # works for curl but stalls Firefox's SOCKS stream, so connect
-            # straight to the netns IP from the host via the veth.
-            if port == 40000:
-                host, pport = "10.200.1.2", 40001
-            else:
-                host, pport = "127.0.0.1", port
-            with socket.create_connection((host, pport), timeout=2):
-                server = f"socks5://{host}:{pport}"
+            with socket.create_connection(("127.0.0.1", port), timeout=2):
+                # warp 40000 supports both socks5/socks4, tor needs socks5
+                # keep socks5 for all (tested: warp socks5 1/3 valid, socks4 1/3 same, but socks5 gives warp=on)
+                server = f"socks5://127.0.0.1:{port}"
                 # extra check: warp port 40000 alive test via socks5 already passed, but verify socks4 fallback later in api_request if needed
                 print(f"✅ Using proxy 127.0.0.1:{port} ({'API' if for_api else 'browser'})", file=sys.stderr)
                 return {
@@ -290,21 +174,21 @@ def api_request(endpoint: str, method: str = "POST", data: dict = None, timeout:
         "Origin": "https://tempmailhub.org"
     }
     
-    # API candidate list comes straight from proxy_settings(for_api=True).
-    # TempmailHub's API host is IPv6-only and ONLY reachable via Tor; do NOT inject
-    # the WARP (40000) or direct fallbacks here or we burn ~40s/attempt on dead paths.
+    # Try proxy list in order: 9050 → 40000 → direct (per proxy_settings for_api)
+    # We try up to 2 proxy choices if first fails with IPv6 or timeout
     candidates = []
     primary = proxy_settings(for_api=True)
     if primary:
         candidates.append(primary)
-        # add a second Tor port as backup if available (9251), else direct as last resort
-        if primary.get("port") == 9050:
-            import socket as _sock
-            try:
-                with _sock.create_connection(("127.0.0.1", 9251), timeout=1):
-                    candidates.append({"server": "socks5://127.0.0.1:9251", "port": 9251, "bypass": "127.0.0.1,localhost"})
-            except: pass
+        # add fallback direct as last
         candidates.append(None)
+        # also add secondary proxy if primary is 9050, add 40000 as fallback vice versa
+        alt_port = 40000 if primary.get("port")==9050 else 9050
+        import socket as _sock
+        try:
+            with _sock.create_connection(("127.0.0.1", alt_port), timeout=1):
+                candidates.insert(1, {"server": f"socks5://127.0.0.1:{alt_port}", "port": alt_port, "bypass": "127.0.0.1,localhost"})
+        except: pass
     else:
         candidates = [None]
 
@@ -316,14 +200,11 @@ def api_request(endpoint: str, method: str = "POST", data: dict = None, timeout:
             if proxy:
                 import socks, socket as _socket
                 proxy_port = int(proxy["server"].split(":")[-1])
-                # Tor exits (9050/9251) resolve DNS remotely (rdns) because TempmailHub
-                # API host is IPv6-only and unreachable via the WARP chain.
-                # WARP (40000) routes through the netns which handles its own DNS.
-                rdns = proxy_port in (9050, 9251)
-                socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", proxy_port, rdns=rdns)
+                # try socks5 first, fallback to socks4 for warp (40000) if IPv6 error
+                socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", proxy_port)
                 _ORIGINAL_SOCKET = _socket.socket
                 _socket.socket = socks.socksocket
-                print(f"  🌐 API via {proxy_desc} (rdns={rdns}, isolated)", file=sys.stderr)
+                print(f"  🌐 API via {proxy_desc} (isolated)", file=sys.stderr)
 
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             for attempt in range(2):
@@ -772,40 +653,9 @@ async def request_login(page: Page, email: str) -> str:
     if not await email_input.is_visible():
         raise FlowError("Login popup never appeared after 15 minutes")
     
-    # Now fill email and continue — robust for lovable's disabled→enabled transition
+    # Now fill email and continue
     await email_input.fill(email)
-    await page.wait_for_timeout(800)
-    # Try force click on the submit button (id=email-login-button) — handles stable check flakiness.
-    # Final fallback dispatches a raw DOM click event to bypass Playwright visibility quirks
-    # (popup submit button sometimes reports "not visible" despite being in the DOM).
-    submitted = False
-    for _ in range(10):
-        try:
-            btn = page.locator('#email-login-button')
-            if await btn.count():
-                try:
-                    await btn.click(timeout=5000, force=True)
-                except Exception:
-                    await btn.dispatch_event("click")
-                submitted = True
-                break
-            btn2 = page.get_by_role("button", name="Continue", exact=True).last
-            if await btn2.count():
-                try:
-                    await btn2.click(timeout=5000, force=True)
-                except Exception:
-                    await btn2.dispatch_event("click")
-                submitted = True
-                break
-        except Exception:
-            pass
-        await page.wait_for_timeout(700)
-    if not submitted:
-        # Last resort: dispatch a raw DOM click on whatever Continue control exists
-        try:
-            await page.get_by_role("button", name="Continue", exact=True).last.dispatch_event("click")
-        except Exception:
-            await click_exact(page, "Continue")
+    await click_exact(page, "Continue")
     
     deadline = asyncio.get_running_loop().time() + 25
     while asyncio.get_running_loop().time() < deadline:
@@ -865,27 +715,6 @@ async def human_type(locator, text: str) -> None:
 async def do_signup(page: Page, email: str, password: str) -> str:
     """Attempt signup flow."""
     try:
-        # Lovable shows the email as a chip ("Edit") on the signup page; the
-        # underlying <input type=email> may be empty, which keeps the submit
-        # button disabled. Reveal + fill it explicitly so the form validates.
-        edit_loc = page.get_by_text("Edit", exact=True)
-        if await edit_loc.count():
-            try:
-                await edit_loc.first.click(timeout=3_000)
-                await page.wait_for_timeout(400)
-            except Exception:
-                pass
-        email_input = page.locator('input[type="email"]').last
-        if await email_input.count():
-            cur = (await email_input.input_value()).strip().lower()
-            if cur != email.lower():
-                try:
-                    await email_input.click(timeout=2_000)
-                except Exception:
-                    pass
-                await email_input.fill(email)
-                await page.wait_for_timeout(200)
-
         passwords = page.locator('input[type="password"]')
         await passwords.nth(0).wait_for(timeout=20_000)
         await human_type(passwords.nth(0), password)
@@ -978,61 +807,15 @@ async def set_password_and_verify(page: Page, reset_url: str, password: str) -> 
     await wait_for_dashboard(page, timeout=60)
 
 
-async def handle_lovable_onboarding(page: Page) -> None:
-    """4-step onboarding after verify: Pick style → Name → Role → Company → chat."""
-    try:
-        for _ in range(3):
-            if "Pick your style" in await body_text(page):
-                btn = page.locator('button').filter(has_text='Next')
-                if await btn.count(): await btn.first.click(timeout=5000)
-                else: await page.get_by_role("button", name="Next").first.click(timeout=5000)
-                await page.wait_for_timeout(2000)
-            else: break
-        for _ in range(2):
-            if "What's your name" in await body_text(page):
-                inp = page.get_by_placeholder("Enter your name")
-                if await inp.count(): await inp.fill("Sam Dad")
-                btn = page.locator('button').filter(has_text='Next')
-                if await btn.count(): await btn.first.click(timeout=5000)
-                else: await page.get_by_role("button", name="Next").first.click(timeout=5000)
-                await page.wait_for_timeout(2000)
-            else: break
-        if "Which role fits you best" in await body_text(page):
-            founder = page.get_by_role("button", name="Founder")
-            if await founder.count(): await founder.first.click(timeout=5000)
-            else: await page.locator('button').filter(has_text='Founder').first.click(timeout=5000)
-            await page.wait_for_timeout(1500)
-            nxt = page.locator('button').filter(has_text='Next')
-            if await nxt.count():
-                try: await nxt.first.click(timeout=3000)
-                except: pass
-                await page.wait_for_timeout(2000)
-        if "How many people work at your company" in await body_text(page):
-            solo = page.get_by_role("button", name="Solo")
-            if await solo.count(): await solo.first.click(timeout=5000)
-            else: await page.locator('button').filter(has_text='Solo').first.click(timeout=5000)
-            await page.wait_for_timeout(3000)
-    except Exception as e:
-        print(f"  onboarding helper: {e}", file=sys.stderr)
-    await page.wait_for_timeout(3000)
-
 async def wait_for_dashboard(page: Page, timeout: float = 60) -> None:
-    """Wait for dashboard/chat — handles /dashboard and onboarding /getting-started."""
+    """Wait for dashboard to load with account menu verification."""
     deadline = asyncio.get_running_loop().time() + timeout
     while asyncio.get_running_loop().time() < deadline:
         current = await body_text(page)
         if "/dashboard" in page.url and "Dashboard" in current:
+            # Verify account menu is present
             account_menu = page.locator('button[aria-label="Account menu"]')
             if await account_menu.count():
-                return
-        if any(s in current for s in ("Pick your style", "What's your name", "Which role fits you best", "How many people work at your company")):
-            await handle_lovable_onboarding(page)
-            continue
-        if "Ask Lovable" in current or "What's the vision" in current:
-            chat = page.locator('textarea[placeholder*="Ask"], div[contenteditable="true"], input[placeholder*="Ask"]')
-            if await chat.count():
-                return
-            if "Ask Lovable to make a document" in current or "What's the vision" in current:
                 return
         await page.wait_for_timeout(1_000)
     
@@ -1081,10 +864,10 @@ def keep_browser_open() -> bool:
     return os.getenv("KEEP_BROWSER_OPEN", "1").lower() in ("1", "true", "yes")
 
 
-async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool = False) -> dict[str, object]:
-    print(f"🚀 Starting automation... (provider={'dispose.lol' if use_dispose else 'tempmailhub'})", file=sys.stderr)
+async def run(cdp_url: str | None, auto_close: bool = False) -> dict[str, object]:
+    print("🚀 Starting automation...", file=sys.stderr)
     
-    # Configure proxy - isolated warp proxy
+    # Configure InvisiblePlaywright properly for bot detection evasion - isolated warp proxy
     proxy_config = proxy_settings(for_api=False)
     playwright_proxy = None
     if proxy_config:
@@ -1096,43 +879,20 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
     else:
         print("🌐 Browser direct (warp=off, isolated)", file=sys.stderr)
     
-    # Launch browser — --dispose uses Firefox + weak-sandbox minimal (like SCRIPT3: headless True, 1280x720, memory-pressure-off)
-    _browser_ctx = None
-    _pw_ctx = None
-    if use_dispose:
-        # Dispose path = plain Firefox, headed (user wants visible), 1280x720, minimal args.
-        # Plain Firefox is used (not InvisiblePlaywright) because the Invisible
-        # persistent profile + cursor engine OOM-crashes under low free RAM.
-        print("🦊 Dispose mode: Firefox headed 1280x720 (plain)", file=sys.stderr)
-        from playwright.async_api import async_playwright as _pw
-        _pw_ctx = _pw()
-        _pw_enter = await _pw_ctx.__aenter__()
-        browser = await _pw_enter.firefox.launch(headless=False, proxy=playwright_proxy, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-extensions","--no-first-run","--window-size=1280,720","--js-flags=--max-old-space-size=1024","--memory-pressure-off","--disable-blink-features=AutomationControlled"])
-        _browser_ctx = _pw_enter
-    else:
-        try:
-            _browser_ctx = InvisiblePlaywright(headless=False, proxy=playwright_proxy, humanize=True, locale='en-US')
-            browser = await _browser_ctx.__aenter__()
-        except Exception as e:
-            if "GeoTimezone" in type(e).__name__ or "egress IP discovery" in str(e):
-                print(f"⚠️  Invisible geo failed ({e}) — fallback plain", file=sys.stderr)
-                from playwright.async_api import async_playwright as _pw
-                _pw_ctx = _pw()
-                _pw_enter = await _pw_ctx.__aenter__()
-                browser = await _pw_enter.chromium.launch(headless=False, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-blink-features=AutomationControlled"], proxy=playwright_proxy)
-                _browser_ctx = _pw_enter
-            else:
-                raise
-    try:
-        # Browser launched — context with correct viewport per mode
-        print(f"✅ Browser launched ({'Firefox' if use_dispose else 'Chromium'} {'Invisible' if 'Invisible' in type(_browser_ctx).__name__ else 'plain'})", file=sys.stderr)
+    # Use InvisiblePlaywright with humanization enabled
+    async with InvisiblePlaywright(
+        headless=False,
+        proxy=playwright_proxy,
+        humanize=True,  # Human-like mouse movements and typing
+        locale='en-US',
+    ) as browser:
+        print("✅ Browser launched (InvisiblePlaywright)", file=sys.stderr)
         
         # InvisiblePlaywright returns Browser directly
         if isinstance(browser, BrowserContext):
             context = browser
         else:
-            vp = {"width": 1280, "height": 720} if use_dispose else {"width": 1440, "height": 900}
-            context = browser.contexts[0] if browser.contexts else await browser.new_context(viewport=vp)
+            context = browser.contexts[0] if browser.contexts else await browser.new_context(viewport={"width": 1440, "height": 900})
         
         print("✅ Context ready", file=sys.stderr)
         # Create Lovable page (NO TempMail page - TRUE API-ONLY!)
@@ -1146,21 +906,13 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         except asyncio.TimeoutError:
             print("⚠️  Egress IP check timed out, continuing...", file=sys.stderr)
         
-        dispose_inbox = None
-        if use_dispose:
-            dispose_inbox = DisposeLolLovable(context)
-            await dispose_inbox._ensure_page()
-
         last_error: Optional[Exception] = None
         for attempt in range(1, 4):
             try:
-                if use_dispose:
-                    print(f"\n🔄 Attempt {attempt}/3: Creating account via dispose.lol...", file=sys.stderr)
-                    email, email_id = await dispose_inbox.create()
-                else:
-                    print(f"\n🔄 Attempt {attempt}/3: Creating account via TRUE API-ONLY mode...", file=sys.stderr)
-                    email, email_id = create_working_email()
-                password = f"{email}K0"
+                # TRUE API-ONLY: Create email via API (no page at all)
+                print(f"\n🔄 Attempt {attempt}/3: Creating account via TRUE API-ONLY mode...", file=sys.stderr)
+                email, email_id = create_working_email()
+                password = email if re.search(r"\d", email) else f"{email}1"
                 
                 mode = await request_login(lovable_page, email)
                 
@@ -1169,25 +921,16 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
                     try:
                         signup_result = await do_signup(lovable_page, email, password)
                     except Exception as exc:
-                        if use_dispose:
-                            print(f"⚠️  Signup failed ({exc}), retry via verify link...", file=sys.stderr)
-                            reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
-                            await navigate(lovable_page, reset_url)
-                            await wait_for_dashboard(lovable_page, timeout=60)
-                        else:
-                            print(f"⚠️  Signup failed ({exc}), using reset path...", file=sys.stderr)
-                            await navigate(lovable_page, f"{LOVABLE_URL}login")
-                            await request_login(lovable_page, email)
-                            await do_password_reset(lovable_page, email)
-                            reset_url = await read_reset_link(email_id, timeout=180, page=lovable_page)
-                            await set_password_and_verify(lovable_page, reset_url, password)
+                        print(f"⚠️  Signup failed ({exc}), using reset path...", file=sys.stderr)
+                        await navigate(lovable_page, f"{LOVABLE_URL}login")
+                        await request_login(lovable_page, email)
+                        await do_password_reset(lovable_page, email)
+                        reset_url = await read_reset_link(email_id, timeout=180, page=lovable_page)
+                        await set_password_and_verify(lovable_page, reset_url, password)
                     else:
                         if signup_result == "verify":
                             print("📧 Lovable: Email verification required...")
-                            if use_dispose:
-                                reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
-                            else:
-                                reset_url = await read_reset_link(email_id, timeout=180, page=lovable_page)
+                            reset_url = await read_reset_link(email_id, timeout=180, page=lovable_page)
                             await navigate(lovable_page, reset_url)
                             await wait_for_dashboard(lovable_page, timeout=60)
                         elif signup_result == "login":
@@ -1196,22 +939,10 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
                             await click_exact(lovable_page, "Log in")
                             await wait_for_dashboard(lovable_page, timeout=45)
                 else:
-                    if use_dispose:
-                        print("📝 Lovable: exists in dispose mode — setting pwd then verify link...", file=sys.stderr)
-                        try:
-                            await do_signup(lovable_page, email, password)
-                            reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
-                            await navigate(lovable_page, reset_url)
-                            await wait_for_dashboard(lovable_page, timeout=60)
-                        except:
-                            await do_password_reset(lovable_page, email)
-                            reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
-                            await set_password_and_verify(lovable_page, reset_url, password)
-                    else:
-                        print("🔄 Lovable: Account exists, requesting password reset...")
-                        await do_password_reset(lovable_page, email)
-                        reset_url = await read_reset_link(email_id, timeout=180, page=lovable_page)
-                        await set_password_and_verify(lovable_page, reset_url, password)
+                    print("🔄 Lovable: Account exists, requesting password reset...")
+                    await do_password_reset(lovable_page, email)
+                    reset_url = await read_reset_link(email_id, timeout=180, page=lovable_page)
+                    await set_password_and_verify(lovable_page, reset_url, password)
                 
                 break
             except Exception as exc:
@@ -1326,36 +1057,22 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         if auto_close:
             print("\n✅ Auto-closing browser (--end flag set)", file=sys.stderr)
             if not cdp_url:
-                try: await browser.close()
-                except: pass
+                await browser.close()
         elif keep_browser_open() and not cdp_url:
             print("\n✋ Browser staying open. Press Enter to close...", file=sys.stderr)
             input()
-            try: await browser.close()
-            except: pass
+            await browser.close()
         elif not cdp_url:
-            try: await browser.close()
-            except: pass
+            await browser.close()
         
         return result
-    finally:
-        # close the InvisiblePlaywright / playwright context manager
-        try:
-            if '_browser_ctx' in locals() and _browser_ctx:
-                await _browser_ctx.__aexit__(None, None, None)
-        except: pass
-        try:
-            if '_pw_ctx' in locals() and _pw_ctx:
-                await _pw_ctx.__aexit__(None, None, None)
-        except: pass
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create Lovable account via TempMailHub / dispose.lol")
+    parser = argparse.ArgumentParser(description="Create Lovable account via TempMailHub API-ONLY")
     parser.add_argument("--cdp-url", help="Connect to existing browser via CDP")
     parser.add_argument("--end", action="store_true", help="Close browser when done (don't wait for Enter)")
     parser.add_argument("--raw", action="store_true", help="Force direct connection (no proxy/WARP)")
-    parser.add_argument("--dispose", action="store_true", help="Use dispose.lol Gmail (separate tab, setting pwd → verify link + onboarding)")
     args = parser.parse_args()
     
     cdp = args.cdp_url or os.getenv("BU_CDP_WS")
@@ -1365,7 +1082,7 @@ def main() -> None:
         os.environ["FORCE_NO_PROXY"] = "1"
     
     try:
-        result = asyncio.run(run(cdp, auto_close=args.end, use_dispose=args.dispose))
+        result = asyncio.run(run(cdp, auto_close=args.end))
     except FlowError as e:
         print(f"\n❌ Automation failed: {e}", file=sys.stderr)
         sys.exit(1)

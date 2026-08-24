@@ -259,7 +259,10 @@ async def sign_in_to_railway(railway_page, mailbox: DisposeLolInbox):
     print("\n🚂 Signing in to Railway...")
     
     await railway_page.goto(RAILWAY_LOGIN, wait_until="domcontentloaded")
-    await railway_page.wait_for_load_state("networkidle", timeout=15000)
+    try:
+        await railway_page.wait_for_load_state("networkidle", timeout=15000)
+    except Exception:
+        await railway_page.wait_for_load_state("load", timeout=15000)
     
     # Click "Log in using email"
     email_btn = railway_page.get_by_role("button", name="Log in using email", exact=True)
@@ -270,11 +273,21 @@ async def sign_in_to_railway(railway_page, mailbox: DisposeLolInbox):
     
     await railway_page.wait_for_timeout(2000)
     
-    # Fill email
+    # Fill email - human typing
     email_input = railway_page.get_by_placeholder("hello@email.com")
     await expect(email_input).to_be_visible(timeout=15000)
-    await email_input.fill(mailbox.address)
-    print(f"✓ Filled email: {mailbox.address}")
+    await email_input.click(timeout=5000)
+    await railway_page.wait_for_timeout(300)
+    # human type with random delay
+    import random
+    for ch in mailbox.address:
+        await email_input.press_sequentially(ch, delay=random.randint(40, 180))
+        if random.random() < 0.08:
+            await railway_page.wait_for_timeout(random.randint(80, 250))
+    await railway_page.wait_for_timeout(random.randint(200, 500))
+    await email_input.evaluate("el => el.blur()")
+    await railway_page.mouse.move(random.randint(100,700), random.randint(100,500), steps=random.randint(3,7))
+    print(f"✓ Filled email: {mailbox.address} (human)")
     
     # Check if Cloudflare Turnstile appears and solve it
     print("🔍 Checking for Cloudflare Turnstile...")
