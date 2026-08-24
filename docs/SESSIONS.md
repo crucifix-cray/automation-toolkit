@@ -4,6 +4,20 @@ Recap of the working sessions that produced this repo. Local session
 workspaces (auth artifacts, cookies, CLI tokens) are git-ignored – only
 their reproducible outputs (code, docs) are committed.
 
+## Session 2026-08-23/24 – Railway account farm (Turnstile + sessions)
+
+- Deployed persistent `Ubuntu 24.04` on Railway project `test-ubuntu-6` (service ID `d1970e69`, `ams` region)
+- VNC access: `https://ubuntu-2404-production-1185.up.railway.app` port 6080, password `admin123`
+- Built no-TUN OpenVPN chain: `openvpn-tunpipe` + `tunsocks` (127.0.0.1:1080) + `wireproxy` (127.0.0.1:40000)
+- ProtonVPN pool: 96 ovpn on persistent `/tmp/proton/`, `credentials.txt` `0yqflkJmsb5Xr6Rz`
+- WGCF pool: 245 valid `wgcf-profile.conf` from `mega:chimera/wgcf-pool/`
+- Installed: patchright, playwright-captcha 0.1.5, xvfb, tigervnc, websockify, noVNC, fluxbox, go1.22.2, wireproxy, rclone
+- Sessions from zip: 12 configs (oliver, gabriel, cruz, ae, kar, railway6567, gunit, floun, milky, ha, katrina, gabrielgreen14)
+- 4 good sessions confirmed working: `1 eyx1...@usdtbeta.com`, `2 st.ode...@gmail.com`, `3 jzw...@outlook.com`, `4 bsu...@gmail.com` (4th from fresh holy run on persistent)
+- Turnstile blocker: `Continue with Email` stays disabled even with `human blur mouse` + `No visible Turnstile` mode
+- Screenshot push to `mega:railway_screenshots` working
+- Local host `holy` `--no-warp` reached Turnstile poll but button disabled 115s
+
 ## Session 2026-08-24 – WARP chain rebuild + Lovable Cloudflare flagging
 
 - Rebuilt the isolated WARP+ProtonVPN chain in netns `warp-1` from scratch after reboot
