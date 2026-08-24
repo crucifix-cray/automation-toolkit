@@ -70,6 +70,154 @@ HANDLERS = [
     ("@outlook.com", "https://22.do/temporary-outlook", "@outlook.com"),
 ]
 
+class MailTmInbox:
+    """mail.tm API-based inbox — no browser needed, works through any proxy"""
+    MAIL_TM_API = "https://api.mail.tm"
+    _token = None
+    _account_id = None
+
+    def __init__(self, context=None, target_domain=None, recovery_email=None):
+        self.context = context
+        self.address = recovery_email
+        self.target_domain = target_domain
+        self.recovery_email = recovery_email
+        self.handler_used = None
+
+    def _api(self, method, path, data=None, token=None):
+        url = f"{self.MAIL_TM_API}{path}"
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        req = urllib.request.Request(url, data=json.dumps(data).encode() if data else None, headers=headers, method=method)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+
+    async def create(self):
+        if self.recovery_email:
+            self.address = self.recovery_email
+            print(f"♻️  Using recovery email: {self.address}")
+            return self.address
+        print("\n📧 Creating mail.tm mailbox...")
+        # get available domains
+        domains = self._api("GET", "/domains")
+        dom_list = [d["domain"] for d in domains.get("hydra:member", [])]
+        if not dom_list:
+            raise RuntimeError("No mail.tm domains available")
+        dom = random.choice(dom_list)
+        local = ''.join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=12))
+        addr = f"{local}@{dom}"
+        pwd = secrets.token_hex(16)
+        # create account
+        acct = self._api("POST", "/accounts", {"address": addr, "password": pwd})
+        self._account_id = acct.get("id")
+        # get token
+        tok_data = self._api("POST", "/token", {"address": addr, "password": pwd})
+        self._token = tok_data.get("token")
+        self.address = addr
+        print(f"✅ Mailbox ready: {self.address} (via mail.tm)")
+        return self.address
+
+    async def wait_for_railway_code(self, timeout_seconds=300):
+        if not self.address:
+            raise Exception("No address set")
+        print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
+        pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
+        deadline = time.time() + timeout_seconds
+        check_count = 0
+        while time.time() < deadline:
+            check_count += 1
+            try:
+                msgs = self._api("GET", "/messages", token=self._token)
+                items = msgs.get("hydra:member", [])
+                if check_count % 10 == 1:
+                    print(f"  Check #{check_count}: {len(items)} message(s)")
+                for msg in items:
+                    subj = msg.get("subject", "")
+                    intro = msg.get("intro", "")
+                    if "railway" in subj.lower() or "railway" in intro.lower():
+                        # fetch full message
+                        full = self._api("GET", f"/messages/{msg['id']}", token=self._token)
+                        body = full.get("text", "") or full.get("html", [""])[0] if isinstance(full.get("html"), list) else full.get("html", "")
+                        m = pattern.search(subj + " " + intro + " " + body)
+                        if m:
+                            print(f"  ✅ OTP: {m.group(1)}")
+                            return m.group(1)
+            except Exception as e:
+                if check_count % 10 == 1:
+                    print(f"  Check #{check_count}: error {e}")
+            await asyncio.sleep(3)
+        raise RuntimeError("OTP not received within timeout")
+
+
+class DisposeLolInbox:
+    """Dispose.lol Gmail - browser-based, works through WARP"""
+    def __init__(self, context=None, target_domain=None, recovery_email=None):
+        self.context = context
+        self.page = None
+        self.address = recovery_email
+        self.target_domain = target_domain
+        self.recovery_email = recovery_email
+        self.handler_used = None
+        self.BASE_URL = "https://dispose.lol"
+
+    async def create(self):
+        if self.recovery_email:
+            self.address = self.recovery_email
+            print(f"♻️  Using recovery email: {self.address}")
+            return self.address
+        print("\n📧 Creating dispose.lol Gmail...")
+        self.page = await self.context.new_page()
+        try:
+            await self.page.goto(self.BASE_URL, wait_until="load", timeout=60000)
+            await self.page.wait_for_timeout(5000)
+            email_text = await self.page.evaluate('''() => {
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+                let node;
+                while (node = walker.nextNode()) {
+                    const text = node.textContent.trim();
+                    if (text.includes('@gmail.com') && text.length < 100) return text;
+                }
+                return null;
+            }''')
+            if email_text and '@gmail.com' in email_text:
+                self.address = email_text.strip()
+                print(f"✅ Mailbox ready: {self.address} (via dispose.lol)")
+                return self.address
+            await self.page.screenshot(path="/tmp/disposelol-error.png", full_page=True)
+            raise Exception("Could not find dispose.lol email address")
+        except Exception:
+            if self.page:
+                await self.page.close()
+            raise
+
+    async def wait_for_railway_code(self, timeout_seconds=300):
+        if not self.address:
+            raise Exception("No address set")
+        print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
+        pattern = re.compile(r'\b(\d{6})\b')
+        deadline = time.time() + timeout_seconds
+        check_count = 0
+        while time.time() < deadline:
+            check_count += 1
+            await self.page.reload(wait_until="load")
+            await self.page.wait_for_timeout(2000)
+            message_buttons = await self.page.locator('button[aria-label^="View "]').all()
+            if check_count % 10 == 1:
+                print(f"  Check #{check_count}: {len(message_buttons)} message(s)")
+            for button in message_buttons:
+                aria_label = await button.get_attribute('aria-label')
+                if aria_label and 'railway' in aria_label.lower():
+                    subject = aria_label.replace('View ', '')
+                    print(f"  ✅ Found Railway message: {subject}")
+                    match = pattern.search(subject)
+                    if match:
+                        otp = match.group(1)
+                        print(f"  🎯 OTP: {otp}")
+                        return otp
+            await asyncio.sleep(3)
+        raise RuntimeError("OTP not received within timeout")
+
+
 class TwoTwoDoInbox:
     """22.do Provider Pool — random handler per run, supports recovery mode"""
     def __init__(self, context, target_domain=None, recovery_email=None):
@@ -179,12 +327,7 @@ class TwoTwoDoInbox:
         pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
         deadline = time.time() + timeout_seconds
         check_count = 0
-        # use direct (no-proxy) context for 22.do to avoid warp ERR_PROXY_CONNECTION_FAILED
-        try:
-            direct_ctx = await self.context.browser.new_context()
-            pg = await direct_ctx.new_page()
-        except Exception:
-            pg = await self.context.new_page()
+        pg = await self.context.new_page()
         await pg.goto(f"https://22.do/inbox/#/{self.address}", wait_until="domcontentloaded", timeout=60000)
         await pg.wait_for_timeout(3000)
         try:
@@ -598,8 +741,20 @@ async def scroll_terms_dialog(dialog) -> None:
     }""")
 
 async def dismiss_cookie_banner(page) -> None:
-    for _ in range(4):
-        root = page.locator(".fc-message-root").first
+    for _ in range(6):
+        removed = False
+        for sel in [".osano-cm-window", ".fc-message-root", "[aria-label='Cookie Consent Banner']"]:
+            els = page.locator(sel)
+            for i in range(await els.count()):
+                try:
+                    await els.nth(i).evaluate("el => el.remove()")
+                    removed = True
+                except:
+                    pass
+        if removed:
+            await page.wait_for_timeout(300)
+            continue
+        root = page.locator(".fc-message-root, .osano-cm-window, [aria-label='Cookie Consent Banner']").first
         if not await root.count() or not await root.is_visible():
             return
         buttons = root.locator("button")
@@ -647,7 +802,11 @@ async def accept_railway_policies(page):
                     await expect(button).to_be_enabled(timeout=3000)
                 except:
                     continue
-                await button.click()
+                try:
+                    await button.click(timeout=5000)
+                except:
+                    await dismiss_cookie_banner(page)
+                    await button.click(force=True, timeout=5000)
                 print(f"  ✅ Clicked {name}")
                 clicked = True
                 break
@@ -881,7 +1040,7 @@ async def run(use_warp=False):
         # Initialize browser - ONLY browser uses proxy, system/direct stays warp=off
         # CRITICAL: use socks4 for railway.com (socks5 fails with ERR_SOCKS_CONNECTION_FAILED code 5 due IPv6 NAT64)
         async with async_playwright() as p:
-            proxy_settings = {"server": "socks5://127.0.0.1:40000", "bypass": "127.0.0.1,localhost,22.do,*.22.do,railway.com,*.railway.com,*.railway.app,backboard.railway.com"} if use_warp else None
+            proxy_settings = None  # Browser goes direct — mail.tm is API-only, railway.com works direct from sandbox
             if proxy_settings:
                 print(f"🌐 Browser proxy: {proxy_settings['server']} bypass={proxy_settings['bypass']} (isolated, wireproxy socks5)")
             browser = await p.chromium.launch(
@@ -937,17 +1096,34 @@ async def run(use_warp=False):
             _handler_desc = recovery_email or target_domain or "random pool"
             print(f"📧 22.do handler: {_handler_desc} (pool {len(HANDLERS)} handlers)")
             # --- retry wrapper: don't exit on tab crash, retry fresh tab/handler (minimal) ---
+            mailbox = None
             for _crash_attempt in range(3):
                 try:
                     mailbox = TwoTwoDoInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
                     mailbox.railway_page = page  # keep compat with close()
                     await mailbox.create()
-                    # Sign in to Railway
-                    await sign_in_to_railway(page, mailbox)
                     break
                 except Exception as _e:
                     _msg = str(_e)
+                    _is_22do_fail = ("ERR_CONNECTION_CLOSED" in _msg or "ERR_PROXY_CONNECTION_FAILED" in _msg or "403" in _msg or "Timeout" in _msg)
                     _is_crash = ("Target crashed" in _msg or "TargetClosed" in _msg or "Page crashed" in _msg or "has been closed" in _msg or page.is_closed())
+                    if _is_22do_fail:
+                        print(f"⚠️  22.do blocked ({_msg[:80]}), trying dispose.lol...")
+                        try:
+                            if not page.is_closed():
+                                await page.close()
+                        except Exception:
+                            pass
+                        try:
+                            dispose_mailbox = DisposeLolInbox(context=context)
+                            await dispose_mailbox.create()
+                            mailbox = dispose_mailbox
+                            break
+                        except Exception as _de:
+                            print(f"⚠️  dispose.lol also failed ({str(_de)[:60]}), falling back to mail.tm API...")
+                            mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                            await mailbox.create()
+                            break
                     if _is_crash:
                         print(f"💥 crash detected (attempt {_crash_attempt+1}/3): {_msg[:180]} — retrying fresh tab/handler")
                         try:
@@ -967,6 +1143,15 @@ async def run(use_warp=False):
                     raise
             else:
                 raise RuntimeError("tab crashed 3x — aborting run")
+            
+            # Recreate page if it was closed during fallback
+            if page.is_closed():
+                page = await context.new_page()
+                page.on("crash", _on_crash)
+                page.on("close", lambda _: print("❌ tab closed"))
+            
+            # Sign in to Railway
+            await sign_in_to_railway(page, mailbox)
             
             # Accept policies
             await accept_railway_policies(page)
