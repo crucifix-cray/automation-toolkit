@@ -92,3 +92,25 @@
 - Resume `railway-HOLY-22do-full.py` on persistent VNC with ovpn 1080 chain
 - Debug Turnstile: try explicit iframe click, evaluate `turnstile.execute()`, or headless mode
 - Cancer growth: 15 parallel → 4k in ~2h, 40k in ~2h51m
+
+---
+
+## 🔄 2026-08-25 — Chrome → WARP on Railway gVisor (persistent Ubuntu 24.04, 2 vCPU / ~953 MB)
+
+**Context:** Persistent `test-ubuntu-6` (`Ubuntu 24.04` `ams`, `VNC Xtigervnc :2` `800x600` `fluxbox` `5902` → `websockify 6080` `admin123`, `gVisor`, no `CAP_NET_ADMIN`/`TUN`/`netns`/`bwrap`) — goal was `Headed Chrome → WARP → Tor → Internet` with `WARP` as final exit, but pivoted to first get `Chrome → WARP` working alone.
+
+**What works now (verified 2026-08-25):**
+- `WARP` `warp-cli 2026.6.880.0` `MASQUE` `warp-svc` `127.0.0.1:40000` `warp=on` `104.28.251.138` (also `wireproxy` `gVisor` `40000` `warp=on` `104.28.219.140`) — `curl --socks5 127.0.0.1:40000 https://www.cloudflare.com/cdn-cgi/trace` `warp=on`, `curl -x http://127.0.0.1:40000 -I https://example.com` `200`
+- `Tor` `0.4.8.10` `127.0.0.1:9050` `100% Done` `curl --socks5-hostname 127.0.0.1:9050 https://ifconfig.me` `192.42.116.17`
+- `Direct` headed `Chrome`/`Firefox` `800×600` `DISPLAY=:2` `VNC :2` `about:blank` → `https://example.com` `200` for `example.com`/`google`/`myip`/`railway`/`dispose`/`22.do` (host `152.55.184.157` direct)
+- `VNC` `Xtigervnc :2` `5902` + `fluxbox` + `websockify 6080` `admin123` `Workspace 1` visible, `keepalive` `firefox` `headless=False` `DISPLAY=:2` `about:blank` direct on `VNC :2`
+
+**What does NOT work (all `patchright`/`playwright` `headed` `800×600` `DISPLAY=:2` via WARP on this `1 GB` `gVisor`):**
+- `socks5://127.0.0.1:40000` `warp` → `example.com`/`google` `Timeout`/`ERR_SOCKS_CONNECTION_FAILED`/`ERR_CONNECTION_CLOSED` (both `wireproxy` and `warp-svc` on `40000`, `chromium`/`firefox`, `socks4`/`socks5`, `HTTP` `http://127.0.0.1:40000` `gost` `http://:8080 → socks5://127.0.0.1:40000` `200` for `curl` but `Timeout` for browser, `graftcp --enable-dns --socks5 127.0.0.1:1080` `CreatePlatformSocket() failed: Function not implemented (38)` on `gVisor` `127.x` token, `usque-rs` `smoltcp` `1080` `AddrParseError`)
+- `ovpn` `tunsocks :1080` `ovpn` `212.8.243.131` via `127.0.0.1:40000` chain `Initialization Sequence Completed` → `curl --socks5 127.0.0.1:1080` `Timeout` for `www.google.com` but `SNI` `sniproxy` `127.0.0.1:80`/`443` `→` `socks5://127.0.0.1:1080` `ATYP=1` `PIPE START` `C2R=742` for first `curl --resolve` `example.com:443:127.0.0.1` `Connected` `TLS handshake`, but `Chrome` `MAP * 127.0.0.1` `Timeout` for `https://example.com` via `SNI` `127.0.0.1:443`
+- `WARP` through `Tor` via `Vwarp --proxy socks5://127.0.0.1:9050` `WireGuard` `UDP ASSOCIATE failed` (Tor `9050` no UDP) and `masque` `QUIC CRYPTO_ERROR 0x128` for `188.114.98.218:443`/`99.64` for all `Tor` exits even after `SIGNAL NEWNYM` — Cloudflare rejects WARP `MASQUE` handshake from Tor
+
+**Next for WARP:**
+- The `1 GB` `gVisor` `Netstack` `SOCKS5` `remote DNS` `ATYP=0x03` + `HTTP/2` + `NetworkService` `loopback` `127.0.0.1:40000` handling fails for headed `Chrome` even though `curl` `200`. The only `Chrome` `200` is `direct` `152.55.184.157`. The next viable single-sandbox path is `Chrome → SNI 127.0.0.1:443 → socks5://127.0.0.1:1080 ATYP=1 → OVPN → WARP` via the minimal `python3 /tmp/sni_relay.py` (`127.0.0.1:80`/`443` `→` `socks5://127.0.0.1:1080` `ATYP=1` `PIPE`) — first `curl --resolve` `Connected` `TLS handshake` but `Chrome` `Timeout` still, needs `sing-box` `tun` via `netns` (requires `CAP_NET_ADMIN` → `Permission denied` on Railway) or external tiny VPS gateway (`Railway` → `HTTP CONNECT` → `VPS` `OVPN+WARP`).
+
+**Keepalive:** `firefox` `headless=False` `DISPLAY=:2` `about:blank` `direct` on `VNC :2` for now; `warp+ovpn` `40000`/`1080` remain for `curl`/`tunsocks` on same host.
