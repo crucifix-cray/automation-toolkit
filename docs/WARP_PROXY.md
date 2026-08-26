@@ -356,3 +356,12 @@ Caveats:
 - This also dodges the "Turnstile unreachable through WARP SOCKS5" stall, because the request is issued
   by `httpx`, not Chromium's SOCKS stack.
 
+---
+
+## 2026-08-26 (night) — lenovo warp-1 MAD + Holy bypass patch
+
+- `warp-1` rebuilt `veth 10.200.1.1/30→10.200.1.2/30 NAT wlan0` `wg0 2a09:bac1:4680:10::28:16b MAD warp=on loc=MA MTU 1280` `microsocks 10.200.1.2:40001` `socat 127.0.0.1:40000`. Verified `curl --socks5 127.0.0.1:40000 trace warp=on`.
+- `OVPN` `AUTH_FAILED` for all `mega:protonvpn` `nl-free-101/113` etc with `0yqflkJmsb5Xr6Rz / Z1zZ...` — creds expired/rate-limited; chain is currently WARP-only MAD, not OVPN→WARP. For true OVPN→WARP set `Endpoint = engage.cloudflareclient.com:2408` (hostname, not `162.159.192.1:2408`) so handshake egresses via `tun0` nearest colo (AMS/NL not MAD).
+- `railway-HOLY-22do-full.py` `warp_handler` patched: bypass `22.do/dispose.lol/mail.tm/railway.*` → `route.continue_()` (direct), else `httpx socks5://127.0.0.1:40000`, on exception `continue_()` not `abort()` — fixes `ERR_FAILED` at `22.do` via warp.
+- Holy now loops `5×` `shuf wgcf-pool` `MAD` alternating `WARP`/`--no-warp` `180s` (`lenovo pid 207515` + `railway farm_endless`). Both still `Turnstile Continue [disabled]` `115s` `EPIPE Node.js 24.17` — need clean egress (`OVPN NL` or rotated `wgcf LHR/IAD/US`).
+

@@ -27,6 +27,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from playwright.async_api import async_playwright, expect, TimeoutError as PlaywrightTimeout
+try:
+    import httpx
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
 
 # Import playwright-captcha for auto Cloudflare Turnstile solving
 try:
@@ -387,6 +392,17 @@ def _warp_proxy_alive():
     return False
     return False
 
+def _pick_proxy():
+    """Pick best alive proxy for 1GB host: 40000 (wireproxy warp) first - 1080 tunsocks fails for browser (ERR_SOCKS_CONNECTION_FAILED)"""
+    import socket
+    for port in (40000, 1080):
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=2):
+                return f"socks5://127.0.0.1:{port}"
+        except:
+            continue
+    return None
+
 def rotate_warp_ip():
     """Rotate WARP IP - proxy mode: warp-cli disconnect/connect"""
     print("🔄 Rotating WARP IP (proxy mode)...")
@@ -541,29 +557,66 @@ async def sign_in_to_railway(page, mailbox):
             await page.wait_for_load_state("load", timeout=15000)
         except: pass
     
-    # Click "Log in using email"
-    email_btn = page.get_by_role("button", name="Log in using email", exact=True)
-    await expect(email_btn).to_be_visible(timeout=10000)
-    await expect(email_btn).to_be_enabled(timeout=10000)
-    await email_btn.click()
+    # Click "Log in using email" - robust for flagged IP (Welcome screen may stay, 67% zoom may hide)
+    await page.evaluate("document.body.style.zoom='100%'")
+    clicked = False
+    for locator in [
+        page.get_by_role("button", name="Log in using email"),
+        page.get_by_text("Log in using email"),
+        page.locator('text=Log in using email'),
+        page.locator('a:has-text("Log in using email")'),
+    ]:
+        try:
+            await expect(locator.first).to_be_visible(timeout=5000)
+            await locator.first.scroll_into_view_if_needed(timeout=3000)
+            try:
+                await locator.first.click(timeout=5000)
+            except:
+                await locator.first.evaluate("el => el.click()")
+            clicked = True
+            break
+        except:
+            continue
+    if not clicked:
+        raise Exception("Log in using email not clickable")
     print("✓ Clicked 'Log in using email'")
     
-    await page.wait_for_timeout(2000)
-    
-    # Fill email - human typing
-    email_input = page.get_by_placeholder("hello@email.com")
-    await expect(email_input).to_be_visible(timeout=15000)
-    await email_input.click(timeout=5000)
-    await page.wait_for_timeout(300)
-    import random
-    for ch in mailbox.address:
-        await email_input.press_sequentially(ch, delay=random.randint(40, 180))
-        if random.random() < 0.08:
-            await page.wait_for_timeout(random.randint(80, 250))
-    await page.wait_for_timeout(random.randint(200, 500))
-    await email_input.evaluate("el => el.blur()")
-    await page.mouse.move(random.randint(100,700), random.randint(100,500), steps=random.randint(3,7))
+    # Fill email - retry with flexible locators until field actually appears (flagged IP can eat the click)
+    email_input = page.locator(
+        'input[type="email"], input[inputmode="email"], input[name="email"], '
+        'input[autocomplete="email"], input[placeholder*="@"], input[placeholder*="email" i]'
+    ).first
+    filled = False
+    for _ in range(6):
+        try:
+            await expect(email_input).to_be_visible(timeout=8000)
+            await email_input.fill(mailbox.address)
+            filled = True
+            break
+        except Exception:
+            for loc in [
+                page.get_by_role("button", name="Log in using email"),
+                page.get_by_text("Log in using email"),
+                page.locator('a:has-text("Log in using email")'),
+                page.locator('text=Continue with Email'),
+            ]:
+                try:
+                    await expect(loc.first).to_be_visible(timeout=3000)
+                    await loc.first.scroll_into_view_if_needed(timeout=2000)
+                    try: await loc.first.click(timeout=3000)
+                    except: await loc.first.evaluate("el => el.click()")
+                    break
+                except: continue
+            await page.wait_for_timeout(2000)
+    if not filled:
+        raise Exception("Email input never appeared (Railway login stuck on Welcome screen)")
     print(f"✓ Filled email: {mailbox.address} (human)")
+    # human blur
+    try:
+        await email_input.evaluate("el => el.blur()")
+        await page.mouse.move(random.randint(100,700), random.randint(100,500), steps=random.randint(3,7))
+    except:
+        pass
     
     # Check for Cloudflare Turnstile - poll up to 10s (sandbox wireproxy late load)
     print("🔍 Checking for Cloudflare Turnstile...")
@@ -1037,28 +1090,77 @@ async def run(use_warp=False):
                     use_warp = False
         
         print("\n🚀 Launching browser...")
-        # Initialize browser - ONLY browser uses proxy, system/direct stays warp=off
-        # CRITICAL: use socks4 for railway.com (socks5 fails with ERR_SOCKS_CONNECTION_FAILED code 5 due IPv6 NAT64)
+        # WARP route interception: browser goes direct, page.route does WARP via httpx (fixes gVisor SOCKS hang)
         async with async_playwright() as p:
-            proxy_settings = None  # Browser goes direct — mail.tm is API-only, railway.com works direct from sandbox
-            if proxy_settings:
-                print(f"🌐 Browser proxy: {proxy_settings['server']} bypass={proxy_settings['bypass']} (isolated, wireproxy socks5)")
+            picked = _pick_proxy() if use_warp else None
+            # If WARP route will be used, browser itself stays direct (route handles WARP)
+            if use_warp and HTTPX_AVAILABLE and picked:
+                proxy_settings = None
+                print(f"🌐 Browser direct, WARP route via httpx socks5://127.0.0.1:40000 (gVisor SOCKS fix)")
+            else:
+                proxy_settings = {"server": picked, "bypass": "127.0.0.1,localhost,dispose.lol,*.dispose.lol,22.do,*.22.do,railway.com,*.railway.com,*.railway.app,backboard.railway.com"} if picked else None
+                if proxy_settings:
+                    print(f"🌐 Browser proxy: {proxy_settings['server']} bypass={proxy_settings['bypass']} (isolated, wireproxy socks5)")
             browser = await p.chromium.launch(
-                headless=False,
+                headless=True,
                 args=[
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
+                    '--disable-software-rasterizer',
                     '--disable-extensions',
                     '--no-first-run',
-                    '--window-size=1280,720',
-                    '--js-flags=--max-old-space-size=512',
+                    '--window-size=800,600',
+                    '--single-process',
+                    '--no-zygote',
+                    '--disable-site-isolation-trials',
+                    '--disable-features=IsolateOrigins,site-per-process,Translate,AutomationControlled',
+                    '--js-flags=--max-old-space-size=96',
                     '--memory-pressure-off',
-                    '--disable-blink-features=AutomationControlled'
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-background-networking',
+                    '--disable-background-timer-throttling',
+                    '--disable-renderer-backgrounding',
+                    '--disable-ipc-flooding-protection',
+                    '--aggressive-cache-discard'
                 ]
             )
-            context = await browser.new_context(proxy=proxy_settings, viewport={"width": 1280, "height": 720})
+            context = await browser.new_context(proxy=proxy_settings, viewport={"width": 800, "height": 600})
+            # WARP route interception — headed Chromium egress via WARP without browser SOCKS (fixes gVisor SOCKS hang)
+            if use_warp and HTTPX_AVAILABLE:
+                try:
+                    HOP = {"host","connection","proxy-connection","proxy-authorization","keep-alive","transfer-encoding","content-length","upgrade"}
+                    async def warp_handler(route):
+                        url = route.request.url
+                        if url.startswith(("data:","about:")):
+                            return await route.continue_()
+                        # bypass 22.do / dispose / railway direct (warp 403), keep warp for Turnstile/cloudflare
+                        if any(d in url for d in ["22.do", "dispose.lol", "mail.tm", "api.mail.tm", "railway.com", "railway.app", "backboard.railway.com"]):
+                            return await route.continue_()
+                        try:
+                            headers = {k:v for k,v in route.request.headers.items() if k.lower() not in HOP}
+                            body = route.request.post_data.encode() if route.request.post_data else None
+                            async with httpx.AsyncClient(proxy="socks5://127.0.0.1:40000", timeout=25, follow_redirects=True, verify=False) as c:
+                                r = await c.request(route.request.method, url, headers=headers, content=body)
+                            resp = {k:v for k,v in r.headers.items() if k.lower() not in (HOP|{"content-encoding","content-length"})}
+                            await route.fulfill(status=r.status_code, headers=resp, body=r.content)
+                        except Exception:
+                            try: await route.continue_()
+                            except: pass
+                    await context.route("**/*", warp_handler)
+                    print("🌐 WARP route interception active (httpx via socks5://127.0.0.1:40000)")
+                except Exception as e:
+                    print(f"⚠️ WARP route failed: {e}")
+            else:
+                # 1GB: abort heavy resources — headed (VNC) keeps CSS/JS for visibility, headless saves more
+                try:
+                    if headless:
+                        await context.route("**/*", lambda route: route.abort() if route.request.resource_type in ["image","media","font","stylesheet","other","websocket"] else route.continue_())
+                    else:
+                        await context.route("**/*", lambda route: route.abort() if route.request.resource_type in ["image","media","font"] else route.continue_())
+                except Exception:
+                    pass
             context.set_default_timeout(ACTION_TIMEOUT)
             page = await context.new_page()
             # --- crash safe: detect tab/browser crash and retry ---
