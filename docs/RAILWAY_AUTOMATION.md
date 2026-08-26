@@ -211,6 +211,13 @@ Date: 2026-08-11T04:30:00+00:00
 
 ## Gotchas
 
+- **Email input only appears after "Log in using email".** `railway.com/login` is a client-rendered
+  SPA: the served HTML is an empty shell and `document.querySelectorAll("input").length == 0` until you
+  click the "Log in using email" button, which reveals the email field. Counting inputs up front (or
+  assuming "JS is broken") is a false negative — the page is fine.
+- **Headed Chromium cannot use the WARP SOCKS5 directly on the gVisor sandbox** (all navigations hang).
+  Use request interception (`httpx` + `page.route`/`fulfill`) to push egress through WARP — see
+  `docs/WARP_PROXY.md`.
 - Token expiry: session files carry `expires_at`; automation should re-login
   before expiry or requests 401.
 - Do **not** commit `browser_cookies.json`, `railway_cli_sessions/*`,

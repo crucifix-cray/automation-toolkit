@@ -298,3 +298,61 @@ railway ssh -s "Ubuntu 24.04" "command"  # uses jzw2 key
 ```
 Persistent sandbox service: `d1970e69` on project `test-ubuntu-6` (`2e7ef06d-660e-4da2-87e3-1cc37693889b`)
 
+---
+
+## Route interception — headed Chromium → WARP that actually works (2026-08-26)
+
+Every direct-proxy approach for headed Chromium on the 1 GB gVisor sandbox fails (SOCKS4/SOCKS5 via
+`127.0.0.1:40000`, `gost` HTTP conversion, SNI relay — all Timeout/stall, logged 2026-08-25). The one
+method that **does** make headed Chromium egress through WARP on this box is **request interception**:
+
+- Do **not** set any browser proxy.
+- `page.route("**/*", handler)` where `handler` re-fetches the URL with
+  `httpx.AsyncClient(proxy="socks5://127.0.0.1:40000")` and `route.fulfill(...)`s the response.
+- Chromium renders natively; every byte egresses through WARP. `curl --socks5` and `httpx` both reach
+  the proxy fine, so the interception path is the reliable one (it sidesteps Chromium's broken SOCKS
+  stack entirely).
+
+Minimal sketch:
+
+```python
+import asyncio, httpx
+from playwright.async_api import async_playwright
+
+HOP = {"host","connection","proxy-connection","proxy-authorization",
+       "keep-alive","transfer-encoding","content-length","upgrade"}
+
+async def handler(route):
+    url = route.request.url
+    if url.startswith(("data:","about:")):
+        return await route.continue_()
+    try:
+        headers = {k:v for k,v in route.request.headers.items() if k.lower() not in HOP}
+        body = route.request.post_data.encode() if route.request.post_data else None
+        async with httpx.AsyncClient(proxy="socks5://127.0.0.1:40000",
+                                     timeout=25, follow_redirects=True, verify=False) as c:
+            r = await c.request(route.request.method, url, headers=headers, content=body)
+        resp = {k:v for k,v in r.headers.items()
+                if k.lower() not in (HOP|{"content-encoding","content-length"})}
+        await route.fulfill(status=r.status_code, headers=resp, body=r.content)
+    except Exception:
+        try: await route.abort()
+        except Exception: pass
+
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(headless=False,
+            args=["--no-sandbox","--disable-gpu","--disable-dev-shm-usage"])
+        pg = await b.new_page()
+        await pg.route("**/*", handler)
+        await pg.goto("https://railway.com/login", wait_until="domcontentloaded", timeout=30000)
+        # ...drive the flow...
+asyncio.run(main())
+```
+
+Caveats:
+- `httpx` fetches the response fully before `fulfill` (fine for login pages; streaming/long-poll is
+  buffered). Keep one shared `httpx.AsyncClient` so its cookie jar persists across requests.
+- This also dodges the "Turnstile unreachable through WARP SOCKS5" stall, because the request is issued
+  by `httpx`, not Chromium's SOCKS stack.
+

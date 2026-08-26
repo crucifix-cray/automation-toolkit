@@ -114,3 +114,31 @@
 - The `1 GB` `gVisor` `Netstack` `SOCKS5` `remote DNS` `ATYP=0x03` + `HTTP/2` + `NetworkService` `loopback` `127.0.0.1:40000` handling fails for headed `Chrome` even though `curl` `200`. The only `Chrome` `200` is `direct` `152.55.184.157`. The next viable single-sandbox path is `Chrome → SNI 127.0.0.1:443 → socks5://127.0.0.1:1080 ATYP=1 → OVPN → WARP` via the minimal `python3 /tmp/sni_relay.py` (`127.0.0.1:80`/`443` `→` `socks5://127.0.0.1:1080` `ATYP=1` `PIPE`) — first `curl --resolve` `Connected` `TLS handshake` but `Chrome` `Timeout` still, needs `sing-box` `tun` via `netns` (requires `CAP_NET_ADMIN` → `Permission denied` on Railway) or external tiny VPS gateway (`Railway` → `HTTP CONNECT` → `VPS` `OVPN+WARP`).
 
 **Keepalive:** `firefox` `headless=False` `DISPLAY=:2` `about:blank` `direct` on `VNC :2` for now; `warp+ovpn` `40000`/`1080` remain for `curl`/`tunsocks` on same host.
+
+---
+
+## 🔄 2026-08-26 — Route interception finally puts headed Chromium behind WARP on the gVisor sandbox
+
+**Context:** Persistent `test-ubuntu-6` (`Ubuntu 24.04`, VNC `:2`, wireproxy SOCKS5 `127.0.0.1:40000`).
+All direct browser-proxy attempts stayed broken (see 2026-08-25). Goal: a Railway login browser that
+egresses through WARP, is not flagged, stays alive, and never crashes.
+
+### What works now
+- **Route interception (`httpx` + `page.route`/`fulfill`) makes headed Chromium egress through WARP.**
+  Chromium itself cannot use the wireproxy SOCKS5 (every navigation hangs), but `httpx` through the same
+  proxy works, so intercepting every request and fulfilling it routes all traffic via WARP while the
+  page renders natively. Documented in `docs/WARP_PROXY.md` (new section).
+- **The login page renders fine.** Buttons `Log in using email`, `Continue with GitHub`,
+  `Cookie Preferences` are present. The email `<input>` only appears **after clicking "Log in using
+  email"** — `document.querySelectorAll("input").length == 0` *before* that click is a red herring,
+  NOT a broken-JS signal. Manual "can't click" seen on the headful VNC view is a display/input quirk;
+  Playwright drives the page normally.
+- Stealth via `context.add_init_script` (`navigator.webdriver` patch) + no automation flags
+  (`--single-process`/`--no-zygote` break rendering). Supervisor `while True` + pidfile = no crashes,
+  restarts cleanly. **Never `pkill -f script.py`** — it matches the launching shell and kills itself.
+
+### Next
+- Build the flow on top: click "Log in using email" → fill email → solve Turnstile
+  (`playwright_captcha`, `ClickSolver`, `CaptchaType.TURNSTILE`) → password / magic-link.
+- Resource note: a headful browser + a second launched chromium starves the second (gets killed);
+  kill idle browsers before launching diagnostics.
