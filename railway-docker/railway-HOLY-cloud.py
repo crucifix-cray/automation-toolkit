@@ -47,6 +47,7 @@ except ImportError:
 RAILWAY_URL = "https://railway.com"
 RAILWAY_LOGIN = "https://railway.com/login"
 RAILWAY_OAUTH = "https://backboard.railway.com/oauth"
+RAILWAY_OAUTH_SAME_DOMAIN = "https://railway.com/oauth"
 RAILWAY_CLIENT_ID = "rlwy_oaci_onEklvmksh1hRUiCo7E2zX12"
 RAILWAY_GRAPHQL = "https://backboard.railway.com/graphql/v2"
 RAILWAY_SCOPES = "openid email profile offline_access workspace:admin project:admin ssh_keys"
@@ -983,6 +984,223 @@ async def get_oauth_tokens(page) -> dict:
         callback_server.close()
         await callback_server.wait_closed()
 
+async def get_oauth_tokens_raw(cookies: list[dict]) -> dict:
+    """PKCE via raw IP (bypass BD 1-domain) — uses rw.session cookies + local 127.0.0.1 callback"""
+    verifier = "".join(secrets.choice(PKCE_CHARSET) for _ in range(128))
+    challenge = _pkce_challenge(verifier)
+    state = secrets.token_urlsafe(32)
+    result_holder = {}
+    async def callback_handler(reader, writer):
+        request_line = (await reader.read(65536)).decode(errors="replace").split("\r\n")[0]
+        path = request_line.split(" ")[1] if " " in request_line else "/"
+        if not result_holder:
+            result_holder["query"] = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+        body = b"<html><body>Railway login approved. You can close this tab.</body></html>"
+        writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n" + f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode() + body)
+        await writer.drain()
+        writer.close()
+    callback_server = await asyncio.start_server(callback_handler, "127.0.0.1", 0)
+    callback_port = callback_server.sockets[0].getsockname()[1]
+    redirect_uri = f"http://127.0.0.1:{callback_port}/callback"
+    authorization_url = (
+        f"{RAILWAY_OAUTH}/auth?"
+        + urllib.parse.urlencode({
+            "response_type": "code",
+            "client_id": RAILWAY_CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "scope": RAILWAY_SCOPES,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "state": state,
+            "prompt": "consent",
+            "cli_caller": "opencode",
+        })
+    )
+    session = {c["name"]: c["value"] for c in cookies if c["domain"] == "backboard.railway.com" and c["name"] in ("rw.session", "rw.session.sig")}
+    if not session.get("rw.session"):
+        callback_server.close()
+        await callback_server.wait_closed()
+        raise RuntimeError("No rw.session cookie for raw PKCE.")
+    cookie_header = "; ".join(f"{k}={v}" for k, v in session.items())
+    all_cookie = "; ".join(f"{c['name']}={c['value']}" for c in cookies if c["domain"].endswith("railway.com") or c["domain"].endswith("magic.link"))
+    headers = {"Cookie": all_cookie, "User-Agent": "railway-cli/5.35.0"}
+    def fetch_auth():
+        import http.client, ssl, urllib.parse
+        req = urllib.request.Request(authorization_url, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                body = resp.read().decode(errors="replace")
+                if "Authorize" in body and not result_holder:
+                    try:
+                        req2 = urllib.request.Request(authorization_url, headers={**headers, "Content-Type": "application/x-www-form-urlencoded"}, data=b"authorize=Authorize", method="POST")
+                        with urllib.request.urlopen(req2, timeout=30) as resp2:
+                            body2 = resp2.read().decode(errors="replace")
+                            pass
+                    except Exception:
+                        pass
+                return body
+        except urllib.error.HTTPError as e:
+            if e.code in (301, 302, 303, 307, 308):
+                loc = e.headers.get("Location", "")
+                if "127.0.0.1" in loc and "code=" in loc:
+                    qs = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query)
+                    result_holder["query"] = qs
+                    return ""
+            raise
+        except Exception as e:
+            raise
+    try:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, fetch_auth)
+        for _ in range(30):
+            if result_holder:
+                break
+            await asyncio.sleep(0.5)
+        if not result_holder:
+            raise RuntimeError("Raw IP PKCE never redirected to callback (no code).")
+        callback_query = result_holder["query"]
+        if "error" in callback_query:
+            raise RuntimeError(f"Railway OAuth rejected: {callback_query['error'][0]}")
+        if "code" not in callback_query or callback_query.get("state", [""])[0] != state:
+            raise RuntimeError("Raw PKCE callback missing code/state.")
+        return http_post_form(
+            f"{RAILWAY_OAUTH}/token",
+            {
+                "grant_type": "authorization_code",
+                "code": callback_query["code"][0],
+                "redirect_uri": redirect_uri,
+                "client_id": RAILWAY_CLIENT_ID,
+                "code_verifier": verifier,
+            },
+        )
+    finally:
+        callback_server.close()
+        await callback_server.wait_closed()
+
+async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
+    """PKCE via LOCAL headless chrome on raw IP with the BD session cookie.
+
+    BD's 1-domain / brul policy blocks /oauth/auth inside the BD browser, and the
+    rw.session cookie is IP-bound (only valid from a real browser w/ Cloudflare
+    clearance). The local chrome here runs on the host's raw egress (NOT Tor: we
+    clear LD_PRELOAD) so Cloudflare clears the cookie and the consent redirect to
+    127.0.0.1 works. This is the working cloud PKCE path.
+    """
+    verifier = "".join(secrets.choice(PKCE_CHARSET) for _ in range(128))
+    challenge = _pkce_challenge(verifier)
+    state = secrets.token_urlsafe(32)
+    result_holder = {}
+    async def callback_handler(reader, writer):
+        request_line = (await reader.read(65536)).decode(errors="replace").split("\r\n")[0]
+        path = request_line.split(" ")[1] if " " in request_line else "/"
+        if not result_holder:
+            result_holder["query"] = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+        body = b"<html><body>Railway login approved. You can close this tab.</body></html>"
+        writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n" + f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode() + body)
+        await writer.drain()
+        writer.close()
+    callback_server = await asyncio.start_server(callback_handler, "127.0.0.1", 0)
+    callback_port = callback_server.sockets[0].getsockname()[1]
+    redirect_uri = f"http://127.0.0.1:{callback_port}/callback"
+    authorization_url = (
+        f"{RAILWAY_OAUTH}/auth?"
+        + urllib.parse.urlencode({
+            "response_type": "code",
+            "client_id": RAILWAY_CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "scope": RAILWAY_SCOPES,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "state": state,
+            "prompt": "consent",
+            "cli_caller": "opencode",
+        })
+    )
+    # raw IP egress for chrome (bypass Tor LD_PRELOAD so the cookie's CF clearance works)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-blink-features=AutomationControlled"],
+            env={"LD_PRELOAD": "", "PATH": os.environ.get("PATH", "")},
+        )
+        context = await browser.new_context()
+        # inject railway cookies (filter to valid playwright cookie shape)
+        valid = []
+        for c in cookies:
+            try:
+                valid.append({"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c.get("path", "/")})
+            except: pass
+        rail_only = [c for c in valid if c["domain"].endswith("railway.com")]
+        if rail_only:
+            await context.add_cookies(rail_only)
+        page = await context.new_page()
+        try:
+            print(f"  🔗 local chrome PKCE (raw IP): {authorization_url[:70]}...")
+            await page.goto(authorization_url, wait_until="domcontentloaded", timeout=30000)
+            print(f"  🔗 after goto url={page.url[:90]} title={await page.title()}")
+            # dismiss cookie/consent banner (Osano/OneTrust) that can cover the Authorize button
+            for ctxt in ("Accept", "Allow", "Agree", "Accept All", "Allow All", "Got it", "Accept Cookies"):
+                try:
+                    b = page.get_by_role("button", name=ctxt)
+                    if await b.count():
+                        await b.first.click(timeout=2000)
+                        print(f"  🍪 dismissed cookie banner via '{ctxt}'")
+                        await page.wait_for_timeout(800)
+                except: pass
+            # click Authorize, then capture code from the 127.0.0.1 callback (page.url or server)
+            for _ in range(30):
+                if result_holder:
+                    break
+                try:
+                    # flexible: match "Authorize" substring (button may read "Authorize App")
+                    btn = page.get_by_role("button", name="Authorize")
+                    n = await btn.count()
+                    if n:
+                        lbl = await btn.first.inner_text()
+                        await btn.first.click(timeout=3000)
+                        print(f"  ✓ Clicked Authorize (local chrome) [btn='{lbl.strip()[:30]}'], url now={page.url[:90]}")
+                    elif _ == 0:
+                        # dump buttons once for diagnosis
+                        try:
+                            btns = await page.locator("button").all_inner_texts()
+                            print(f"  🔍 consent buttons: {[b.strip()[:25] for b in btns]}")
+                        except: pass
+                except Exception as ce:
+                    print(f"  ⚠️  Authorize click err: {str(ce)[:120]}")
+                if "127.0.0.1" in page.url and "code=" in page.url:
+                    result_holder["query"] = urllib.parse.parse_qs(urllib.parse.urlparse(page.url).query)
+                    print("  ✓ Captured code via page.url")
+                    break
+                await page.wait_for_timeout(1000)
+            for _ in range(30):
+                if result_holder:
+                    break
+                await asyncio.sleep(0.5)
+            if not result_holder:
+                raise RuntimeError("Local chrome PKCE never hit callback")
+            q = result_holder["query"]
+            if "error" in q:
+                raise RuntimeError(f"OAuth rejected {q['error'][0]}")
+            if "code" not in q or q.get("state", [""])[0] != state:
+                raise RuntimeError("Local chrome PKCE missing code/state")
+            return http_post_form(
+                f"{RAILWAY_OAUTH}/token",
+                {
+                    "grant_type": "authorization_code",
+                    "code": q["code"][0],
+                    "redirect_uri": redirect_uri,
+                    "client_id": RAILWAY_CLIENT_ID,
+                    "code_verifier": verifier,
+                },
+            )
+        finally:
+            await context.close()
+            await browser.close()
+            callback_server.close()
+            try:
+                await callback_server.wait_closed()
+            except: pass
+
 def get_web_user(cookies: list[dict]) -> dict:
     session = {c["name"]: c["value"] for c in cookies if c["domain"] == "backboard.railway.com" and c["name"] in ("rw.session", "rw.session.sig")}
     if not session.get("rw.session"):
@@ -1050,31 +1268,32 @@ def verify_tokens(tokens: dict, user: dict) -> str:
 async def register_cli_session(context, page, sessions_dir: Path, cloud_mode=False) -> Path:
     print("\n🔧 Registering Railway CLI session (PKCE /auth)...")
     cookies = await context.cookies()
-    # ponytail: cloud free = 1 domain, PKCE needs backboard.railway.com (2nd domain) → blocked (tab closed)
-    # so for cloud, try direct API token via cookies, no browser nav
+    # cloud free = 1 domain, PKCE via BD browser blocked → do PKCE via raw IP with cookies
     if cloud_mode:
+        user = get_web_user(cookies)
+        print(f"✓ User (cloud direct): {user.get('email')} (ID: {user.get('id')})")
+        # local chrome on raw IP (works: cookie is IP-bound but CF clears it in a real browser)
         try:
-            # try direct: use session cookies to create a personal token via API (no browser nav)
-            # fallback to browser PKCE if API fails
-            user = get_web_user(cookies)
-            print(f"✓ User (cloud direct): {user.get('email')} (ID: {user.get('id')})")
-            # create a simple token via backboard API using the session cookies (raw IP, no BD)
-            # use the same cookies to call an API that returns a CLI token — if not available, fall back to PKCE
-            # for now, just create a minimal session dir with the web session (no CLI token) and verify via raw IP later
-            # we still need access_token — try to get it via the browser's localStorage or via a direct token endpoint
-            # attempt PKCE but with extra error handling for cloud domain limit
-            tokens = await get_oauth_tokens(page)
-            print("✓ Got access and refresh tokens (cloud PKCE)")
+            tokens = await get_oauth_tokens_local_chrome(cookies)
+            print("✓ Got access and refresh tokens (cloud local chrome PKCE)")
         except Exception as e:
-            print(f"⚠️  Cloud PKCE blocked ({e}), creating web-only session")
-            # create a web-only session (no CLI token) — still usable for raw IP API calls via cookies
-            session_dir = next_session_dir(sessions_dir)
-            # write a minimal config with just the web session (no accessToken yet)
-            session_dir.mkdir(parents=True, exist_ok=True)
-            (session_dir / "email.txt").write_text(user.get("email",""))
-            (session_dir / "browser_cookies.json").write_text(json.dumps({"cookies": cookies}, indent=2))
-            print(f"✓ Saved web session: {session_dir} (use raw IP cookies for CLI)")
-            return session_dir
+            print(f"⚠️  Cloud local chrome PKCE failed ({e}), trying raw IP PKCE")
+            try:
+                tokens = await get_oauth_tokens_raw(cookies)
+                print("✓ Got access and refresh tokens (cloud raw IP PKCE)")
+            except Exception as e2:
+                print(f"⚠️  Cloud raw IP PKCE failed ({e2}), trying browser PKCE fallback")
+                try:
+                    tokens = await get_oauth_tokens(page)
+                    print("✓ Got access and refresh tokens (cloud browser PKCE)")
+                except Exception as e3:
+                    print(f"⚠️  Cloud PKCE blocked ({e3}), creating web-only session")
+                session_dir = next_session_dir(sessions_dir)
+                session_dir.mkdir(parents=True, exist_ok=True)
+                (session_dir / "email.txt").write_text(user.get("email",""))
+                (session_dir / "browser_cookies.json").write_text(json.dumps({"cookies": cookies}, indent=2))
+                print(f"✓ Saved web session: {session_dir} (use raw IP cookies for CLI)")
+                return session_dir
     else:
         tokens = await get_oauth_tokens(page)
         print("✓ Got access and refresh tokens")

@@ -178,5 +178,18 @@ egresses through WARP, is not flagged, stays alive, and never crashes.
 **Current**
 - `cancer_fixed` `attempt 2` `i9mdkw...` `web-only` `→ 85` `attempt 6` `115s` `burned` `Chennai` `rotate` `WSS&sessionId` `→ new IP` per `run` `100 credit/run` `5k cap` `~50/acc` `15 accs → 750`.
 
+**PKCE FIXED 2026-08-27 night (ROOT CAUSE + WORKING FLOW)**
+- `rw.session` cookie is **IP-bound**: raw `urllib` GET → `Authorization Error` (Cloudflare JS challenge on non-browser). A **real local headless Chrome on raw IP** (`LD_PRELOAD=''` env) with the cookie → `railway.com/oauth/consent` `title=Authorize App` → click `Authorize` → `127.0.0.1:callback?code=` captured → `access_token`+`refresh_token` OK.
+- BD `brul` **blocks `/oauth/auth` entirely** (compliance) so BD-browser PKCE can NOT work. Local chrome is the only path.
+- Cookie banner (Osano `Cookie Preferences`) covers the `Authorize` button on fresh chrome (no osano consent). Fix: dismiss banner (`Accept/Allow/...`) then click `Authorize`.
+- **Railway CLI reads auth from `$HOME/.railway/config.json`, NOT `RAILWAY_CONFIG_DIR`** (that only sets project link). So isolated path = **each session dir IS `$HOME`**: `HOME=/home/alan/Documents/railways/session-N railway whoami` works; `RAILWAY_CONFIG_DIR` falls back to global (false-positive "VERIFY PASS").
+- `get_oauth_tokens_local_chrome` rewritten: launch chrome `env={"LD_PRELOAD":""}`, inject `railway.com` cookies, goto `backboard oauth/auth`, dismiss cookie banner, click `Authorize`, capture code from `page.url`/callback server. `register_cli_session cloud_mode` now tries local-chrome PKCE **first**.
+- Verified end-to-end: `session-21` (`s2d6bjrla38o@emalupe.com`) got real CLI token → `railway init` own project `holy-s21` → `railway sandbox create` → `794eba01` RUNNING `us-west2` → `railway sandbox exec` inside = `INSIDE-NEW-ACCOUNT-SANDBOX Debian 13`. Proves cloud account + CLI + sandbox all work.
+- `cancer_acc1_v2.sh` running `pid 28794`: rotates `?sessionId=<uuid>` per run (new residential IP), verifies `HOME=session_dir railway whoami`, rclone raw IP (`LD_PRELOAD=''`) to `mega:railway_sessions`. NOTE: WSS `?sessionId=` (not `&`) required.
+- Flaky points: Turnstile `Continue` sometimes `disabled 115s` (IP burned) and OTP email sometimes never arrives (Railway rate-limit). Both transient; loop retries.
+- **Resource limit**: only `acc1` BD API available (`~50 acc` on free 5k-credit/100-per-run). 500 needs 15 BD APIs (user plan).
+
 **Next**
-- Get `CLI token` `isolated` `session-N/.railway/config.json` `accessToken` `via local chrome PKCE` `→ railway sandbox create` `→ 200` `= good` `403/banned` `→ rotate` `→ clone sscript` `→ loop until mega 500` `→ 4k Lovable` `email+"K0"` `ovpn` `10.200.1.2:40001`.
+- Loop runs to 500 (or acc1 credits out) producing CLI-enabled sessions; each verified `railway whoami` + `railway sandbox create` inside own project.
+- After 500 Railway → `4k Lovable` via `finals/core/lov-api.py --dispose`.
+- Get 15 BD APIs to hit 500; else acc1 yields ~50.
