@@ -1201,18 +1201,26 @@ async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
                 if result_holder:
                     break
                 try:
-                    # flexible: match "Authorize" substring (button may read "Authorize App")
-                    btn = page.get_by_role("button", name="Authorize")
-                    n = await btn.count()
-                    if n:
-                        lbl = await btn.first.inner_text()
-                        await btn.first.click(timeout=3000)
+                    # try multiple selectors for Authorize (exact, substring, generic)
+                    btn = None
+                    for name in ["Authorize", "Authorize App", "Allow", "Confirm"]:
+                        b = page.get_by_role("button", name=name)
+                        if await b.count():
+                            btn = b.first
+                            break
+                    if not btn:
+                        # fallback: any button containing Authorize
+                        b = page.locator('button:has-text("Authorize")')
+                        if await b.count():
+                            btn = b.first
+                    if btn:
+                        lbl = await btn.inner_text()
+                        await btn.click(timeout=3000)
                         print(f"  ✓ Clicked Authorize (local chrome) [btn='{lbl.strip()[:30]}'], url now={page.url[:90]}")
                     elif _ == 0:
-                        # dump buttons once for diagnosis
                         try:
                             btns = await page.locator("button").all_inner_texts()
-                            print(f"  🔍 consent buttons: {[b.strip()[:25] for b in btns]}")
+                            print(f"  🔍 consent buttons: {[b.strip()[:25] for b in btns if b.strip()]}")
                         except: pass
                 except Exception as ce:
                     print(f"  ⚠️  Authorize click err: {str(ce)[:120]}")
