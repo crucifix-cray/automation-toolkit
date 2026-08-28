@@ -1316,11 +1316,21 @@ async def run(use_warp=False, cloud_mode=False):
     warp_started = False
     browser = None
     mailbox = None
-    # cloud: force no warp, use BD WSS
+    # cloud: force no warp, use BD WSS + fresh browser per run
     headless = True
     if cloud_mode:
         use_warp = False
+        # ponytail: kill previous browsers, fresh sessionId per run for new IP
+        import subprocess as _sp
+        try: _sp.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
+        except: pass
+        # fresh BD sessionId for new residential IP (free tier rotates per sessionId)
+        import uuid as _uuid
+        global BRD_WSS
+        base_wss = BRD_WSS.split("?")[0]
+        BRD_WSS = base_wss + f"?sessionId={_uuid.uuid4()}"
         print("☁️  Cloud mode: BD Browser API (Chennai residential), no local WARP")
+        print(f"☁️  Fresh BD session: {BRD_WSS[:55]}***")
     
     try:
         # Start WARP if requested - warp-cli proxy mode (isolated)
@@ -1463,38 +1473,30 @@ async def run(use_warp=False, cloud_mode=False):
             print(f"📧 22.do handler: {_handler_desc} (pool {len(HANDLERS)} handlers)")
             mailbox = None
             if cloud_mode:
-                # ponytail: cloud free = 1 domain/session, Gmail needs dispose but that is 2nd domain in main session
-                # so for @gmail.com use separate BD browser for dispose, else use mail.tm API (no browser)
-                if target_domain == "@gmail.com":
-                    print("☁️  Cloud Gmail: dispose.lol via separate BD browser (1-domain safe)")
-                    # separate BD browser for dispose to keep main railway session at 1 domain
-                    from playwright.async_api import async_playwright as _p
-                    async with _p() as p2:
-                        b_dispose = await p2.chromium.connect_over_cdp(BRD_WSS)
-                        ctx_dispose = b_dispose.contexts[0] if b_dispose.contexts else await b_dispose.new_context()
-                        pg = await ctx_dispose.new_page()
-                        await pg.goto("https://dispose.lol", wait_until="load", timeout=60000)
-                        await pg.wait_for_timeout(5000)
-                        email_text = await pg.evaluate('''() => {
-                            const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
-                            while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
-                            return null;
-                        }''')
-                        if not email_text or '@gmail.com' not in email_text:
-                            await b_dispose.close()
-                            raise Exception("dispose Gmail not found")
-                        # keep dispose page for polling, store in mailbox that will poll via this pg
-                        mailbox = DisposeLolInbox(context=context)
-                        mailbox.page = pg
-                        # don't close b_dispose yet, keep its browser for polling; store ref
-                        mailbox._dispose_browser = b_dispose
-                        mailbox._dispose_context = ctx_dispose
-                        mailbox.address = email_text.strip()
-                        print(f"✅ Mailbox ready: {mailbox.address} (via dispose.lol separate BD)")
-                else:
-                    print("☁️  Cloud mailbox: mail.tm API (no browser, 1-domain safe)")
-                    mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
-                    await mailbox.create()
+                # ponytail: cloud free = 1 domain/session, but user wants Gmail → use dispose via separate BD browser
+                # for any cloud run, default to dispose Gmail (separate BD) to avoid mail.tm flag
+                print("☁️  Cloud Gmail: dispose.lol via separate BD browser (1-domain safe)")
+                from playwright.async_api import async_playwright as _p
+                async with _p() as p2:
+                    b_dispose = await p2.chromium.connect_over_cdp(BRD_WSS)
+                    ctx_dispose = b_dispose.contexts[0] if b_dispose.contexts else await b_dispose.new_context()
+                    pg = await ctx_dispose.new_page()
+                    await pg.goto("https://dispose.lol", wait_until="load", timeout=60000)
+                    await pg.wait_for_timeout(5000)
+                    email_text = await pg.evaluate('''() => {
+                        const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
+                        while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
+                        return null;
+                    }''')
+                    if not email_text or '@gmail.com' not in email_text:
+                        await b_dispose.close()
+                        raise Exception("dispose Gmail not found")
+                    mailbox = DisposeLolInbox(context=context)
+                    mailbox.page = pg
+                    mailbox._dispose_browser = b_dispose
+                    mailbox._dispose_context = ctx_dispose
+                    mailbox.address = email_text.strip()
+                    print(f"✅ Mailbox ready: {mailbox.address} (via dispose.lol separate BD)")
             else:
                 for _crash_attempt in range(3):
                     try:

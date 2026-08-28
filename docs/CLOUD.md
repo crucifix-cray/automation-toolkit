@@ -8,7 +8,7 @@
 
 ## Stack (Cloud)
 - **Browser:** `wss://brd-customer-hl_4ee0cb14-zone-scraping_browser1:***@brd.superproxy.io:9222` (zone `scraping_browser1`, 5k free credits, $8/GB, 5cr/MB)
-- **Mailbox:** `mail.tm` API (`emalupe.com`) for cloud (1 domain/session, avoids free-tier `navigate_domains_limit`). For `@gmail.com`, uses `dispose.lol` via **separate** BD browser (keeps main railway session at 1 domain).
+- **Mailbox:** `dispose.lol` Gmail via **separate** BD browser (1 domain/session safe, gives `@gmail.com` as requested). `mail.tm` (`emalupe.com`) is fallback if dispose fails.
 - **WARP:** disabled in cloud (BD residential already)
 
 ## Usage
