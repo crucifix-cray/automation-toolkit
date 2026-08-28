@@ -1603,25 +1603,26 @@ async def run(use_warp=False, cloud_mode=False):
                         except: idx = 0
                         pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
                         pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
-                        # update global WSS for next try
+                        # update WSS for next try (new ASN + sessionId)
                         import os as _os2
-                        _os2.environ["BRD_WSS"] = pool_pick.split("?")[0] + f"?sessionId={_uuid4.uuid4()}"
-                        print(f"🔄 New BD session {pool_pick[:50]}***")
-                        print(f"🔄 New BD session {BRD_WSS[:50]}***")
-                        # next mailbox in fallback
+                        new_wss = pool_pick.split("?")[0] + f"?sessionId={_uuid4.uuid4()}"
+                        _os2.environ["BRD_WSS"] = new_wss
+                        print(f"🔄 New BD session {pool_pick[:45]}*** -> {new_wss[:50]}***")
                         tried_mails.append(mailbox.address if mailbox else "unknown")
-                        # close current page/context and create fresh
+                        # kill old BD browsers before new one (ensure fresh IP)
+                        import subprocess as _sp2
+                        try: _sp2.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
+                        except: pass
                         try: await page.close()
                         except: pass
                         try: await context.close()
                         except: pass
-                        # new browser/context/page with new WSS (use the freshly picked one)
+                        try: await browser.close()
+                        except: pass
+                        # new BD browser/context/page with new WSS
                         if cloud_mode:
                             from playwright.async_api import async_playwright as _p3
                             p3 = await _p3().start()
-                            # use the new WSS from pool file (already updated via env)
-                            import os as _os3
-                            new_wss = _os3.environ.get("BRD_WSS", BRD_WSS)
                             browser = await p3.chromium.connect_over_cdp(new_wss)
                             context = browser.contexts[0] if browser.contexts else await browser.new_context()
                             page = await context.new_page()
