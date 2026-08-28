@@ -1526,10 +1526,71 @@ async def run(use_warp=False, cloud_mode=False):
             print(f"📧 22.do handler: {_handler_desc} (pool {len(HANDLERS)} handlers)")
             mailbox = None
             if cloud_mode:
-                # ponytail: mail.tm now (BD blocks 22.do/dispose as classified) — use API, 1-domain safe
-                print("☁️  Cloud mailbox: mail.tm API (BD blocks 22.do/dispose, mail.tm works)")
-                mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
-                await mailbox.create()
+                # ponytail: Gmail first — dispose.lol Gmail (separate BD) per user, then 22.do, then mail.tm
+                print("☁️  Cloud mailbox fallback: dispose Gmail -> 22.do -> mail.tm")
+                tried = False
+                # 1. dispose.lol Gmail via separate BD (keep open)
+                try:
+                    print("☁️  Trying dispose.lol Gmail (separate BD, keep open)...")
+                    from playwright.async_api import async_playwright as _p
+                    import uuid as _uuid2
+                    dispose_wss = BRD_WSS.split("?")[0] + f"?sessionId={_uuid2.uuid4()}"
+                    p2 = await _p().start()
+                    b_dispose = await p2.chromium.connect_over_cdp(dispose_wss)
+                    ctx_dispose = b_dispose.contexts[0] if b_dispose.contexts else await b_dispose.new_context()
+                    pg = await ctx_dispose.new_page()
+                    await pg.goto("https://dispose.lol", wait_until="load", timeout=60000)
+                    await pg.wait_for_timeout(5000)
+                    email_text = await pg.evaluate('''() => {
+                        const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
+                        while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
+                        return null;
+                    }''')
+                    if email_text and '@gmail.com' in email_text:
+                        mailbox = DisposeLolInbox(context=context)
+                        mailbox.page = pg
+                        mailbox._dispose_browser = b_dispose
+                        mailbox._dispose_context = ctx_dispose
+                        mailbox._dispose_playwright = p2
+                        mailbox.address = email_text.strip()
+                        print(f"✅ Mailbox ready: {mailbox.address} (via dispose.lol separate BD, keep for polling)")
+                        tried = True
+                    else:
+                        await b_dispose.close()
+                        await p2.stop()
+                        raise Exception("dispose Gmail not found")
+                except Exception as e:
+                    print(f"⚠️  dispose.lol failed ({e}), trying 22.do...")
+                if not tried:
+                    for dom in ["@gmail.com", "@outlook.com", "@hotmail.com", "@linshiyou.com", "@colabeta.com", "@youxiang.dev"]:
+                        try:
+                            print(f"☁️  Trying 22.do {dom} (separate BD)...")
+                            from playwright.async_api import async_playwright as _p2
+                            import uuid as _uuid3
+                            wss_22 = BRD_WSS.split("?")[0] + f"?sessionId={_uuid3.uuid4()}"
+                            p22 = await _p2().start()
+                            b22 = await p22.chromium.connect_over_cdp(wss_22)
+                            ctx22 = b22.contexts[0] if b22.contexts else await b22.new_context()
+                            tmp_mb = TwoTwoDoInbox(context=ctx22, target_domain=dom)
+                            await tmp_mb.create()
+                            mailbox = tmp_mb
+                            mailbox._22_browser = b22
+                            mailbox._22_playwright = p22
+                            mailbox._22_context = ctx22
+                            print(f"✅ Mailbox ready: {mailbox.address} (via 22.do {dom} separate BD)")
+                            tried = True
+                            break
+                        except Exception as ex:
+                            print(f"  22.do {dom} failed: {str(ex)[:80]}")
+                            try:
+                                await b22.close()
+                                await p22.stop()
+                            except: pass
+                            continue
+                if not tried:
+                    print("☁️  Cloud mailbox: mail.tm API (fallback)")
+                    mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                    await mailbox.create()
             else:
                 for _crash_attempt in range(3):
                     try:
