@@ -55,8 +55,13 @@ PKCE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-.
 
 SESSIONS_DIR = Path.home() / "Documents" / "railways"
 MEGA_REMOTE = "mega:railway_sessions"
-# ponytail: BD Browser API for cloud (residential, no WARP needed)
-BRD_WSS = os.environ.get("BRD_WSS") or f"wss://brd-customer-hl_4ee0cb14-zone-scraping_browser1:{os.environ.get('BRD_PASS','')}@brd.superproxy.io:9222"
+# ponytail: BD Browser API pool for ASN rotation (free tier per-run fresh IP + new ASN)
+BRD_WSS_POOL = [
+    os.environ.get("BRD_WSS") or f"wss://brd-customer-hl_4ee0cb14-zone-scraping_browser1:{os.environ.get('BRD_PASS','')}@brd.superproxy.io:9222",
+    f"wss://brd-customer-hl_709648b2-zone-scraping_browser1:gt3c86orms1c@brd.superproxy.io:9222",
+    # Zenrows Browser Sessions (fallback, uses same API key 3a6a9ee9... - add WSS when available)
+]
+BRD_WSS = os.environ.get("BRD_WSS") or BRD_WSS_POOL[0]
 
 ACTION_TIMEOUT = 30_000
 EMAIL_TIMEOUT = 300_000
@@ -1316,21 +1321,21 @@ async def run(use_warp=False, cloud_mode=False):
     warp_started = False
     browser = None
     mailbox = None
-    # cloud: force no warp, use BD WSS + fresh browser per run
+    # cloud: force no warp, use BD WSS pool + fresh browser per run, ASN rotation
     headless = True
     if cloud_mode:
         use_warp = False
-        # ponytail: kill previous browsers, fresh sessionId per run for new IP
-        import subprocess as _sp
+        import subprocess as _sp, random as _rnd, uuid as _uuid
         try: _sp.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
         except: pass
-        # fresh BD sessionId for new residential IP (free tier rotates per sessionId)
-        import uuid as _uuid
+        # ponytail: rotate ASN per run via pool, then fresh sessionId for new IP within that ASN
         global BRD_WSS
-        base_wss = BRD_WSS.split("?")[0]
+        # pick random WSS from pool for new ASN, handle credit-ended by trying next in pool on failure
+        pool_pick = _rnd.choice(BRD_WSS_POOL)
+        base_wss = pool_pick.split("?")[0]
         BRD_WSS = base_wss + f"?sessionId={_uuid.uuid4()}"
-        print("☁️  Cloud mode: BD Browser API (Chennai residential), no local WARP")
-        print(f"☁️  Fresh BD session: {BRD_WSS[:55]}***")
+        print("☁️  Cloud mode: BD Browser API (ASN rotation), no local WARP")
+        print(f"☁️  Fresh BD session: {BRD_WSS[:55]}*** (pool {BRD_WSS_POOL.index(pool_pick)+1}/{len(BRD_WSS_POOL)})")
     
     try:
         # Start WARP if requested - warp-cli proxy mode (isolated)
