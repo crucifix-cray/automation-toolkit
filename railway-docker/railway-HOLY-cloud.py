@@ -215,7 +215,13 @@ class DisposeLolInbox:
             try:
                 await self.page.reload(wait_until="load", timeout=15000)
             except: pass
-            await self.page.wait_for_timeout(2000)
+            # ponytail: wait until Loading inbox spinner gone
+            try:
+                loading = self.page.locator('.mt-2.inline-flex.items-center.gap-2.text-sm.font-semibold.text-foreground\\/70')
+                # wait until hidden (gone)
+                await loading.wait_for(state="hidden", timeout=10000)
+            except:
+                await self.page.wait_for_timeout(1500)
             message_buttons = await self.page.locator('button[aria-label^="View "]').all()
             if check_count % 10 == 1 or check_count <= 3:
                 print(f"  Check #{check_count}: {len(message_buttons)} message(s)")
