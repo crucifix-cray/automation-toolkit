@@ -712,6 +712,21 @@ async def sign_in_to_railway(page, mailbox):
             await page.wait_for_timeout(500)
             if poll % 10 == 0 and poll > 0:
                 print(f"  ... still waiting {poll*0.5:.0f}s")
+            # ponytail: at 100s (poll 200) screenshot for mega
+            if poll == 200:
+                try:
+                    shot = f"/tmp/turnstile-stuck-{int(time.time())}.png"
+                    await page.screenshot(path=shot, full_page=True)
+                    print(f"📸 Turnstile stuck 100s, screenshot {shot}")
+                    # push to mega via raw IP
+                    import subprocess as _sp2, os as _os2
+                    env2 = _os2.environ.copy()
+                    env2["LD_PRELOAD"] = ""
+                    env2["LD_LIBRARY_PATH"] = ""
+                    _sp2.run(["rclone", "copy", shot, "mega:railway_sessions/", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=30)
+                    print(f"☁️  Pushed {shot} to mega:railway_sessions")
+                except Exception as e:
+                    print(f"⚠️  Screenshot push failed: {e}")
         else:
             # fallback single expect 60s
             await expect(continue_btn).to_be_enabled(timeout=60000)
