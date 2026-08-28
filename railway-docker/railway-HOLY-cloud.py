@@ -736,61 +736,83 @@ async def sign_in_to_railway(page, mailbox):
     
     # Fill OTP - wait for Magic.link modal to appear
     print("  Entering OTP...")
-    await page.wait_for_timeout(5000)  # Wait longer for modal to load
-    
-    # Try direct input method (Magic.link creates 6 inputs)
+    await page.wait_for_timeout(7000)
+    filled = False
+    # Try iframe method first (most reliable for Magic)
     try:
-        print("  🔍 Looking for OTP inputs...")
-        all_inputs = page.locator('input[type="text"]:visible')
-        count = await all_inputs.count()
-        print(f"  Found {count} visible text inputs")
-        
-        if count >= 6:
-            for i, digit in enumerate(code[:6]):
-                await all_inputs.nth(i).fill(digit)
-                await asyncio.sleep(0.1)
-            print("  ✅ Filled OTP")
-        else:
-            # Try looking for any input, even if not visible yet
-            await page.wait_for_selector('input[type="text"]', timeout=10000)
-            all_inputs = page.locator('input[type="text"]')
+        print("  🔍 Trying iframe method...")
+        magic_frame = page.frame_locator('iframe[src*="auth.magic.link"], iframe[src*="magic"]')
+        inputs = magic_frame.locator('input[type="text"], input[type="tel"], input[inputmode="numeric"]')
+        await inputs.first.wait_for(state="visible", timeout=15000)
+        for i, digit in enumerate(code[:6]):
+            await inputs.nth(i).fill(digit)
+            await asyncio.sleep(0.15)
+        print("  ✅ Filled OTP (iframe method)")
+        filled = True
+    except Exception as e:
+        print(f"  ⚠️  iframe method failed: {e}")
+    if not filled:
+        try:
+            print("  🔍 Trying direct method...")
+            all_inputs = page.locator('input[type="text"]:visible, input[inputmode="numeric"]:visible')
             count = await all_inputs.count()
-            print(f"  Found {count} text inputs (after wait)")
-            
+            print(f"  Found {count} visible text inputs")
             if count >= 6:
                 for i, digit in enumerate(code[:6]):
                     await all_inputs.nth(i).fill(digit)
-                    await asyncio.sleep(0.1)
-                print("  ✅ Filled OTP")
+                    await asyncio.sleep(0.15)
+                print("  ✅ Filled OTP (direct)")
+                filled = True
             else:
-                raise Exception(f"Only found {count} inputs")
-    except Exception as e:
-        print(f"  ⚠️  Direct method failed: {e}")
-        # Try iframe method
+                await page.wait_for_selector('input', timeout=10000)
+                all_inputs = page.locator('input')
+                count = await all_inputs.count()
+                print(f"  Found {count} inputs (after wait)")
+                if count >= 6:
+                    for i, digit in enumerate(code[:6]):
+                        await all_inputs.nth(i).fill(digit)
+                        await asyncio.sleep(0.15)
+                    print("  ✅ Filled OTP")
+                    filled = True
+        except Exception as e2:
+            print(f"  ⚠️  Direct method failed: {e2}")
+    if not filled:
+        # fallback: type code and press Enter on page
         try:
-            print("  🔍 Trying iframe method...")
-            magic_frame = page.frame_locator('iframe[src*="auth.magic.link"], iframe[src*="magic"]')
-            inputs = magic_frame.locator('input[type="text"]')
-            await inputs.first.wait_for(state="visible", timeout=10000)
-            
-            for i, digit in enumerate(code):
-                await inputs.nth(i).fill(digit)
-                await asyncio.sleep(0.1)
-            print("  ✅ Filled OTP (iframe method)")
+            await page.keyboard.type(code)
+            await page.keyboard.press("Enter")
+            print(f"  ✅ Typed OTP {code} + Enter (fallback)")
+            filled = True
+        except Exception as e3:
+            print(f"  ⚠️  Fallback failed: {e3}")
         except Exception as e2:
             raise Exception(f"Both OTP methods failed: {e}, {e2}")
     
-    # Wait for redirect to dashboard
+    # Wait for redirect to dashboard — poll for 60s
     print("⏳ Waiting for login to complete...")
-    try:
-        await page.wait_for_url("**/dashboard**", timeout=30000)
-        print("✅ Logged in successfully!")
-    except:
+    logged = False
+    for _ in range(12):
         await page.wait_for_timeout(5000)
-        if "dashboard" in page.url:
-            print("✅ Logged in successfully!")
-        else:
-            raise Exception(f"Login failed - stuck at: {page.url}")
+        url = page.url
+        txt = ""
+        try: txt = await page.evaluate("() => document.body.innerText.slice(0,1000)")
+        except: pass
+        if "dashboard" in url or "My Projects" in txt or "Create a New Project" in txt:
+            print(f"✅ Logged in successfully! url={url[:80]}")
+            logged = True
+            break
+        # also try pressing Enter again if stuck
+        try: await page.keyboard.press("Enter")
+        except: pass
+    if not logged:
+        # final check via URL
+        try:
+            await page.wait_for_url("**/dashboard**", timeout=10000)
+            print("✅ Logged in successfully! (via wait_for_url)")
+            logged = True
+        except: pass
+    if not logged:
+        raise Exception(f"Login failed - stuck at: {page.url}")
 
 
 async def scroll_terms_dialog(dialog) -> None:
