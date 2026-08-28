@@ -1367,17 +1367,23 @@ async def run(use_warp=False, cloud_mode=False):
     headless = True
     if cloud_mode:
         use_warp = False
-        import subprocess as _sp, random as _rnd, uuid as _uuid
+        import subprocess as _sp, uuid as _uuid
+        from pathlib import Path as _Path
         try: _sp.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
         except: pass
-        # ponytail: rotate ASN per run via pool, then fresh sessionId for new IP within that ASN
+        # ponytail: rotate ASN per run via pool file (sequential, not random, to actually change ASN)
         global BRD_WSS
-        # pick random WSS from pool for new ASN, handle credit-ended by trying next in pool on failure
-        pool_pick = _rnd.choice(BRD_WSS_POOL)
+        pool_file = _Path("/tmp/bd_pool_index")
+        try:
+            idx = int(pool_file.read_text().strip() or 0)
+        except:
+            idx = 0
+        pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
+        pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
         base_wss = pool_pick.split("?")[0]
         BRD_WSS = base_wss + f"?sessionId={_uuid.uuid4()}"
         print("☁️  Cloud mode: BD Browser API (ASN rotation), no local WARP")
-        print(f"☁️  Fresh BD session: {BRD_WSS[:55]}*** (pool {BRD_WSS_POOL.index(pool_pick)+1}/{len(BRD_WSS_POOL)})")
+        print(f"☁️  Fresh BD session: {BRD_WSS[:55]}*** (pool {idx % len(BRD_WSS_POOL) + 1}/{len(BRD_WSS_POOL)} ASN rotation)")
     
     try:
         # Start WARP if requested - warp-cli proxy mode (isolated)
@@ -1520,69 +1526,10 @@ async def run(use_warp=False, cloud_mode=False):
             print(f"📧 22.do handler: {_handler_desc} (pool {len(HANDLERS)} handlers)")
             mailbox = None
             if cloud_mode:
-                # ponytail: cloud fallback 22.do -> dispose -> mail.tm per user (fresh IP per try)
-                print("☁️  Cloud mailbox fallback: 22.do -> dispose -> mail.tm")
-                tried = False
-                # 1. 22.do in order gmail -> outlook -> hotmail -> temp (each via separate BD)
-                for dom in ["@gmail.com", "@outlook.com", "@hotmail.com", "@linshiyou.com", "@colabeta.com", "@youxiang.dev"]:
-                    try:
-                        print(f"☁️  Trying 22.do {dom} (separate BD)...")
-                        from playwright.async_api import async_playwright as _p2
-                        import uuid as _uuid3
-                        wss_22 = BRD_WSS.split("?")[0] + f"?sessionId={_uuid3.uuid4()}"
-                        p22 = await _p2().start()
-                        b22 = await p22.chromium.connect_over_cdp(wss_22)
-                        ctx22 = b22.contexts[0] if b22.contexts else await b22.new_context()
-                        tmp_mb = TwoTwoDoInbox(context=ctx22, target_domain=dom)
-                        await tmp_mb.create()
-                        mailbox = tmp_mb
-                        mailbox._22_browser = b22
-                        mailbox._22_playwright = p22
-                        mailbox._22_context = ctx22
-                        print(f"✅ Mailbox ready: {mailbox.address} (via 22.do {dom} separate BD)")
-                        tried = True
-                        break
-                    except Exception as ex:
-                        print(f"  22.do {dom} failed: {str(ex)[:80]}")
-                        try:
-                            await b22.close()
-                            await p22.stop()
-                        except: pass
-                        continue
-                if not tried:
-                    print("⚠️  22.do all failed, trying dispose.lol Gmail (separate BD)...")
-                    try:
-                        from playwright.async_api import async_playwright as _p
-                        import uuid as _uuid2
-                        dispose_wss = BRD_WSS.split("?")[0] + f"?sessionId={_uuid2.uuid4()}"
-                        p2 = await _p().start()
-                        b_dispose = await p2.chromium.connect_over_cdp(dispose_wss)
-                        ctx_dispose = b_dispose.contexts[0] if b_dispose.contexts else await b_dispose.new_context()
-                        pg = await ctx_dispose.new_page()
-                        await pg.goto("https://dispose.lol", wait_until="load", timeout=60000)
-                        await pg.wait_for_timeout(5000)
-                        email_text = await pg.evaluate('''() => {
-                            const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
-                            while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
-                            return null;
-                        }''')
-                        if email_text and '@gmail.com' in email_text:
-                            addr = email_text.strip()
-                            mailbox = DisposeLolInbox(context=context)
-                            mailbox.page = pg
-                            mailbox._dispose_browser = b_dispose
-                            mailbox._dispose_context = ctx_dispose
-                            mailbox._dispose_playwright = p2
-                            mailbox.address = addr
-                            print(f"✅ Mailbox ready: {mailbox.address} (via dispose.lol separate BD, keep for polling)")
-                        else:
-                            await b_dispose.close()
-                            await p2.stop()
-                            raise Exception("dispose Gmail not found")
-                    except Exception as e:
-                        print(f"⚠️  dispose.lol failed ({e}), falling back to mail.tm API...")
-                        mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
-                        await mailbox.create()
+                # ponytail: mail.tm now (BD blocks 22.do/dispose as classified) — use API, 1-domain safe
+                print("☁️  Cloud mailbox: mail.tm API (BD blocks 22.do/dispose, mail.tm works)")
+                mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                await mailbox.create()
             else:
                 for _crash_attempt in range(3):
                     try:
@@ -1637,8 +1584,62 @@ async def run(use_warp=False, cloud_mode=False):
                 page.on("crash", _on_crash)
                 page.on("close", lambda _: print("❌ tab closed"))
             
-            # Sign in to Railway
-            await sign_in_to_railway(page, mailbox)
+            # Sign in to Railway — breaker: on OTP/button fail, retry with next mailbox + fresh IP
+            tried_mails = []
+            for attempt in range(3):
+                try:
+                    await sign_in_to_railway(page, mailbox)
+                    break
+                except Exception as e:
+                    msg = str(e)
+                    is_breaker = ("OTP not received" in msg or "Turnstile/button timeout" in msg or "Continue with Email" in msg)
+                    if is_breaker and attempt < 2:
+                        print(f"⚠️  Breaker {attempt+1}/3: {msg[:80]} — fresh IP + next mailbox")
+                        # fresh IP
+                        import uuid as _uuid4
+                        from pathlib import Path as _Path2
+                        pool_file = _Path2("/tmp/bd_pool_index")
+                        try: idx = int(pool_file.read_text().strip() or 0)
+                        except: idx = 0
+                        pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
+                        pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
+                        # update global WSS for next try
+                        import os as _os2
+                        _os2.environ["BRD_WSS"] = pool_pick.split("?")[0] + f"?sessionId={_uuid4.uuid4()}"
+                        print(f"🔄 New BD session {pool_pick[:50]}***")
+                        print(f"🔄 New BD session {BRD_WSS[:50]}***")
+                        # next mailbox in fallback
+                        tried_mails.append(mailbox.address if mailbox else "unknown")
+                        # close current page/context and create fresh
+                        try: await page.close()
+                        except: pass
+                        try: await context.close()
+                        except: pass
+                        # new browser/context/page with new WSS (use the freshly picked one)
+                        if cloud_mode:
+                            from playwright.async_api import async_playwright as _p3
+                            p3 = await _p3().start()
+                            # use the new WSS from pool file (already updated via env)
+                            import os as _os3
+                            new_wss = _os3.environ.get("BRD_WSS", BRD_WSS)
+                            browser = await p3.chromium.connect_over_cdp(new_wss)
+                            context = browser.contexts[0] if browser.contexts else await browser.new_context()
+                            page = await context.new_page()
+                        # next mailbox: try next in fallback
+                        next_dom = ["@outlook.com", "@hotmail.com", "@linshiyou.com"][attempt] if attempt < 3 else None
+                        if next_dom:
+                            try:
+                                mb = TwoTwoDoInbox(context=context, target_domain=next_dom)
+                                await mb.create()
+                                mailbox = mb
+                                print(f"🔄 Trying {next_dom} -> {mailbox.address}")
+                            except:
+                                mailbox = MailTmInbox(context=context)
+                                await mailbox.create()
+                                print(f"🔄 Fallback mail.tm -> {mailbox.address}")
+                        continue
+                    else:
+                        raise
             
             # Accept policies
             await accept_railway_policies(page)
