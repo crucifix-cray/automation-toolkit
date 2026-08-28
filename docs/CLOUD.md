@@ -23,3 +23,6 @@ HOME=session-*/.railway LD_PRELOAD="" railway whoami
 - Fresh `sessionId` + `pkill` per run for new IP/ASN
 - `mail.tm` vs `dispose` 1-domain safe
 - Local headless Chrome PKCE via `HOME=`, `LD_PRELOAD=""`
+
+## Update 2026-08-28 — Dispose OTP wait 150 checks
+- Increased `DisposeLolInbox.wait_for_railway_code` to 750s / 150 checks (was 300s / ~41) to handle Railway email delay via dispose Gmail.

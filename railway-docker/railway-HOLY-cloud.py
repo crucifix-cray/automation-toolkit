@@ -203,19 +203,21 @@ class DisposeLolInbox:
                 await self.page.close()
             raise
 
-    async def wait_for_railway_code(self, timeout_seconds=300):
+    async def wait_for_railway_code(self, timeout_seconds=750):
         if not self.address:
             raise Exception("No address set")
-        print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
+        print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s, max 150 checks)...")
         pattern = re.compile(r'\b(\d{6})\b')
         deadline = time.time() + timeout_seconds
         check_count = 0
-        while time.time() < deadline:
+        while time.time() < deadline and check_count < 150:
             check_count += 1
-            await self.page.reload(wait_until="load")
+            try:
+                await self.page.reload(wait_until="load", timeout=15000)
+            except: pass
             await self.page.wait_for_timeout(2000)
             message_buttons = await self.page.locator('button[aria-label^="View "]').all()
-            if check_count % 10 == 1:
+            if check_count % 10 == 1 or check_count <= 3:
                 print(f"  Check #{check_count}: {len(message_buttons)} message(s)")
             for button in message_buttons:
                 aria_label = await button.get_attribute('aria-label')
