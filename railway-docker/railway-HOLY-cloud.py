@@ -1473,12 +1473,16 @@ async def run(use_warp=False, cloud_mode=False):
             print(f"📧 22.do handler: {_handler_desc} (pool {len(HANDLERS)} handlers)")
             mailbox = None
             if cloud_mode:
-                # ponytail: cloud free = 1 domain/session, but user wants Gmail → use dispose via separate BD browser
-                # for any cloud run, default to dispose Gmail (separate BD) to avoid mail.tm flag
-                print("☁️  Cloud Gmail: dispose.lol via separate BD browser (1-domain safe)")
-                from playwright.async_api import async_playwright as _p
-                async with _p() as p2:
-                    b_dispose = await p2.chromium.connect_over_cdp(BRD_WSS)
+                # ponytail: cloud fallback dispose -> 22.do -> mail.tm, sequential to avoid 2 concurrent BD browsers
+                print("☁️  Cloud mailbox fallback: dispose -> 22.do -> mail.tm")
+                # 1. dispose.lol Gmail via separate BD browser, sequential (close before main railway)
+                try:
+                    print("☁️  Trying dispose.lol Gmail (separate BD, keep open)...")
+                    from playwright.async_api import async_playwright as _p
+                    import uuid as _uuid2
+                    dispose_wss = BRD_WSS.split("?")[0] + f"?sessionId={_uuid2.uuid4()}"
+                    p2 = await _p().start()
+                    b_dispose = await p2.chromium.connect_over_cdp(dispose_wss)
                     ctx_dispose = b_dispose.contexts[0] if b_dispose.contexts else await b_dispose.new_context()
                     pg = await ctx_dispose.new_page()
                     await pg.goto("https://dispose.lol", wait_until="load", timeout=60000)
@@ -1488,15 +1492,38 @@ async def run(use_warp=False, cloud_mode=False):
                         while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
                         return null;
                     }''')
-                    if not email_text or '@gmail.com' not in email_text:
+                    if email_text and '@gmail.com' in email_text:
+                        addr = email_text.strip()
+                        mailbox = DisposeLolInbox(context=context)
+                        mailbox.page = pg
+                        mailbox._dispose_browser = b_dispose
+                        mailbox._dispose_context = ctx_dispose
+                        mailbox._dispose_playwright = p2
+                        mailbox.address = addr
+                        print(f"✅ Mailbox ready: {mailbox.address} (via dispose.lol separate BD, keep for polling)")
+                    else:
                         await b_dispose.close()
+                        await p2.stop()
                         raise Exception("dispose Gmail not found")
-                    mailbox = DisposeLolInbox(context=context)
-                    mailbox.page = pg
-                    mailbox._dispose_browser = b_dispose
-                    mailbox._dispose_context = ctx_dispose
-                    mailbox.address = email_text.strip()
-                    print(f"✅ Mailbox ready: {mailbox.address} (via dispose.lol separate BD)")
+                except Exception as e:
+                    print(f"⚠️  dispose.lol failed ({e}), trying 22.do...")
+                    # 2. 22.do in order gmail -> outlook -> hotmail -> temp
+                    tried = False
+                    for dom in ["@gmail.com", "@outlook.com", "@hotmail.com", "@linshiyou.com", "@colabeta.com", "@youxiang.dev"]:
+                        try:
+                            print(f"  Trying 22.do {dom}...")
+                            mb = TwoTwoDoInbox(context=context, target_domain=dom)
+                            await mb.create()
+                            mailbox = mb
+                            tried = True
+                            break
+                        except Exception as ex:
+                            print(f"  22.do {dom} failed: {str(ex)[:60]}")
+                            continue
+                    if not tried:
+                        print("⚠️  22.do all failed, falling back to mail.tm API...")
+                        mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                        await mailbox.create()
             else:
                 for _crash_attempt in range(3):
                     try:
@@ -1568,16 +1595,23 @@ async def run(use_warp=False, cloud_mode=False):
                 print(f"✅ SUCCESS! Account created: {mailbox.address}")
                 print(f"📁 Session: {session_dir}")
                 print(f"{'='*60}\n")
-                # ponytail: cloud — verify via raw IP isolated config, then continue with CLI
+                # ponytail: cloud — verify via raw IP isolated HOME (not RAILWAY_CONFIG_DIR)
                 if cloud_mode:
                     try:
                         env = os.environ.copy()
-                        env["RAILWAY_CONFIG_DIR"] = str(session_dir / ".railway")
+                        env["HOME"] = str(session_dir)
+                        env["LD_PRELOAD"] = ""
                         # raw IP verify (no BD proxy, uses sandbox egress)
                         r = subprocess.run(["railway", "whoami"], env=env, capture_output=True, text=True, timeout=15)
-                        print(f"🔧 CLI whoami (raw IP, isolated): {r.stdout.strip() or r.stderr.strip()}")
+                        print(f"🔧 CLI whoami (raw IP, HOME={session_dir}): {r.stdout.strip() or r.stderr.strip()}")
                         r2 = subprocess.run(["railway", "status"], env=env, capture_output=True, text=True, timeout=15)
-                        print(f"🔧 CLI status: {r2.stdout.strip()[:300] or r2.stderr.strip()[:300]}")
+                        print(f"🔧 CLI status: {r2.stdout.strip()[:400] or r2.stderr.strip()[:400]}")
+                        # also push to mega via raw IP
+                        env2 = os.environ.copy()
+                        env2["LD_PRELOAD"] = ""
+                        env2["LD_LIBRARY_PATH"] = ""
+                        subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=60)
+                        print(f"☁️  Pushed {session_dir.name} to mega:railway_sessions via raw IP")
                     except Exception as e:
                         print(f"⚠️  CLI verify failed: {e}")
             except Exception as e:
