@@ -1312,6 +1312,19 @@ async def register_cli_session(context, page, sessions_dir: Path, cloud_mode=Fal
     print(f"✅ CLI verification: {email} authenticated")
     return session_dir
 
+async def register_cli_session_local_chrome(bd_cookies: list[dict], sessions_dir: Path) -> Path:
+    """Cloud: local headless chrome on raw IP with BD cookies — no BD browser needed"""
+    print("\n🔧 Registering CLI via local headless chrome (raw IP)...")
+    tokens = await get_oauth_tokens_local_chrome(bd_cookies)
+    print("✓ Got access and refresh tokens (local chrome)")
+    user = get_web_user(bd_cookies)
+    print(f"✓ User: {user.get('email')} (ID: {user.get('id')})")
+    session_dir = next_session_dir(sessions_dir)
+    write_cli_session(session_dir, tokens, user, bd_cookies)
+    email = verify_tokens(tokens, user)
+    print(f"✅ CLI verification: {email} authenticated")
+    return session_dir
+
 
 # ============================================================================
 # MAIN EXECUTION
@@ -1589,9 +1602,17 @@ async def run(use_warp=False, cloud_mode=False):
             # Accept policies
             await accept_railway_policies(page)
             
-            # Register CLI session
+            # Register CLI session — cloud must use local headless chrome (BD brul blocks backboard)
             try:
-                session_dir = await register_cli_session(context, page, SESSIONS_DIR, cloud_mode=cloud_mode)
+                if cloud_mode:
+                    # keep BD cookies for local chrome, close BD browser before local chrome to avoid 2 concurrent
+                    bd_cookies = await context.cookies()
+                    # close BD browser now, local chrome will run on raw IP
+                    try: await browser.close()
+                    except: pass
+                    session_dir = await register_cli_session_local_chrome(bd_cookies, SESSIONS_DIR)
+                else:
+                    session_dir = await register_cli_session(context, page, SESSIONS_DIR, cloud_mode=cloud_mode)
                 
                 # Sync to Mega
                 sync_to_mega(session_dir)
