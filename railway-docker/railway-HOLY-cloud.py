@@ -1971,7 +1971,38 @@ async def run(use_warp=False, cloud_mode=False):
                             print(f"🔓 Released BD API lock {found_lock.name} before PKCE")
                             found_lock = None
                     except: pass
-                    session_dir = await register_cli_session_local_chrome(bd_cookies, SESSIONS_DIR)
+                    # rclone/mega check - auto-install if missing and verify config
+                    try:
+                        import shutil as _sh
+                        if not _sh.which("rclone"):
+                            print("📥 rclone missing, installing for Mega check...")
+                            _sp = __import__('subprocess')
+                            _sp.run(["apt", "update", "-q"], capture_output=True, timeout=60)
+                            _sp.run(["apt", "install", "-y", "unzip"], capture_output=True, timeout=60)
+                            _sp.run(["bash", "-c", "curl https://rclone.org/install.sh | bash"], capture_output=True, timeout=60)
+                        # verify mega config
+                        _sp2 = __import__('subprocess')
+                        env_m = os.environ.copy()
+                        env_m["LD_PRELOAD"] = ""
+                        rm = _sp2.run(["rclone", "lsd", "mega:railway_sessions", "--mega-use-https"], env=env_m, capture_output=True, text=True, timeout=15)
+                        if rm.returncode != 0:
+                            print(f"⚠️  Mega not configured: {rm.stderr.strip()[:200]}")
+                        else:
+                            print(f"☁️  Mega OK: {len(rm.stdout.splitlines())} sessions")
+                    except: pass
+                    # retry CLI until success (keep working)
+                    session_dir = None
+                    for cli_try in range(5):
+                        try:
+                            session_dir = await register_cli_session_local_chrome(bd_cookies, SESSIONS_DIR)
+                            break
+                        except Exception as ce:
+                            print(f"⚠️  CLI try {cli_try+1}/5 failed: {str(ce)[:200]}")
+                            if cli_try < 4:
+                                print(f"  retrying CLI in 5s...")
+                                await asyncio.sleep(5)
+                            else:
+                                raise
                 else:
                     session_dir = await register_cli_session(context, page, SESSIONS_DIR, cloud_mode=cloud_mode)
                 
