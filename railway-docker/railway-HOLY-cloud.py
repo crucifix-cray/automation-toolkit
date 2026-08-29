@@ -552,6 +552,82 @@ def next_session_dir(base_dir: Path, session_num: int = None):
 # ============================================================================
 # RAILWAY LOGIN FLOW
 # ============================================================================
+async def _click_turnstile_checkbox(page, log=True):
+    """Try to click the Turnstile checkbox in iframe or shadow-DOM inside the page.
+    Returns True if a widget was found & clicked (validation may still be pending)."""
+    clicked = False
+    try:
+        iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+        if await iframe.count() > 0 and await iframe.first.is_visible():
+            box = await iframe.first.bounding_box()
+            if box and box["width"] > 0 and box["height"] > 0:
+                # center-right where the checkbox sits
+                await page.mouse.click(box["x"] + box["width"] * 0.82, box["y"] + box["height"] / 2)
+                if log: print("  🔘 Clicked Turnstile iframe checkbox (right-center)")
+                clicked = True
+    except Exception:
+        pass
+    # shadow-DOM widget inside page
+    try:
+        in_shadow = await page.evaluate('''() => {
+            const sel = 'input[type="checkbox"], .ctp-checkbox, [class*="checkbox"], [id*="challenge"]';
+            for (const f of document.querySelectorAll('iframe')) { try { if (f.contentDocument) {
+                let box = f.contentDocument.querySelector('.ctp-checkbox, label, input[type=checkbox]');
+                if (box) { box.click(); return true; }
+            }} catch(e){} }
+            return false;
+        }''')
+        if in_shadow:
+            if log: print("  🔘 Clicked Turnstile widget via contentDocument")
+            clicked = True
+    except Exception:
+        pass
+    return clicked
+
+
+async def _handle_turnstile(page, until_solved_fn, total_seconds=80):
+    """Actively handle Cloudflare Turnstile every 0.5s while also running until_solved_fn().
+
+    On every loop: click the checkbox if present, look for an interactive challenge
+    and click it, and check if the continue button is now enabled (until_solved_fn).
+
+    If no CF widget is present at all, still continues polling until_solved_fn.
+    Returns True if solved (button enabled), else False on timeout.
+    """
+    deadline = time.time() + total_seconds
+    printed_widget = False
+    while time.time() < deadline:
+        done = await until_solved_fn()
+        if done:
+            return True
+        # actively handle any visible Turnstile widget
+        has_widget = False
+        try:
+            iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+            cnt = await iframe.count()
+            has_widget = cnt > 0
+            if cnt > 0 and await iframe.first.is_visible():
+                if not printed_widget:
+                    print("  🤖 Active Turnstile handling...")
+                    printed_widget = True
+                await _click_turnstile_checkbox(page, log=False)
+        except Exception:
+            pass
+        # if interactive challenge appeared, click its continue/checkbox too
+        try:
+            if has_widget:
+                chall = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
+                for label in ("I\'m not a robot", "Verify", "Continue", "checkbox"):
+                    b = chall.get_by_role("button", name=label)
+                    if await b.count():
+                        await b.first.click(timeout=1500)
+                        break
+        except Exception:
+            pass
+        await page.wait_for_timeout(500)
+    return False
+
+
 async def sign_in_to_railway(page, mailbox):
     """
     Complete Railway login flow:
@@ -670,80 +746,36 @@ async def sign_in_to_railway(page, mailbox):
         except:
             pass
     
-    # Solve Turnstile if present - passive mode for WARP (per RAILWAY_AUTOMATION.md)
-    # WARP proxy IPs often auto-validate; ClickSolver fails with "success element does not exist" on this site,
-    # so we use passive polling directly - proven working method.
-    if turnstile_exists:
-        print("🤖 Turnstile detected - using passive wait (WARP proxy auto-validate)...")
-        print("  ℹ️  Skipping ClickSolver (fails on this WARP IP), will poll Continue button directly")
-        # Optional single manual click attempt on iframe checkbox if present (fast, no solver)
-        try:
-            iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
-            if await iframe.count() > 0:
-                # Try quick click on the Turnstile widget area to trigger validation
-                box = await iframe.first.bounding_box()
-                if box:
-                    await page.mouse.click(box["x"] + box["width"]/2, box["y"] + box["height"]/2)
-                    print("  ✅ Clicked Turnstile widget center")
-        except:
-            pass
-        print("⏳ Waiting for Turnstile validation...")
-        await page.wait_for_timeout(3000)
-        print("⏳ Fast polling Continue button (every 0.5s, max 180s) - per docs...")
-    else:
-        print("✓ No visible Turnstile")
-    
-    # Wait for Continue button and click - passive polling 180s via fast poll
+    # Wait for Continue button to enable — active Turnstile handling every 0.5s
     continue_btn = page.get_by_role("button", name="Continue with Email", exact=True)
-    print("⏳ Waiting for Continue button to enable...")
-    
+    print("⏳ Waiting for Continue button to enable (active CF handling)...")
+
+    async def cont_enabled():
+        try:
+            if await continue_btn.is_enabled(timeout=800):
+                return True
+        except Exception:
+            pass
+        return False
+
     try:
-        # Use fast polling instead of single expect to handle Turnstile delay
-        for poll in range(160):  # 80s /0.5 — rotate to new browser+mail+ASN after if stuck
-            try:
-                if await continue_btn.is_enabled(timeout=1000):
-                    print(f"✅ Button enabled! (poll {poll+1}) Clicking NOW...")
-                    await page.wait_for_timeout(500)
-                    await continue_btn.click(timeout=5000)
-                    print("✅ Clicked 'Continue with Email'")
-                    break
-            except:
-                pass
+        solved = await _handle_turnstile(page, cont_enabled, total_seconds=80)
+        if solved:
+            print("✅ Continue button enabled — clicking NOW...")
             await page.wait_for_timeout(500)
-            if poll % 10 == 0 and poll > 0:
-                print(f"  ... still waiting {poll*0.5:.0f}s")
-            # ponytail: at 75s (poll 150) screenshot for mega before rotate
-            if poll == 150:
-                try:
-                    shot = f"/tmp/turnstile-stuck-{int(time.time())}.png"
-                    await page.screenshot(path=shot, full_page=True)
-                    print(f"📸 Turnstile stuck 75s, screenshot {shot}")
-                    # push to mega via raw IP
-                    import subprocess as _sp2, os as _os2
-                    env2 = _os2.environ.copy()
-                    env2["LD_PRELOAD"] = ""
-                    env2["LD_LIBRARY_PATH"] = ""
-                    _sp2.run(["rclone", "copy", shot, "mega:railway_sessions/", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=30)
-                    print(f"☁️  Pushed {shot} to mega:railway_sessions")
-                except Exception as e:
-                    print(f"⚠️  Screenshot push failed: {e}")
-        else:
-            # fallback single expect 60s
-            await expect(continue_btn).to_be_enabled(timeout=60000)
-            print("✅ Button enabled!")
-            await page.wait_for_timeout(1000)
             await continue_btn.click(timeout=5000)
             print("✅ Clicked 'Continue with Email'")
+        else:
+            # put a debug screenshot before breaker rotates
+            screenshot_path = f"/tmp/turnstile-timeout-{int(time.time())}.png"
+            try:
+                await page.screenshot(path=screenshot_path, full_page=True)
+                print(f"❌ Screenshot: {screenshot_path}")
+                txt = await page.locator("body").inner_text()
+                print(f"Page text snippet: {txt[:400]}")
+            except: pass
+            raise RuntimeError("Turnstile/button timeout")
     except Exception as e:
-        screenshot_path = f"/tmp/turnstile-timeout-{int(time.time())}.png"
-        try:
-            await page.screenshot(path=screenshot_path, full_page=True)
-            print(f"❌ Screenshot: {screenshot_path}")
-            # also dump page text for debug
-            txt = await page.locator("body").inner_text()
-            print(f"Page text snippet: {txt[:500]}")
-        except:
-            pass
         raise RuntimeError(f"Turnstile/button timeout: {e}")
     
     # Wait for Railway to send email
@@ -1694,6 +1726,14 @@ async def run(use_warp=False, cloud_mode=False):
                 except Exception as e:
                     msg = str(e)
                     is_breaker = ("OTP not received" in msg or "Turnstile/button timeout" in msg or "Continue with Email" in msg)
+                    is_domlimit = ("navigate_domains_limit" in msg or "domain limit" in msg)
+                    if is_domlimit:
+                        print(f"⚠️  BD domain-limit hit — cooling down 120s, then fresh session")
+                        import asyncio as _as
+                        await _as.sleep(120)
+                        msg = msg.replace("\n", " ")[:60]
+                        # fall through to breaker with fresh IP
+                        is_breaker = True
                     if is_breaker and attempt < 2:
                         print(f"⚠️  Breaker {attempt+1}/3: {msg[:80]} — fresh IP + next mailbox")
                         # fresh IP
