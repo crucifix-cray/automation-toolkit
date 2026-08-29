@@ -216,7 +216,7 @@ def proxy_settings(for_api: bool = False) -> dict | None:
                 print(f"✅ Using proxy 127.0.0.1:{port} ({'API' if for_api else 'browser'})", file=sys.stderr)
                 return {
                     "server": server,
-                    "bypass": "127.0.0.1,localhost",
+                    "bypass": "127.0.0.1,localhost,api.lovable.dev,api.tempmailhub.org",
                     "port": port,
                 }
         except OSError:
@@ -297,7 +297,7 @@ def api_request(endpoint: str, method: str = "POST", data: dict = None, timeout:
             import socket as _sock
             try:
                 with _sock.create_connection(("127.0.0.1", 9251), timeout=1):
-                    candidates.append({"server": "socks5://127.0.0.1:9251", "port": 9251, "bypass": "127.0.0.1,localhost"})
+                    candidates.append({"server": "socks5://127.0.0.1:9251", "port": 9251, "bypass": "127.0.0.1,localhost,api.lovable.dev,api.tempmailhub.org"})
             except: pass
         candidates.append(None)
     else:
@@ -649,8 +649,8 @@ async def apply_stealth_patches(page: Page) -> None:
         try { window.outerWidth=1920; window.outerHeight=1080; window.innerWidth=1920; window.innerHeight=947; } catch(e){}
         // hide automation: chrome.runtime, permissions, etc.
         try { window.navigator.chrome={runtime:{}}; } catch(e){}
-        // add slight canvas noise
-        try { const origGetContext=HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext=function(t,...a){ const ctx=origGetContext.call(this,t,...a); if(t==='2d' && ctx){ const origFill=ctx.fillText; ctx.fillText=function(...args){ ctx.globalAlpha=0.9999; return origFill.apply(this,args); }; } return ctx; }; } catch(e){}
+        // canvas: don't add noise on lovable (breaks white screen), only return orig
+        try { /* no canvas noise — lovable uses canvas for rendering */ } catch(e){}
     }""")
 
 
@@ -713,10 +713,29 @@ async def click_exact(page: Page, text: str) -> None:
 
 
 async def wait_for_lovable_ready(page: Page) -> None:
-    """Wait for Lovable page to be ready."""
+    """Wait for Lovable page to be ready + white-screen fix."""
     deadline = asyncio.get_running_loop().time() + 75
+    white_retries=0
     while asyncio.get_running_loop().time() < deadline:
         text = await body_text(page)
+        # white screen: empty body or tiny html (lovable failed fetch)
+        html_len = len(text.strip())
+        if html_len < 30 and white_retries < 3:
+            # also check raw html length
+            try:
+                raw = await page.content()
+                if len(raw) < 800 or "Failed to fetch" in raw or "api.lovable.dev" in raw:
+                    print(f"⚠️  White screen detected (html {len(raw)}), reload {white_retries+1}/3", file=sys.stderr)
+                    await page.reload(wait_until="domcontentloaded", timeout=30_000)
+                    white_retries+=1
+                    await page.wait_for_timeout(3000)
+                    continue
+            except: pass
+            if html_len == 0:
+                white_retries+=1
+                await page.reload(wait_until="domcontentloaded", timeout=30_000)
+                await page.wait_for_timeout(2500)
+                continue
         
         # Wait for Cloudflare security check
         if "Performing security verification" in text:
