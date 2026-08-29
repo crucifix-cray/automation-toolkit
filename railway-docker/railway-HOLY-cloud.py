@@ -699,7 +699,7 @@ async def sign_in_to_railway(page, mailbox):
     
     try:
         # Use fast polling instead of single expect to handle Turnstile delay
-        for poll in range(240):  # 120s /0.5
+        for poll in range(160):  # 80s /0.5 — rotate to new browser+mail+ASN after if stuck
             try:
                 if await continue_btn.is_enabled(timeout=1000):
                     print(f"✅ Button enabled! (poll {poll+1}) Clicking NOW...")
@@ -712,12 +712,12 @@ async def sign_in_to_railway(page, mailbox):
             await page.wait_for_timeout(500)
             if poll % 10 == 0 and poll > 0:
                 print(f"  ... still waiting {poll*0.5:.0f}s")
-            # ponytail: at 100s (poll 200) screenshot for mega
-            if poll == 200:
+            # ponytail: at 75s (poll 150) screenshot for mega before rotate
+            if poll == 150:
                 try:
                     shot = f"/tmp/turnstile-stuck-{int(time.time())}.png"
                     await page.screenshot(path=shot, full_page=True)
-                    print(f"📸 Turnstile stuck 100s, screenshot {shot}")
+                    print(f"📸 Turnstile stuck 75s, screenshot {shot}")
                     # push to mega via raw IP
                     import subprocess as _sp2, os as _os2
                     env2 = _os2.environ.copy()
