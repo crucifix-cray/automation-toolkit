@@ -15,4 +15,4 @@ All verified via `HOME=session-*/.railway LD_PRELOAD="" railway whoami` on raw I
 
 **Cloud Holy** `railway-HOLY-cloud.py` — `BD Browser API` `wss://hl_4ee0cb14`/`hl_709648b2` + `?sessionId` per run (ASN rotation), `dispose.lol` Gmail (separate BD) → `22.do` → `mail.tm`, `150 checks` for OTP, `Turnstile` `100s` screenshot to `mega:railway_sessions`, breaker on `OTP 0`/`Continue [disabled]` → fresh IP + next mailbox, local headless Chrome PKCE for CLI.
 
-**Next:** Loop `HOLY-cloud.py --cloud` on `test-ubuntu-6` to 500, `rclone` to `mega:railway_sessions/session-7..500`.
+**Next:** Kill old BD browser (pkill) → SSH `test-ubuntu-6` → `HOLY-cloud.py --cloud` fresh `?sessionId` ASN → new Railway acc + CLI (`HOME=session`) → `rclone --mega-use-https` raw IP to `session-7..500`.
