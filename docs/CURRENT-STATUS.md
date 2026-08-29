@@ -1,15 +1,16 @@
-# Automation Toolkit - Current Status (Reindexed 2026-08-28 18:30 UTC)
+# Automation Toolkit - Current Status (Reindexed 2026-08-29 15:15 UTC)
 
-**6 healthy Railway CLI sessions ordered 1..6 on all 3 (local, sandbox test-ubuntu-6, mega:railway_sessions) via raw IP `LD_PRELOAD=""`**
+**7 healthy Railway CLI sessions verified via `HOME=session-*/.railway LD_PRELOAD="" railway whoami` raw IP (152.55.184.157)**
 
-| # | Email | Source | CLI `whoami` | Mega |
-|---|-------|--------|--------------|------|
-| 1 | jzwvvhj4934m+vla1ycoqmow59@outlook.com | local session-3 | OK | ✅ |
-| 2 | kar.lxyprio@gmail.com | local session-6 | OK | ✅ |
-| 3 | janic.ebunagna@gmail.com | local session-xx | OK | ✅ |
-| 4 | ghian.sean5@gmail.com | BD Chennai 223.178.84.38 | OK | ✅ |
-| 5 | ae.lexclement@gmail.com | local session-4 | OK | ✅ |
-| 6 | khea.docusin@gmail.com | sandbox session-28 | OK | ✅ |
+| # | Dir | Email | CLI `whoami` | Mega |
+|---|-----|-------|--------------|------|
+| 1 | session-3 | jzwvvhj4934m+vla1ycoqmow59@outlook.com | OK | ✅ |
+| 2 | session-1 | eyx1lakw1uizeyw4lm@usdtbeta.com | OK | ✅ |
+| 3 | session-2 | st.odezgdvkp+odytn8e1il@gmail.com | OK | ✅ |
+| 4 | session-4 | bsu.ejjrue.kis8.0.9+bxbqr9ff@gmail.com | OK | ✅ |
+| 5 | session-11 | nlvnod39153u+jm7mu6cj9m01hh5@outlook.com | OK | ✅ |
+| 6 | session-13 | tha.t.huchoem0.1.8@gmail.com | OK | ✅ (just synced) |
+| 7 | session-21 | s2d6bjrla38o@emalupe.com | OK | ✅ (just synced, BD→local chrome PKCE) |
 
 All verified via `HOME=session-*/.railway LD_PRELOAD="" railway whoami` on raw IP (`152.55.184.157` direct, no WARP/BD). `rclone` via `LD_PRELOAD="" LD_LIBRARY_PATH="" --mega-use-https` raw IP.
 
