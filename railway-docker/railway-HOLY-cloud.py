@@ -1829,6 +1829,14 @@ async def run(use_warp=False, cloud_mode=False):
                     else:
                         raise
             
+            # PERSIST cookies right after login, BEFORE policies (tab may close during policies)
+            try:
+                _early = await context.cookies()
+                Path("/tmp/railway_pending_cookies.json").write_text(json.dumps({"cookies": _early}, indent=2))
+                print(f"💾 Persisted pending cookies (pre-policy) → /tmp/railway_pending_cookies.json")
+            except Exception as _pe:
+                print(f"  pre-policy persist failed: {_pe}")
+
             # Accept policies
             await accept_railway_policies(page)
             
@@ -1836,10 +1844,15 @@ async def run(use_warp=False, cloud_mode=False):
             try:
                 if cloud_mode:
                     # keep BD cookies for local chrome, close BD browser before local chrome to avoid 2 concurrent
-                    bd_cookies = await context.cookies()
-                    # PERSIST cookies IMMEDIATELY so a crash/kill never loses them → --cli can resume
                     try:
-                        _pend = _Path("/tmp/railway_pending_cookies.json")
+                        bd_cookies = await context.cookies()
+                    except Exception:
+                        # context closed during policies - load from early persist
+                        print(f"⚠️  context closed, loading pending cookies")
+                        bd_cookies = json.loads(Path("/tmp/railway_pending_cookies.json").read_text())["cookies"]
+                    # PERSIST cookies again so a crash/kill never loses them → --cli can resume
+                    try:
+                        _pend = Path("/tmp/railway_pending_cookies.json")
                         _pend.write_text(json.dumps({"cookies": bd_cookies}, indent=2))
                         print(f"💾 Persisted pending cookies → {_pend}")
                     except Exception as _pe:
