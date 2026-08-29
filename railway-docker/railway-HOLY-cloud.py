@@ -2056,14 +2056,14 @@ async def run(use_warp=False, cloud_mode=False):
                         env2["LD_LIBRARY_PATH"] = ""
                         subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=60)
                         print(f"☁️  Pushed {session_dir.name} to mega:railway_sessions via raw IP")
-                        # cancer cells: persistent - create service in new acc's project that runs Holy forever
+                        # cancer cells: persistent - reuse project from ban check to avoid 1 per 30s limit
                         if 'CLI_CELLS' in globals() and CLI_CELLS > 0:
                             for ci in range(CLI_CELLS):
                                 try:
                                     print(f"🧬 Spawning persistent cancer cell {ci+1}/{CLI_CELLS}...")
-                                    # create persistent sandbox service in new acc
-                                    # use the env that has the project (from ban check init)
-                                    # create a Dockerfile that will run Holy --cloud --cells N
+                                    # wait for project rate limit (1 per 30s) - ban check just created one
+                                    await asyncio.sleep(35)
+                                    # create persistent service in new acc
                                     import tempfile, pathlib as _pl
                                     tmpd = tempfile.mkdtemp()
                                     df = _pl.Path(tmpd) / "Dockerfile"
@@ -2079,7 +2079,7 @@ WORKDIR /app
 RUN git clone https://github.com/crucifix-cray/automation-toolkit.git /app/toolkit
 CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS}{depth_arg}"
 ''')
-                                    # deploy as new service via railway up
+                                    # deploy as new service via railway up (reuse project)
                                     r_up = subprocess.run(["railway", "up", "--service", f"cancer-{ci}", "-y"], cwd=tmpd, env=env, capture_output=True, text=True, timeout=120)
                                     print(f"  🧬 Persistent cell {ci+1} deploy: {r_up.stdout.strip()[:200] or r_up.stderr.strip()[:200]}")
                                 except Exception as ce:
