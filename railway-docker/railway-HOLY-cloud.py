@@ -1970,8 +1970,9 @@ async def run(use_warp=False, cloud_mode=False):
                                     # copy Holy script into sandbox via rclone or railway sandbox exec?
                                     # simplest: use railway sandbox exec to git clone and run
                                     wss_val = BRD_WSS if 'BRD_WSS' in globals() else os.environ.get("BRD_WSS","")
-                                    subprocess.run(["railway", "sandbox", "exec", "--", "bash", "-c", f"git clone https://github.com/crucifix-cray/automation-toolkit.git /tmp/toolkit && LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /tmp/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS} > /tmp/cell.log 2>&1 &"], env=env, capture_output=True, text=True, timeout=30)
-                                    print(f"  🧬 Cell {ci+1} launched")
+                                    depth_arg = f" --depth {CLI_DEPTH-1}" if 'CLI_DEPTH' in globals() and CLI_DEPTH > 0 else ""
+                                    subprocess.run(["railway", "sandbox", "exec", "--", "bash", "-c", f"git clone https://github.com/crucifix-cray/automation-toolkit.git /tmp/toolkit && LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /tmp/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS}{depth_arg} > /tmp/cell.log 2>&1 &"], env=env, capture_output=True, text=True, timeout=30)
+                                    print(f"  🧬 Cell {ci+1} launched depth {CLI_DEPTH}")
                                 except Exception as ce:
                                     print(f"  cell spawn failed: {ce}")
                     except Exception as e:
@@ -2078,6 +2079,7 @@ if __name__ == "__main__":
     parser.add_argument("--recov", type=str, default=None, help="Recover existing 22.do inbox, e.g. g92w@colabeta.com (skips creation, opens https://22.do/inbox/#/<mail>)")
     parser.add_argument("--cli", type=str, default=None, metavar="PATH", help="CLI-only: resume a web session dir (loads browser_cookies.json) and register Railway CLI PKCE only, no re-login. Writes next free session dir.")
     parser.add_argument("--cells", type=int, default=0, metavar="N", help="Cancer mode: after success, spawn N new sandboxes each running Holy --cloud --cells N (exponential)")
+    parser.add_argument("--depth", type=int, default=0, metavar="D", help="Demo depth: stop after current Mega sessions + D (0=unlimited till 500)")
     args = parser.parse_args()
 
     # expose to run() via globals (used inside)
@@ -2085,6 +2087,7 @@ if __name__ == "__main__":
     CLI_RECOVERY_EMAIL = args.recov
     CLOUD_MODE = args.cloud or os.environ.get("BRD_WSS") is not None
     CLI_CELLS = args.cells
+    CLI_DEPTH = args.depth
 
     if args.cli:
         print("="*60)
@@ -2111,8 +2114,31 @@ if __name__ == "__main__":
     print("="*60)
 
     if CLI_CELLS > 0:
+        # demo depth: record initial Mega sessions
+        init_sess = 0
+        if CLI_DEPTH > 0:
+            try:
+                import subprocess as _sp0
+                env0 = os.environ.copy()
+                env0["LD_PRELOAD"] = ""
+                r0 = _sp0.run(["rclone", "lsd", "mega:railway_sessions", "--mega-use-https"], env=env0, capture_output=True, text=True, timeout=30)
+                init_sess = len([l for l in r0.stdout.splitlines() if "session-" in l])
+                print(f"🧬 CANCER DEMO: start {init_sess} sessions, target +{CLI_DEPTH} => {init_sess+CLI_DEPTH}")
+            except: pass
         print(f"🧬 CANCER MODE: {CLI_CELLS} cell(s) loop nonstop till credit limit")
         while True:
+            # depth check
+            if CLI_DEPTH > 0:
+                try:
+                    import subprocess as _spd
+                    envd = os.environ.copy()
+                    envd["LD_PRELOAD"] = ""
+                    rd = _spd.run(["rclone", "lsd", "mega:railway_sessions", "--mega-use-https"], env=envd, capture_output=True, text=True, timeout=30)
+                    cur = len([l for l in rd.stdout.splitlines() if "session-" in l])
+                    if cur >= init_sess + CLI_DEPTH:
+                        print(f"✅ Demo depth reached {cur} >= {init_sess+CLI_DEPTH}, stopping")
+                        break
+                except: pass
             try:
                 asyncio.run(run(use_warp=use_warp, cloud_mode=CLOUD_MODE))
             except Exception as e:
