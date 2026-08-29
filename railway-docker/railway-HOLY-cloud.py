@@ -553,32 +553,34 @@ def next_session_dir(base_dir: Path, session_num: int = None):
 # RAILWAY LOGIN FLOW
 # ============================================================================
 async def _click_turnstile_checkbox(page, log=True):
-    """Try to click the Turnstile checkbox in iframe or shadow-DOM inside the page.
-    Returns True if a widget was found & clicked (validation may still be pending)."""
+    """Try to click the Turnstile checkbox - correct left-side click + frame click."""
     clicked = False
+    # 1) precise left-side click where checkbox actually is (15px from left)
     try:
         iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
         if await iframe.count() > 0 and await iframe.first.is_visible():
             box = await iframe.first.bounding_box()
             if box and box["width"] > 0 and box["height"] > 0:
-                # center-right where the checkbox sits
-                await page.mouse.click(box["x"] + box["width"] * 0.82, box["y"] + box["height"] / 2)
-                if log: print("  🔘 Clicked Turnstile iframe checkbox (right-center)")
+                # checkbox is left side, not right
+                await page.mouse.click(box["x"] + 22, box["y"] + box["height"] / 2)
+                if log: print("  🔘 Clicked Turnstile checkbox (left)")
                 clicked = True
     except Exception:
         pass
-    # shadow-DOM widget inside page
+    # 2) try frame_locator direct click (more reliable than coords)
     try:
-        in_shadow = await page.evaluate('''() => {
-            const sel = 'input[type="checkbox"], .ctp-checkbox, [class*="checkbox"], [id*="challenge"]';
-            for (const f of document.querySelectorAll('iframe')) { try { if (f.contentDocument) {
-                let box = f.contentDocument.querySelector('.ctp-checkbox, label, input[type=checkbox]');
-                if (box) { box.click(); return true; }
-            }} catch(e){} }
-            return false;
-        }''')
-        if in_shadow:
-            if log: print("  🔘 Clicked Turnstile widget via contentDocument")
+        fl = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
+        cb = fl.locator('input[type="checkbox"], div[role="checkbox"], label, body').first
+        if await cb.count():
+            await cb.click(timeout=1000)
+            clicked = True
+    except Exception:
+        pass
+    # 3) fallback: any cf-turnstile element
+    try:
+        cf = page.locator('.cf-turnstile, [data-sitekey], input[name="cf-turnstile-response"]').first
+        if await cf.count():
+            await cf.click(timeout=1000)
             clicked = True
     except Exception:
         pass
