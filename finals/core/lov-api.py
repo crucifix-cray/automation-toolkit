@@ -718,7 +718,14 @@ async def wait_for_lovable_ready(page: Page) -> None:
     white_retries=0
     while asyncio.get_running_loop().time() < deadline:
         text = await body_text(page)
-        # white screen: empty body or tiny html (lovable failed fetch)
+        # white screen: empty body or tiny html (lovable failed fetch) — /signup direct is always white, redirect to /
+        if "/signup" in page.url and len(text.strip()) < 50:
+            if white_retries < 2:
+                print(f"⚠️  /signup white → redirect to /", file=sys.stderr)
+                await page.goto(LOVABLE_URL, wait_until="domcontentloaded", timeout=30_000)
+                white_retries+=1
+                await page.wait_for_timeout(3000)
+                continue
         html_len = len(text.strip())
         if html_len < 30 and white_retries < 3:
             # also check raw html length
