@@ -57,7 +57,6 @@ SESSIONS_DIR = Path.home() / "Documents" / "railways"
 MEGA_REMOTE = "mega:railway_sessions"
 # ponytail: BD Browser API pool for ASN rotation (free tier per-run fresh IP + new ASN)
 BRD_WSS_POOL = [
-    os.environ.get("BRD_WSS") or f"wss://brd-customer-hl_4ee0cb14-zone-scraping_browser1:{os.environ.get('BRD_PASS','')}@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_709648b2-zone-scraping_browser1:gt3c86orms1c@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_834743cb-zone-scraping_browser1:q7k1y7ug1v69@brd.superproxy.io:9222",
     # Zenrows Browser Sessions (fallback, uses same API key 3a6a9ee9... - add WSS when available)
