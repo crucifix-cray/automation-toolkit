@@ -561,12 +561,21 @@ async def bezier_mouse(page: Page, x: int, y: int):
 
 CF_CLEARANCE_FILE = Path("/tmp/cf_clearance.json")
 
+_last_cf_save = 0
 async def save_cf_clearance(context: BrowserContext) -> None:
+    global _last_cf_save
+    import time as _t
+    if _t.time() - _last_cf_save < 30: return
     try:
         for c in await context.cookies():
             if c.get("name")=="cf_clearance":
+                try:
+                    old=json.loads(CF_CLEARANCE_FILE.read_text()) if CF_CLEARANCE_FILE.exists() else {}
+                    if old.get("value")==c.get("value"): return
+                except: pass
                 CF_CLEARANCE_FILE.write_text(json.dumps(c))
-                print(f"💾 Saved cf_clearance {c['value'][:30]}...", file=sys.stderr)
+                _last_cf_save=_t.time()
+                print(f"💾 Saved cf_clearance {c['value'][:20]}...", file=sys.stderr)
                 return
     except: pass
 
@@ -975,19 +984,56 @@ async def do_signup(page: Page, email: str, password: str) -> str:
         await human_type(passwords.nth(0), password)
         if await passwords.count() >= 2:
             await human_type(passwords.nth(1), password)
-        # --- Turnstile handling like toerhs/railway (warp flagged) — retry loop ---
-        for _ts_try in range(3):
+        # --- Turnstile handling — retry loop with Verification failed inside iframe ---
+        for _ts_try in range(5):
             try:
-                # if Verification failed -> click Troubleshoot to retry (re-exposes Verify checkbox)
-                try:
-                    vf = page.get_by_text("Verification failed", exact=False)
-                    if await vf.count():
-                        troubleshoot = page.get_by_text("Troubleshoot", exact=True)
-                        if await troubleshoot.count():
-                            print("🔧 Verification failed — clicking Troubleshoot...", file=sys.stderr)
-                            await troubleshoot.first.click(timeout=3000, force=True)
-                            await page.wait_for_timeout(3000)
-                except: pass
+                # if Verification failed -> click Troubleshoot (may be inside Turnstile iframe or main)
+                vfh = False
+                for ctx in [page] + page.frames:
+                    try:
+                        txt=""
+                        if hasattr(ctx, "locator"):
+                            vf=ctx.get_by_text("Verification failed", exact=False) if hasattr(ctx,"get_by_text") else None
+                            if vf and await vf.count():
+                                vfh=True; break
+                        else:
+                            # frame
+                            html=await ctx.content()
+                            if "Verification failed" in html: vfh=True; break
+                    except: continue
+                if vfh or await page.get_by_text("Verification failed", exact=False).count():
+                    # try main page first
+                    try:
+                        ts=page.get_by_text("Troubleshoot", exact=False)
+                        if await ts.count():
+                            await ts.first.click(timeout=3000, force=True)
+                            print("🔧 Verification failed — clicked Troubleshoot (main)", file=sys.stderr)
+                            await page.wait_for_timeout(4000)
+                            continue
+                    except: pass
+                    # then inside Turnstile iframe
+                    try:
+                        fl=page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
+                        t2=fl.get_by_text("Troubleshoot", exact=False)
+                        if await t2.count():
+                            await t2.first.click(timeout=3000)
+                            print("🔧 Clicked Troubleshoot inside iframe", file=sys.stderr)
+                            await page.wait_for_timeout(4000)
+                            continue
+                    except: pass
+                    # fallback: click via evaluate
+                    try:
+                        await page.evaluate("""() => {
+                            for(const f of document.querySelectorAll('iframe')){ try{
+                                const d=f.contentDocument; if(!d) continue;
+                                const a=[...d.querySelectorAll('a,button')].find(b=>b.textContent.includes('Troubleshoot'));
+                                if(a){ a.click(); return true; }
+                            }catch(e){} }
+                            const b=[...document.querySelectorAll('a,button')].find(x=>x.textContent.includes('Troubleshoot'));
+                            if(b) b.click();
+                        }""")
+                        await page.wait_for_timeout(3000)
+                    except: pass
                 # wait for Turnstile iframe to appear (Verify you are human)
                 try:
                     await page.wait_for_selector('iframe[src*="challenges.cloudflare.com"]', timeout=5000)
