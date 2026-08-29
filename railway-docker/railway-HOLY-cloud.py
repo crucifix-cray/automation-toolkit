@@ -553,37 +553,49 @@ def next_session_dir(base_dir: Path, session_num: int = None):
 # RAILWAY LOGIN FLOW
 # ============================================================================
 async def _click_turnstile_checkbox(page, log=True):
-    """Try to click the Turnstile checkbox - correct left-side click + frame click."""
+    """Try to click Turnstile checkbox - must hit actual input inside iframe."""
     clicked = False
-    # 1) precise left-side click where checkbox actually is (15px from left)
-    try:
-        iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
-        if await iframe.count() > 0 and await iframe.first.is_visible():
-            box = await iframe.first.bounding_box()
-            if box and box["width"] > 0 and box["height"] > 0:
-                # checkbox is left side, not right
-                await page.mouse.click(box["x"] + 22, box["y"] + box["height"] / 2)
-                if log: print("  🔘 Clicked Turnstile checkbox (left)")
-                clicked = True
-    except Exception:
-        pass
-    # 2) try frame_locator direct click (more reliable than coords)
+    # 1) frame_locator on actual checkbox input (most reliable)
     try:
         fl = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
-        cb = fl.locator('input[type="checkbox"], div[role="checkbox"], label, body').first
-        if await cb.count():
-            await cb.click(timeout=1000)
-            clicked = True
-    except Exception:
-        pass
-    # 3) fallback: any cf-turnstile element
-    try:
-        cf = page.locator('.cf-turnstile, [data-sitekey], input[name="cf-turnstile-response"]').first
-        if await cf.count():
-            await cf.click(timeout=1000)
-            clicked = True
-    except Exception:
-        pass
+        # Turnstile's actual checkbox
+        for sel in ['input[type="checkbox"]', '[role="checkbox"]', 'label', '#challenge-stage', 'body']:
+            try:
+                el = fl.locator(sel).first
+                if await el.count():
+                    box = await el.bounding_box()
+                    if box and box["width"] > 0:
+                        await el.click(timeout=1500)
+                        if log: print(f"  🔘 Clicked Turnstile via {sel}")
+                        clicked = True
+                        break
+            except: continue
+    except: pass
+    # 2) precise left-side coord click (22px from left edge of iframe)
+    if not clicked:
+        try:
+            iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+            if await iframe.count() > 0 and await iframe.first.is_visible():
+                box = await iframe.first.bounding_box()
+                if box and box["width"] > 0:
+                    await page.mouse.click(box["x"] + 22, box["y"] + box["height"] / 2, delay=100)
+                    await page.wait_for_timeout(500)
+                    # click again slightly offset if first didn't trigger
+                    await page.mouse.click(box["x"] + 30, box["y"] + box["height"] / 2, delay=100)
+                    if log: print("  🔘 Clicked Turnstile iframe left coord")
+                    clicked = True
+        except: pass
+    # 3) fallback: click via JS evaluate on cf-turnstile
+    if not clicked:
+        try:
+            hit = await page.evaluate('''() => {
+                const el = document.querySelector('.cf-turnstile, [data-sitekey]');
+                if (el) { el.click(); el.dispatchEvent(new MouseEvent('click',{bubbles:true})); return true; }
+                return false;
+            }''')
+            if hit:
+                clicked = True
+        except: pass
     return clicked
 
 
