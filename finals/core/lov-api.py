@@ -1045,7 +1045,7 @@ async def do_signup(page: Page, email: str, password: str) -> str:
         await human_type(passwords.nth(0), password)
         if await passwords.count() >= 2:
             await human_type(passwords.nth(1), password)
-        # --- Turnstile handling — retry loop with Verification failed inside iframe ---
+        # --- Turnstile handling — retry loop with Verification failed + reload fallback ---
         for _ts_try in range(5):
             try:
                 # if Verification failed -> click Troubleshoot (may be inside Turnstile iframe or main)
@@ -1189,6 +1189,16 @@ async def do_signup(page: Page, email: str, password: str) -> str:
             except Exception as e:
                 print(f"turnstile helper try {_ts_try}: {e}", file=sys.stderr)
                 await page.wait_for_timeout(1000)
+                # if last try and still Verification failed, reload signup page as final fallback
+                if _ts_try == 4:
+                    try:
+                        print("🔄 Verification failed 5x → reload signup page fallback", file=sys.stderr)
+                        await page.reload(wait_until="domcontentloaded", timeout=30_000)
+                        await page.wait_for_timeout(3000)
+                        # also try to save cf_clearance after reload
+                        try: await save_cf_clearance(page.context)
+                        except: pass
+                    except: pass
         await click_exact(page, "Create your account")
         
         deadline = asyncio.get_running_loop().time() + 60
