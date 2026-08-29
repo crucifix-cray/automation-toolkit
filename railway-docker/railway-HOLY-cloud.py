@@ -2056,26 +2056,32 @@ async def run(use_warp=False, cloud_mode=False):
                         env2["LD_LIBRARY_PATH"] = ""
                         subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=60)
                         print(f"☁️  Pushed {session_dir.name} to mega:railway_sessions via raw IP")
-                        # cancer cells: spawn N new sandboxes each running Holy --cloud --cells N
+                        # cancer cells: persistent - create service in new acc's project that runs Holy forever
                         if 'CLI_CELLS' in globals() and CLI_CELLS > 0:
                             for ci in range(CLI_CELLS):
                                 try:
-                                    print(f"🧬 Spawning cancer cell {ci+1}/{CLI_CELLS}...")
-                                    # create sandbox via env (already has project from ban check? create new)
-                                    # use railway sandbox create in this env
-                                    r_cell = subprocess.run(["railway", "sandbox", "create"], env=env, capture_output=True, text=True, timeout=90)
-                                    if r_cell.returncode != 0:
-                                        print(f"  cell create failed: {r_cell.stderr.strip()[:300]}")
-                                        continue
-                                    # get sandbox id from output or list
-                                    r_list = subprocess.run(["railway", "sandbox", "list", "--json"], env=env, capture_output=True, text=True, timeout=15)
-                                    print(f"  cell sandbox created, pushing script...")
-                                    # copy Holy script into sandbox via rclone or railway sandbox exec?
-                                    # simplest: use railway sandbox exec to git clone and run
+                                    print(f"🧬 Spawning persistent cancer cell {ci+1}/{CLI_CELLS}...")
+                                    # create persistent sandbox service in new acc
+                                    # use the env that has the project (from ban check init)
+                                    # create a Dockerfile that will run Holy --cloud --cells N
+                                    import tempfile, pathlib as _pl
+                                    tmpd = tempfile.mkdtemp()
+                                    df = _pl.Path(tmpd) / "Dockerfile"
                                     wss_val = BRD_WSS if 'BRD_WSS' in globals() else os.environ.get("BRD_WSS","")
                                     depth_arg = f" --depth {CLI_DEPTH-1}" if 'CLI_DEPTH' in globals() and CLI_DEPTH > 0 else ""
-                                    subprocess.run(["railway", "sandbox", "exec", "--", "bash", "-c", f"git clone https://github.com/crucifix-cray/automation-toolkit.git /tmp/toolkit && LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /tmp/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS}{depth_arg} > /tmp/cell.log 2>&1 &"], env=env, capture_output=True, text=True, timeout=30)
-                                    print(f"  🧬 Cell {ci+1} launched depth {CLI_DEPTH}")
+                                    df.write_text(f'''FROM ubuntu:22.04
+RUN apt update && apt install -y python3 python3-pip git curl unzip
+RUN pip install playwright --break-system-packages
+RUN playwright install --with-deps chromium
+RUN curl https://rclone.org/install.sh | bash
+RUN curl -fsSL https://railway.app/install.sh | sh
+WORKDIR /app
+RUN git clone https://github.com/crucifix-cray/automation-toolkit.git /app/toolkit
+CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS}{depth_arg}"
+''')
+                                    # deploy as new service via railway up
+                                    r_up = subprocess.run(["railway", "up", "--service", f"cancer-{ci}", "-y"], cwd=tmpd, env=env, capture_output=True, text=True, timeout=120)
+                                    print(f"  🧬 Persistent cell {ci+1} deploy: {r_up.stdout.strip()[:200] or r_up.stderr.strip()[:200]}")
                                 except Exception as ce:
                                     print(f"  cell spawn failed: {ce}")
                     except Exception as e:
