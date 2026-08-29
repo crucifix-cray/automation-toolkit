@@ -1795,6 +1795,13 @@ async def run(use_warp=False, cloud_mode=False):
                 if cloud_mode:
                     # keep BD cookies for local chrome, close BD browser before local chrome to avoid 2 concurrent
                     bd_cookies = await context.cookies()
+                    # PERSIST cookies IMMEDIATELY so a crash/kill never loses them → --cli can resume
+                    try:
+                        _pend = _Path("/tmp/railway_pending_cookies.json")
+                        _pend.write_text(json.dumps({"cookies": bd_cookies}, indent=2))
+                        print(f"💾 Persisted pending cookies → {_pend}")
+                    except Exception as _pe:
+                        print(f"  pending cookies save failed: {_pe}")
                     # close BD browser now, local chrome will run on raw IP
                     try: await browser.close()
                     except: pass
