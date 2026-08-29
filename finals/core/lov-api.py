@@ -1349,14 +1349,12 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
     _browser_ctx = None
     _pw_ctx = None
     if use_dispose:
-        # Dispose path = plain Firefox, headed (user wants visible), 1280x720, minimal args.
-        # Plain Firefox is used (not InvisiblePlaywright) because the Invisible
-        # persistent profile + cursor engine OOM-crashes under low free RAM.
-        print("🦊 Dispose mode: Firefox headed 1280x720 (plain)", file=sys.stderr)
+        # Dispose path now Chromium headed 1920x1080 (was Firefox — Turnstile stricter on FF, Chromium solves better)
+        print("🦊 Dispose mode: Chromium headed 1920x1080 (plain, stealth)", file=sys.stderr)
         from playwright.async_api import async_playwright as _pw
         _pw_ctx = _pw()
         _pw_enter = await _pw_ctx.__aenter__()
-        browser = await _pw_enter.firefox.launch(headless=False, proxy=playwright_proxy, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-extensions","--no-first-run","--window-size=1280,720","--js-flags=--max-old-space-size=1024","--memory-pressure-off","--disable-blink-features=AutomationControlled"])
+        browser = await _pw_enter.chromium.launch(headless=False, channel="chrome", proxy=playwright_proxy, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-extensions","--no-first-run","--window-size=1920,1080","--disable-blink-features=AutomationControlled","--disable-infobars","--exclude-switches=enable-automation"])
         _browser_ctx = _pw_enter
     else:
         try:
