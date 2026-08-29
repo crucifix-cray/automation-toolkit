@@ -1731,9 +1731,9 @@ async def run(use_warp=False, cloud_mode=False):
                 page.on("crash", _on_crash)
                 page.on("close", lambda _: print("❌ tab closed"))
             
-            # Sign in to Railway — breaker: on OTP/button fail, retry with next mailbox + fresh IP
+            # Sign in to Railway — breaker: 5x dispose then mail.tm, fresh IP each
             tried_mails = []
-            for attempt in range(3):
+            for attempt in range(6):
                 try:
                     await sign_in_to_railway(page, mailbox)
                     break
@@ -1748,7 +1748,7 @@ async def run(use_warp=False, cloud_mode=False):
                         msg = msg.replace("\n", " ")[:60]
                         # fall through to breaker with fresh IP
                         is_breaker = True
-                    if is_breaker and attempt < 2:
+                    if is_breaker and attempt < 5:
                         print(f"⚠️  Breaker {attempt+1}/3: {msg[:80]} — fresh IP + next mailbox")
                         # fresh IP
                         import uuid as _uuid4
@@ -1781,31 +1781,10 @@ async def run(use_warp=False, cloud_mode=False):
                             browser = await p3.chromium.connect_over_cdp(new_wss)
                             context = browser.contexts[0] if browser.contexts else await browser.new_context()
                             page = await context.new_page()
-                        # next mailbox: change provider each poll (initial dispose → 22.do → mail.tm)
-                        if attempt == 0:
-                            print(f"🔄 Trying 22.do (breaker {attempt+1})...")
-                            tried2 = False
-                            for dom in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
-                                try:
-                                    mb = TwoTwoDoInbox(context=context, target_domain=dom)
-                                    await mb.create()
-                                    mailbox = mb
-                                    tried2 = True
-                                    print(f"🔄 22.do {dom} -> {mailbox.address}")
-                                    break
-                                except: continue
-                            if not tried2:
-                                mailbox = MailTmInbox(context=context)
-                                await mailbox.create()
-                                print(f"🔄 Fallback mail.tm -> {mailbox.address}")
-                        elif attempt == 1:
-                            print(f"🔄 Trying mail.tm (breaker {attempt+1})...")
-                            mailbox = MailTmInbox(context=context)
-                            await mailbox.create()
-                            print(f"🔄 mail.tm -> {mailbox.address}")
-                        else:
+                        # next mailbox: 5x dispose then mail.tm
+                        if attempt <= 3:
                             try:
-                                print(f"🔄 Trying dispose Gmail (breaker {attempt+1})...")
+                                print(f"🔄 Trying dispose Gmail (breaker {attempt+1}/5)...")
                                 from playwright.async_api import async_playwright as _p4
                                 import uuid as _uuid4b
                                 disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
@@ -1837,6 +1816,11 @@ async def run(use_warp=False, cloud_mode=False):
                                 mailbox = MailTmInbox(context=context)
                                 await mailbox.create()
                                 print(f"🔄 Fallback mail.tm -> {mailbox.address}")
+                        else:
+                            print(f"🔄 Trying mail.tm (breaker {attempt+1}/5 -> final)...")
+                            mailbox = MailTmInbox(context=context)
+                            await mailbox.create()
+                            print(f"🔄 mail.tm -> {mailbox.address}")
                         continue
                     else:
                         raise
