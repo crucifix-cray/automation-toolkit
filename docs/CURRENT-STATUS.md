@@ -4,9 +4,9 @@
 
 | # | Dir | Email | CLI `whoami` | Mega |
 |---|-----|-------|--------------|------|
-| 1 | session-3 | jzwvvhj4934m+vla1ycoqmow59@outlook.com | OK | ✅ |
-| 2 | session-1 | eyx1lakw1uizeyw4lm@usdtbeta.com | OK | ✅ |
-| 3 | session-2 | st.odezgdvkp+odytn8e1il@gmail.com | OK | ✅ |
+| 1 | session-1 | eyx1lakw1uizeyw4lm@usdtbeta.com | OK | ✅ |
+| 2 | session-2 | st.odezgdvkp+odytn8e1il@gmail.com | OK | ✅ |
+| 3 | session-3 | jzwvvhj4934m+vla1ycoqmow59@outlook.com | OK | ✅ |
 | 4 | session-4 | bsu.ejjrue.kis8.0.9+bxbqr9ff@gmail.com | OK | ✅ |
 | 5 | session-11 | nlvnod39153u+jm7mu6cj9m01hh5@outlook.com | OK | ✅ |
 | 6 | session-13 | tha.t.huchoem0.1.8@gmail.com | OK | ✅ (just synced) |
