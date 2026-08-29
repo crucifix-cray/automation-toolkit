@@ -48,6 +48,11 @@ try:
     CAPTCHA_SOLVER_AVAILABLE = True
 except ImportError:
     CAPTCHA_SOLVER_AVAILABLE = False
+try:
+    from playwright_stealth import Stealth
+    STEALTH_PKG_AVAILABLE = True
+except ImportError:
+    STEALTH_PKG_AVAILABLE = False
 
 
 TEMPMAIL_API = "https://api.tempmailhub.org"
@@ -593,7 +598,14 @@ async def load_cf_clearance(context: BrowserContext) -> bool:
     return False
 
 async def apply_stealth_patches(page: Page) -> None:
-    """2026 7-patch stealth + behavioral hardening + cf_clearance."""
+    """2026 7-patch stealth + behavioral hardening + cf_clearance + playwright_stealth pkg."""
+    if STEALTH_PKG_AVAILABLE:
+        try:
+            s=Stealth()
+            await s.apply_stealth_async(page)
+            print("🛡️  Applied playwright_stealth pkg", file=sys.stderr)
+        except Exception as e:
+            print(f"⚠️  stealth pkg failed: {e}", file=sys.stderr)
     await page.add_init_script("""() => {
         // 1 webdriver undefined not false
         try { Object.defineProperty(navigator,'webdriver',{get:()=>undefined,configurable:true}); } catch(e){}
