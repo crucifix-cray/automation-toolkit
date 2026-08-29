@@ -535,22 +535,116 @@ async def read_reset_link(email_id: str, timeout: float = 180, page: Page | None
     raise FlowError("Timed out waiting for Lovable reset email")
 
 
+def gaussian_delay(mean=300, std=120, min_ms=80):
+    import random as _r
+    v=int(_r.gauss(mean, std))
+    return max(min_ms, min(v, mean*2))
+
+async def bezier_mouse(page: Page, x: int, y: int):
+    try:
+        box = await page.evaluate("() => ({w: window.innerWidth, h: window.innerHeight})")
+        # random control points for bezier
+        import random as _r
+        steps=_r.randint(12,22)
+        cur = await page.evaluate("() => ({x: 400, y: 300})")  # fallback
+        for i in range(steps):
+            t=(i+1)/steps
+            # quadratic bezier jitter
+            jx=_r.randint(-8,8); jy=_r.randint(-8,8)
+            nx=int(x*t + 200*(1-t) + jx); ny=int(y*t + 150*(1-t) + jy)
+            await page.mouse.move(nx, ny, steps=1)
+            await asyncio.sleep(_r.uniform(0.015,0.045))
+        await page.mouse.move(x, y)
+    except: 
+        try: await page.mouse.move(x, y)
+        except: pass
+
+CF_CLEARANCE_FILE = Path("/tmp/cf_clearance.json")
+
+async def save_cf_clearance(context: BrowserContext) -> None:
+    try:
+        for c in await context.cookies():
+            if c.get("name")=="cf_clearance":
+                CF_CLEARANCE_FILE.write_text(json.dumps(c))
+                print(f"💾 Saved cf_clearance {c['value'][:30]}...", file=sys.stderr)
+                return
+    except: pass
+
+async def load_cf_clearance(context: BrowserContext) -> bool:
+    try:
+        if CF_CLEARANCE_FILE.exists():
+            c=json.loads(CF_CLEARANCE_FILE.read_text())
+            # check expiry
+            if c.get("expires",0) > 0 and c["expires"] < __import__("time").time():
+                return False
+            await context.add_cookies([c])
+            print(f"♻️  Reused cf_clearance", file=sys.stderr)
+            return True
+    except: pass
+    return False
+
+async def apply_stealth_patches(page: Page) -> None:
+    """2026 7-patch stealth + behavioral hardening + cf_clearance."""
+    await page.add_init_script("""() => {
+        // 1 webdriver undefined not false
+        try { Object.defineProperty(navigator,'webdriver',{get:()=>undefined,configurable:true}); } catch(e){}
+        // delete webdriver from prototype
+        try { delete Navigator.prototype.webdriver; } catch(e){}
+        // 2 plugins/mimeTypes with realistic lengths
+        try {
+            const plugins=[
+                {name:'PDF Viewer',description:'Portable Document Format',filename:'internal-pdf-viewer'},
+                {name:'Chrome PDF Viewer',filename:'internal-pdf-viewer'},
+                {name:'Chromium PDF Viewer',filename:'internal-pdf-viewer'},
+                {name:'Microsoft Edge PDF Viewer',filename:'internal-pdf-viewer'},
+                {name:'WebKit built-in PDF',filename:'internal-pdf-viewer'}
+            ];
+            Object.defineProperty(navigator,'plugins',{get:()=>Object.assign(plugins,{length:5,item:i=>plugins[i],namedItem:n=>plugins.find(p=>p.name===n),refresh:()=>{}}),configurable:true});
+            const mimes=[{type:'application/pdf',suffixes:'pdf',description:''},{type:'text/pdf',suffixes:'pdf',description:''}];
+            Object.defineProperty(navigator,'mimeTypes',{get:()=>Object.assign(mimes,{length:2,item:i=>mimes[i],namedItem:n=>mimes.find(m=>m.type===n)}),configurable:true});
+        } catch(e){}
+        // 3 window.chrome complete
+        try {
+            if(!window.chrome) window.chrome={};
+            window.chrome.app={isInstalled:false,InstallState:{DISABLED:'disabled',INSTALLED:'installed',NOT_INSTALLED:'not_installed'},RunningState:{CANNOT_RUN:'cannot_run',READY_TO_RUN:'ready_to_run',RUNNING:'running'}};
+            window.chrome.runtime={OnInstalledReason:{CHROME_UPDATE:'chrome_update',INSTALL:'install',SHARED_MODULE_UPDATE:'shared_module_update',UPDATE:'update'},OnRestartRequiredReason:{APP_UPDATE:'app_update',OS_UPDATE:'os_update',PERIODIC:'periodic'},PlatformArch:{ARM:'arm',ARM64:'arm64',MIPS:'mips',MIPS64:'mips64',X86_32:'x86-32',X86_64:'x86-64'},PlatformOs:{ANDROID:'android',CROS:'cros',LINUX:'linux',MAC:'mac',OPENBSD:'openbsd',WIN:'win'},RequestUpdateCheckStatus:{NO_UPDATE:'no_update',THROTTLED:'throttled',UPDATE_AVAILABLE:'update_available'},id:undefined,connect:()=>{},sendMessage:()=>{}};
+            window.chrome.loadTimes=()=>({requestTime:Date.now()/1000,startLoadTime:Date.now()/1000,commitLoadTime:Date.now()/1000,finishDocumentLoadTime:Date.now()/1000 - Math.random()*0.01,finishLoadTime:Date.now()/1000 - Math.random()*0.01,firstPaintTime:Date.now()/1000 - 0.5,firstPaintAfterLoadTime:0,navigationType:'Other',wasFetchedViaSpdy:false,wasNpnNegotiated:false,npnNegotiatedProtocol:'unknown',wasAlternateProtocolAvailable:false,connectionInfo:'http/1.1'});
+            window.chrome.csi=()=>({startE:Date.now(),onloadT:Date.now(),pageT:3000+Math.random()*1000,tran:15});
+        } catch(e){}
+        // 4 permissions
+        try { const q=navigator.permissions.query; navigator.permissions.query=p=>p.name==='notifications'?Promise.resolve({state:Notification.permission}):q.call(navigator.permissions,p); } catch(e){}
+        try { const q2=navigator.permissions.query; navigator.permissions.query=p=>p.name==='clipboard-read'?Promise.resolve({state:'granted'}):q2.call(navigator.permissions,p); } catch(e){}
+        // 5 WebGL vendor/renderer Intel + WebGL2 + canvas fingerprint noise
+        try { const gp=WebGLRenderingContext.prototype.getParameter; WebGLRenderingContext.prototype.getParameter=function(p){ if(p===37445) return 'Intel Inc.'; if(p===37446) return 'Intel(R) Iris(TM) Graphics 6100'; return gp.call(this,p); }; } catch(e){}
+        try { const gp2=WebGL2RenderingContext.prototype.getParameter; WebGL2RenderingContext.prototype.getParameter=function(p){ if(p===37445) return 'Intel Inc.'; if(p===37446) return 'Intel(R) Iris(TM) Graphics 6100'; return gp2.call(this,p); }; } catch(e){}
+        // 6 languages + timezone matching proxy
+        try { Object.defineProperty(navigator,'language',{get:()=>'en-US',configurable:true}); Object.defineProperty(navigator,'languages',{get:()=>['en-US','en'],configurable:true}); } catch(e){}
+        // 7 iframe isolation + extra
+        try { const ce=document.createElement.bind(document); document.createElement=function(...a){ const el=ce(...a); if(a[0].toLowerCase()==='iframe'){ Object.defineProperty(el,'contentWindow',{get:function(){ const w=Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype,'contentWindow').get.call(this); if(w){ try{ Object.defineProperty(w.navigator,'webdriver',{get:()=>undefined,configurable:true}); }catch(e){}} return w; },configurable:true}); } return el; }; } catch(e){}
+        try { Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>8,configurable:true}); } catch(e){}
+        try { Object.defineProperty(navigator,'deviceMemory',{get:()=>8,configurable:true}); } catch(e){}
+        try { Object.defineProperty(navigator,'platform',{get:()=>'Win32',configurable:true}); } catch(e){}
+        try { Object.defineProperty(navigator,'maxTouchPoints',{get:()=>0,configurable:true}); } catch(e){}
+        try { window.outerWidth=1920; window.outerHeight=1080; window.innerWidth=1920; window.innerHeight=947; } catch(e){}
+        // hide automation: chrome.runtime, permissions, etc.
+        try { window.navigator.chrome={runtime:{}}; } catch(e){}
+        // add slight canvas noise
+        try { const origGetContext=HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext=function(t,...a){ const ctx=origGetContext.call(this,t,...a); if(t==='2d' && ctx){ const origFill=ctx.fillText; ctx.fillText=function(...args){ ctx.globalAlpha=0.9999; return origFill.apply(this,args); }; } return ctx; }; } catch(e){}
+    }""")
+
+
 async def install_ad_blocker(page: Page) -> None:
-    """Block ads/trackers in-process."""
+    """Block ads/trackers + stealth."""
     def should_block(url: str) -> bool:
         lowered = url.lower()
         return any(needle in lowered for needle in AD_BLOCK_PATTERNS)
-    
     async def handler(route):
         if should_block(route.request.url):
             await route.abort()
         else:
             await route.continue_()
-    
     await page.route("**/*", handler)
-    await page.add_init_script(
-        "() => { Object.defineProperty(navigator, 'webdriver', {get: () => undefined}); }"
-    )
+    await apply_stealth_patches(page)
 
 
 async def navigate(page: Page, url: str) -> None:
@@ -1190,13 +1284,48 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         if isinstance(browser, BrowserContext):
             context = browser
         else:
-            vp = {"width": 1280, "height": 720} if use_dispose else {"width": 1440, "height": 900}
-            context = browser.contexts[0] if browser.contexts else await browser.new_context(viewport=vp)
+            # realistic geo-matched context: US IP, en-US, Win32, 1920x1080
+            vp = {"width": 1920, "height": 1080} if use_dispose else {"width": 1920, "height": 1080}
+            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            ctx_kwargs = {
+                "viewport": vp,
+                "user_agent": ua,
+                "locale": "en-US",
+                "timezone_id": "America/New_York",
+                "color_scheme": "light",
+                "extra_http_headers": {
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                    "Sec-Ch-Ua-Mobile": "?0",
+                    "Sec-Ch-Ua-Platform": '"Windows"',
+                },
+            }
+            if browser.contexts:
+                context = browser.contexts[0]
+                # patch existing context headers
+                try: await context.set_extra_http_headers(ctx_kwargs["extra_http_headers"])
+                except: pass
+            else:
+                context = await browser.new_context(**ctx_kwargs)
+            # add stealth at context level for all pages
+            try:
+                await context.add_init_script("""() => {
+                    try{ Object.defineProperty(navigator,'webdriver',{get:()=>undefined,configurable:true}); }catch(e){}
+                    try{ Object.defineProperty(navigator,'plugins',{get:()=>{const p=[{name:'PDF Viewer'}]; p.length=5; return p;},configurable:true}); }catch(e){}
+                    try{ if(!window.chrome) window.chrome={}; window.chrome.runtime={}; }catch(e){}
+                }""")
+            except: pass
+            # reuse cf_clearance
+            try: await load_cf_clearance(context)
+            except: pass
         
         print("✅ Context ready", file=sys.stderr)
         # Create Lovable page (NO TempMail page - TRUE API-ONLY!)
         lovable_page = await context.new_page()
         await install_ad_blocker(lovable_page)
+        # save cf_clearance after each navigation
+        try: lovable_page.on("response", lambda r: asyncio.create_task(save_cf_clearance(context)) if "lovable" in r.url else None)
+        except: pass
         
         # Check egress IP (skip if times out)
         try:
