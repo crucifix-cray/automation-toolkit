@@ -1710,38 +1710,9 @@ async def run(use_warp=False, cloud_mode=False):
                             browser = await p3.chromium.connect_over_cdp(new_wss)
                             context = browser.contexts[0] if browser.contexts else await browser.new_context()
                             page = await context.new_page()
-                        # next mailbox: dispose Gmail via separate BD (keep main 1-domain), fallback to 22.do/mail.tm
-                        try:
-                            print(f"🔄 Trying dispose Gmail (breaker {attempt+1})...")
-                            from playwright.async_api import async_playwright as _p4
-                            import uuid as _uuid4b
-                            disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
-                            p4 = await _p4().start()
-                            b4 = await p4.chromium.connect_over_cdp(disp_wss)
-                            ctx4 = b4.contexts[0] if b4.contexts else await b4.new_context()
-                            pg4 = await ctx4.new_page()
-                            await pg4.goto("https://dispose.lol", wait_until="load", timeout=60000)
-                            await pg4.wait_for_timeout(5000)
-                            email_text = await pg4.evaluate('''() => {
-                                const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
-                                while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
-                                return null;
-                            }''')
-                            if email_text and '@gmail.com' in email_text:
-                                mailbox = DisposeLolInbox(context=context)
-                                mailbox.page = pg4
-                                mailbox._dispose_browser = b4
-                                mailbox._dispose_context = ctx4
-                                mailbox._dispose_playwright = p4
-                                mailbox.address = email_text.strip()
-                                print(f"🔄 Dispose Gmail -> {mailbox.address}")
-                            else:
-                                await b4.close()
-                                await p4.stop()
-                                raise Exception("dispose not found")
-                        except Exception as e2:
-                            print(f"  dispose failed {str(e2)[:60]}, trying 22.do/mail.tm")
-                            # fallback to 22.do then mail.tm in main context (will be separate BD per 22.do)
+                        # next mailbox: change provider each poll (initial dispose → 22.do → mail.tm)
+                        if attempt == 0:
+                            print(f"🔄 Trying 22.do (breaker {attempt+1})...")
                             tried2 = False
                             for dom in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
                                 try:
@@ -1753,6 +1724,45 @@ async def run(use_warp=False, cloud_mode=False):
                                     break
                                 except: continue
                             if not tried2:
+                                mailbox = MailTmInbox(context=context)
+                                await mailbox.create()
+                                print(f"🔄 Fallback mail.tm -> {mailbox.address}")
+                        elif attempt == 1:
+                            print(f"🔄 Trying mail.tm (breaker {attempt+1})...")
+                            mailbox = MailTmInbox(context=context)
+                            await mailbox.create()
+                            print(f"🔄 mail.tm -> {mailbox.address}")
+                        else:
+                            try:
+                                print(f"🔄 Trying dispose Gmail (breaker {attempt+1})...")
+                                from playwright.async_api import async_playwright as _p4
+                                import uuid as _uuid4b
+                                disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
+                                p4 = await _p4().start()
+                                b4 = await p4.chromium.connect_over_cdp(disp_wss)
+                                ctx4 = b4.contexts[0] if b4.contexts else await b4.new_context()
+                                pg4 = await ctx4.new_page()
+                                await pg4.goto("https://dispose.lol", wait_until="load", timeout=60000)
+                                await pg4.wait_for_timeout(5000)
+                                email_text = await pg4.evaluate('''() => {
+                                    const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
+                                    while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
+                                    return null;
+                                }''')
+                                if email_text and '@gmail.com' in email_text:
+                                    mailbox = DisposeLolInbox(context=context)
+                                    mailbox.page = pg4
+                                    mailbox._dispose_browser = b4
+                                    mailbox._dispose_context = ctx4
+                                    mailbox._dispose_playwright = p4
+                                    mailbox.address = email_text.strip()
+                                    print(f"🔄 Dispose Gmail -> {mailbox.address}")
+                                else:
+                                    await b4.close()
+                                    await p4.stop()
+                                    raise Exception("dispose not found")
+                            except Exception as e2:
+                                print(f"  dispose failed {str(e2)[:60]}, trying mail.tm")
                                 mailbox = MailTmInbox(context=context)
                                 await mailbox.create()
                                 print(f"🔄 Fallback mail.tm -> {mailbox.address}")
