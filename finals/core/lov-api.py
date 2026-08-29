@@ -1011,16 +1011,35 @@ async def do_signup(page: Page, email: str, password: str) -> str:
                             await page.wait_for_timeout(4000)
                             continue
                     except: pass
-                    # then inside Turnstile iframe
+                    # then inside Turnstile iframe - precise
+                    clicked_ts=False
                     try:
                         fl=page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
                         t2=fl.get_by_text("Troubleshoot", exact=False)
                         if await t2.count():
+                            box=await page.locator('iframe[src*="challenges.cloudflare.com"]').first.bounding_box()
+                            if box:
+                                await bezier_mouse(page, int(box["x"]+box["width"]*0.5), int(box["y"]+box["height"]*0.85))
                             await t2.first.click(timeout=3000)
                             print("🔧 Clicked Troubleshoot inside iframe", file=sys.stderr)
-                            await page.wait_for_timeout(4000)
+                            clicked_ts=True
+                            await page.wait_for_timeout(5000)
                             continue
                     except: pass
+                    if not clicked_ts:
+                        try:
+                            # coordinate fallback: Troubleshoot link is near bottom of widget
+                            iframe_el=page.locator('iframe[src*="challenges.cloudflare.com"]').first
+                            if await iframe_el.count():
+                                box=await iframe_el.bounding_box()
+                                if box:
+                                    # Troubleshoot is bottom-center of widget
+                                    await bezier_mouse(page, int(box["x"]+box["width"]*0.35), int(box["y"]+box["height"]*0.9))
+                                    await page.mouse.click(int(box["x"]+box["width"]*0.35), int(box["y"]+box["height"]*0.9))
+                                    print("🔧 Clicked Troubleshoot via coords", file=sys.stderr)
+                                    await page.wait_for_timeout(5000)
+                                    continue
+                        except: pass
                     # fallback: click via evaluate
                     try:
                         await page.evaluate("""() => {
@@ -1032,7 +1051,8 @@ async def do_signup(page: Page, email: str, password: str) -> str:
                             const b=[...document.querySelectorAll('a,button')].find(x=>x.textContent.includes('Troubleshoot'));
                             if(b) b.click();
                         }""")
-                        await page.wait_for_timeout(3000)
+                        await page.wait_for_timeout(5000)
+                        continue
                     except: pass
                 # wait for Turnstile iframe to appear (Verify you are human)
                 try:
@@ -1040,38 +1060,56 @@ async def do_signup(page: Page, email: str, password: str) -> str:
                 except: pass
                 turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
                 if await turnstile_iframe.count() > 0:
-                    print(f"🤖 Turnstile detected (try {_ts_try+1}/3) — solving...", file=sys.stderr)
+                    print(f"🤖 Turnstile detected (try {_ts_try+1}/5) — solving...", file=sys.stderr)
+                    # human behavior before solve: scroll + mouse wiggle
+                    try:
+                        await page.mouse.wheel(0, 80); await asyncio.sleep(0.4)
+                        await page.mouse.wheel(0, -40); await asyncio.sleep(0.3)
+                    except: pass
+                    # precise left-side checkbox click with bezier before solver
+                    try:
+                        box=await turnstile_iframe.first.bounding_box()
+                        if box:
+                            await bezier_mouse(page, int(box["x"]+22), int(box["y"]+box["height"]/2))
+                            await page.mouse.click(int(box["x"]+22), int(box["y"]+box["height"]/2))
+                            await asyncio.sleep(0.8)
+                    except: pass
                     if CAPTCHA_SOLVER_AVAILABLE:
                         try:
                             # try PATCHRIGHT first, fallback to PLAYWRIGHT (dispose uses plain playwright)
                             try:
                                 solver_framework = FrameworkType.PATCHRIGHT
-                                async with ClickSolver(framework=solver_framework, page=page, max_attempts=1, attempt_delay=2) as solver:
+                                async with ClickSolver(framework=solver_framework, page=page, max_attempts=2, attempt_delay=2) as solver:
                                     await solver.solve_captcha(captcha_container=page, captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE)
                             except Exception as _e1:
                                 # fallback to PLAYWRIGHT framework for plain Firefox
-                                async with ClickSolver(framework=FrameworkType.PLAYWRIGHT, page=page, max_attempts=1, attempt_delay=2) as solver:
+                                async with ClickSolver(framework=FrameworkType.PLAYWRIGHT, page=page, max_attempts=2, attempt_delay=2) as solver:
                                     await solver.solve_captcha(captcha_container=page, captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE)
                             print("✅ Turnstile solved via ClickSolver", file=sys.stderr)
                         except Exception as e:
                             print(f"⚠️ ClickSolver failed: {e}", file=sys.stderr)
-                            # fallback: manual checkbox click inside iframe
+                            # fallback: manual checkbox click inside iframe with bezier
                             try:
                                 frame = page.frame_locator('iframe[src*="challenges.cloudflare.com"]').first
                                 checkbox = frame.get_by_role("checkbox", name="Verify you are human")
                                 if await checkbox.count():
+                                    cb_box=await turnstile_iframe.first.bounding_box()
+                                    if cb_box:
+                                        await bezier_mouse(page, int(cb_box["x"]+22), int(cb_box["y"]+cb_box["height"]/2))
                                     await checkbox.click(timeout=5000, force=True)
                                     print("✅ Manual checkbox clicked", file=sys.stderr)
                                 else:
-                                    # direct iframe click
                                     await turnstile_iframe.first.click(timeout=5000, force=True)
                             except Exception as ee:
                                 print(f"manual checkbox fail: {ee}", file=sys.stderr)
                     else:
                         try:
+                            box2=await turnstile_iframe.first.bounding_box()
+                            if box2:
+                                await bezier_mouse(page, int(box2["x"]+22), int(box2["y"]+box2["height"]/2))
                             await turnstile_iframe.first.click(timeout=5000, force=True)
                         except: pass
-                    await page.wait_for_timeout(3000)
+                    await page.wait_for_timeout(4000)
                 # check if Create button enabled
                 create_btn = page.get_by_role("button", name="Create your account", exact=True)
                 try:
