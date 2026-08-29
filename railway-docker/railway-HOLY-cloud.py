@@ -1772,9 +1772,9 @@ async def run(use_warp=False, cloud_mode=False):
                 page.on("crash", _on_crash)
                 page.on("close", lambda _: print("❌ tab closed"))
             
-            # Sign in to Railway — breaker: 5x dispose then mail.tm, fresh IP each
+            # Sign in to Railway — breaker: 5x dispose -> mail.tm -> loop again 5+1, then kill
             tried_mails = []
-            for attempt in range(6):
+            for attempt in range(12):
                 try:
                     await sign_in_to_railway(page, mailbox)
                     break
@@ -1789,7 +1789,7 @@ async def run(use_warp=False, cloud_mode=False):
                         msg = msg.replace("\n", " ")[:60]
                         # fall through to breaker with fresh IP
                         is_breaker = True
-                    if is_breaker and attempt < 5:
+                    if is_breaker and attempt < 11:
                         print(f"⚠️  Breaker {attempt+1}/3: {msg[:80]} — fresh IP + next mailbox")
                         # fresh IP
                         import uuid as _uuid4
@@ -1822,10 +1822,11 @@ async def run(use_warp=False, cloud_mode=False):
                             browser = await p3.chromium.connect_over_cdp(new_wss)
                             context = browser.contexts[0] if browser.contexts else await browser.new_context()
                             page = await context.new_page()
-                        # next mailbox: 5x dispose then mail.tm
-                        if attempt <= 3:
+                        # next mailbox: 5x dispose -> mail.tm -> repeat
+                        is_dispose = (attempt % 6) < 5
+                        if is_dispose:
                             try:
-                                print(f"🔄 Trying dispose Gmail (breaker {attempt+1}/5)...")
+                                print(f"🔄 Trying dispose Gmail (breaker {attempt+1}/12, dispose {(attempt%6)+1}/5)...")
                                 from playwright.async_api import async_playwright as _p4
                                 import uuid as _uuid4b
                                 disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
@@ -1858,12 +1859,13 @@ async def run(use_warp=False, cloud_mode=False):
                                 await mailbox.create()
                                 print(f"🔄 Fallback mail.tm -> {mailbox.address}")
                         else:
-                            print(f"🔄 Trying mail.tm (breaker {attempt+1}/5 -> final)...")
+                            print(f"🔄 Trying mail.tm (breaker {attempt+1}/12, loop {(attempt//6)+1})...")
                             mailbox = MailTmInbox(context=context)
                             await mailbox.create()
                             print(f"🔄 mail.tm -> {mailbox.address}")
                         continue
                     else:
+                        print(f"❌ All 12 attempts failed, killing script and releasing lock")
                         raise
             
             # PERSIST cookies right after login, BEFORE policies (tab may close during policies)
@@ -1951,6 +1953,27 @@ async def run(use_warp=False, cloud_mode=False):
                         env2["LD_LIBRARY_PATH"] = ""
                         subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=60)
                         print(f"☁️  Pushed {session_dir.name} to mega:railway_sessions via raw IP")
+                        # cancer cells: spawn N new sandboxes each running Holy --cloud --cells N
+                        if 'CLI_CELLS' in globals() and CLI_CELLS > 0:
+                            for ci in range(CLI_CELLS):
+                                try:
+                                    print(f"🧬 Spawning cancer cell {ci+1}/{CLI_CELLS}...")
+                                    # create sandbox via env (already has project from ban check? create new)
+                                    # use railway sandbox create in this env
+                                    r_cell = subprocess.run(["railway", "sandbox", "create"], env=env, capture_output=True, text=True, timeout=90)
+                                    if r_cell.returncode != 0:
+                                        print(f"  cell create failed: {r_cell.stderr.strip()[:300]}")
+                                        continue
+                                    # get sandbox id from output or list
+                                    r_list = subprocess.run(["railway", "sandbox", "list", "--json"], env=env, capture_output=True, text=True, timeout=15)
+                                    print(f"  cell sandbox created, pushing script...")
+                                    # copy Holy script into sandbox via rclone or railway sandbox exec?
+                                    # simplest: use railway sandbox exec to git clone and run
+                                    wss_val = BRD_WSS if 'BRD_WSS' in globals() else os.environ.get("BRD_WSS","")
+                                    subprocess.run(["railway", "sandbox", "exec", "--", "bash", "-c", f"git clone https://github.com/crucifix-cray/automation-toolkit.git /tmp/toolkit && LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /tmp/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS} > /tmp/cell.log 2>&1 &"], env=env, capture_output=True, text=True, timeout=30)
+                                    print(f"  🧬 Cell {ci+1} launched")
+                                except Exception as ce:
+                                    print(f"  cell spawn failed: {ce}")
                     except Exception as e:
                         print(f"⚠️  CLI verify failed: {e}")
             except Exception as e:
@@ -1985,6 +2008,18 @@ async def run(use_warp=False, cloud_mode=False):
                 try: found_lock.unlink()
                 except: pass
                 print(f"🔓 Released BD API lock {found_lock.name}")
+        except: pass
+        # push logs to mega logs folder
+        try:
+            import subprocess as _sp3, os as _os3, glob as _glob
+            env3 = _os3.environ.copy()
+            env3["LD_PRELOAD"] = ""
+            env3["LD_LIBRARY_PATH"] = ""
+            for pat in ["/tmp/run_*.log", "/tmp/railway-debug-*.txt", "/tmp/turnstile-*.png", "/tmp/railway_pending_cookies.json"]:
+                for f in _glob.glob(pat):
+                    try: _sp3.run(["rclone", "copy", f, "mega:railway_sessions/logs/", "--mega-use-https", "-v"], env=env3, capture_output=True, timeout=30)
+                    except: pass
+            print(f"📤 Pushed logs to mega:railway_sessions/logs/")
         except: pass
         # close BD browser if still open
         try:
@@ -2042,12 +2077,14 @@ if __name__ == "__main__":
     parser.add_argument("--domain", type=str, default=None, help="Enforce 22.do handler domain, e.g. @linshiyou.com, @gmail.com, @hotmail.com, @outlook.com (default: random) — @googlemail.com banned")
     parser.add_argument("--recov", type=str, default=None, help="Recover existing 22.do inbox, e.g. g92w@colabeta.com (skips creation, opens https://22.do/inbox/#/<mail>)")
     parser.add_argument("--cli", type=str, default=None, metavar="PATH", help="CLI-only: resume a web session dir (loads browser_cookies.json) and register Railway CLI PKCE only, no re-login. Writes next free session dir.")
+    parser.add_argument("--cells", type=int, default=0, metavar="N", help="Cancer mode: after success, spawn N new sandboxes each running Holy --cloud --cells N (exponential)")
     args = parser.parse_args()
 
     # expose to run() via globals (used inside)
     CLI_TARGET_DOMAIN = args.domain
     CLI_RECOVERY_EMAIL = args.recov
     CLOUD_MODE = args.cloud or os.environ.get("BRD_WSS") is not None
+    CLI_CELLS = args.cells
 
     if args.cli:
         print("="*60)
