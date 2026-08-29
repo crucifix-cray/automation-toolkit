@@ -1865,20 +1865,59 @@ async def run(use_warp=False, cloud_mode=False):
             stop_warp()
 
 
+async def cli_only_register(web_dir: str, sessions_dir: Path) -> int:
+    """--cli PATH: load a web session's browser_cookies.json and register CLI PKCE only.
+
+    No re-login — uses the saved raw-IP-bound cookies so Cloudflare clears them and
+    the local headless chrome completes the consent + callback. Writes the next free
+    session dir (after web_dir) and pushes to Mega.
+    """
+    import json as _json
+    web_dir = web_dir.rstrip("/")
+    src = Path(web_dir)
+    cookies_path = src / "browser_cookies.json"
+    if not cookies_path.exists():
+        # maybe itself is the cookies file path
+        cookies_path = src if src.suffix == ".json" else None
+    if not cookies_path or not cookies_path.exists():
+        print(f"❌ --cli: no browser_cookies.json found in {src}")
+        return 1
+    try:
+        data = _json.loads(cookies_path.read_text())
+    except Exception as e:
+        print(f"❌ --cli: bad cookies json: {e}")
+        return 1
+    cookies = data.get("cookies", []) if isinstance(data, dict) else data
+    if not cookies:
+        print("❌ --cli: no cookies entries")
+        return 1
+    print(f"🔧 CLI-only: loaded {len(cookies)} cookies from {cookies_path}")
+    session_dir = await register_cli_session_local_chrome(cookies, sessions_dir)
+    sync_to_mega(session_dir)
+    return 0
+
+
 if __name__ == "__main__":
     import argparse
-
     parser = argparse.ArgumentParser(description="Railway account creator — 22.do pool edition")
     parser.add_argument("--no-warp", action="store_true", help="Disable WARP proxy")
     parser.add_argument("--cloud", action="store_true", help="Use Bright Data Browser API (WSS) instead of local Chromium")
     parser.add_argument("--domain", type=str, default=None, help="Enforce 22.do handler domain, e.g. @linshiyou.com, @gmail.com, @hotmail.com, @outlook.com (default: random) — @googlemail.com banned")
     parser.add_argument("--recov", type=str, default=None, help="Recover existing 22.do inbox, e.g. g92w@colabeta.com (skips creation, opens https://22.do/inbox/#/<mail>)")
+    parser.add_argument("--cli", type=str, default=None, metavar="PATH", help="CLI-only: resume a web session dir (loads browser_cookies.json) and register Railway CLI PKCE only, no re-login. Writes next free session dir.")
     args = parser.parse_args()
 
     # expose to run() via globals (used inside)
     CLI_TARGET_DOMAIN = args.domain
     CLI_RECOVERY_EMAIL = args.recov
     CLOUD_MODE = args.cloud or os.environ.get("BRD_WSS") is not None
+
+    if args.cli:
+        print("="*60)
+        print("🔧 CLI-ONLY MODE — register Railway CLI PKCE from saved cookies")
+        print("="*60)
+        code = asyncio.run(cli_only_register(args.cli, SESSIONS_DIR))
+        sys.exit(code)
 
     use_warp = (not args.no_warp) and not CLOUD_MODE
 
