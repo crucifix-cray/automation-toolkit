@@ -1180,6 +1180,14 @@ async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
                 valid.append({"name": c["name"], "value": c["value"], "domain": c["domain"], "path": c.get("path", "/")})
             except: pass
         rail_only = [c for c in valid if c["domain"].endswith("railway.com")]
+        # inject osano consent so banner never shows (was blocking Authorize)
+        osano_extra = [
+            {"name": "osano_consentmanager_uuid", "value": "1ee2898a-8b48-484c-8551-4e17c2fed221", "domain": ".railway.com", "path": "/"},
+            {"name": "osano_consentmanager", "value": "1YWwPBXVXTUh5zCJjTwMRChvFRErfkURooORdKhBcflwA0sG3sarvZ3kAoxC", "domain": ".railway.com", "path": "/"},
+        ]
+        for oc in osano_extra:
+            if not any(c["name"] == oc["name"] for c in rail_only):
+                rail_only.append(oc)
         if rail_only:
             await context.add_cookies(rail_only)
         page = await context.new_page()
@@ -1196,6 +1204,15 @@ async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
                         print(f"  🍪 dismissed cookie banner via '{ctxt}'")
                         await page.wait_for_timeout(800)
                 except: pass
+            # scroll consent dialog (Authorize may be below fold)
+            try:
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(500)
+                dlg = page.get_by_role("dialog").first
+                if await dlg.count():
+                    await dlg.evaluate("el => { el.scrollTop = el.scrollHeight; el.dispatchEvent(new Event('scroll', {bubbles:true})); }")
+                    await page.wait_for_timeout(500)
+            except: pass
             # click Authorize, then capture code from the 127.0.0.1 callback (page.url or server)
             for _ in range(30):
                 if result_holder:
