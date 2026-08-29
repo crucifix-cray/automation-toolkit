@@ -1312,46 +1312,55 @@ async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
                 await page.evaluate("document.querySelectorAll('[role=dialog], .modal, [class*=consent]').forEach(el=>el.scrollTop=el.scrollHeight)")
                 await page.wait_for_timeout(500)
             except: pass
-            # click Authorize, then capture code from the 127.0.0.1 callback (page.url or server)
-            for _ in range(30):
+            # click Authorize deep scan 5min, each sec scroll + check whole DOM
+            for _ in range(300):
                 if result_holder:
                     break
+                # scroll and check whole DOM each sec
                 try:
-                    # try multiple selectors for Authorize (exact, substring, generic)
+                    await page.evaluate("window.scrollTo(0, document.body.scrollHeight); document.documentElement.scrollTop=document.documentElement.scrollHeight")
+                    await page.evaluate("document.querySelectorAll('*').forEach(el=>{try{if(el.scrollHeight>el.clientHeight) el.scrollTop=el.scrollHeight}catch(e){}})")
+                except: pass
+                try:
                     btn = None
-                    for name in ["Authorize", "Authorize App", "Allow", "Confirm"]:
+                    for name in ["Accept and Connect CLI", "Authorize", "Authorize App", "Allow", "Confirm"]:
                         b = page.get_by_role("button", name=name)
-                        if await b.count():
+                        if await b.count() and await b.first.is_visible():
                             btn = b.first
                             break
                     if not btn:
-                        # fallback: any button containing Authorize
-                        b = page.locator('button:has-text("Authorize")')
+                        b = page.locator('button:has-text("Authorize"), button:has-text("Accept and Connect CLI")')
                         if await b.count():
-                            btn = b.first
+                            # check visible
+                            try:
+                                if await b.first.is_visible():
+                                    btn = b.first
+                            except:
+                                btn = b.first
                     if btn:
                         lbl = await btn.inner_text()
+                        # scroll into view
+                        try: await btn.scroll_into_view_if_needed(timeout=2000)
+                        except: pass
                         try:
                             await btn.click(timeout=3000)
                         except:
-                            # JS fallback
                             await btn.evaluate("el => el.click()")
                         print(f"  ✓ Clicked Authorize (local chrome) [btn='{lbl.strip()[:30]}'], url now={page.url[:90]}")
-                    elif _ == 0:
+                    elif _ % 30 == 0:
                         try:
                             btns = await page.locator("button").all_inner_texts()
-                            print(f"  🔍 consent buttons: {[b.strip()[:25] for b in btns if b.strip()]}")
-                            # JS directly click Authorize
+                            print(f"  🔍 consent buttons ({_}s): {[b.strip()[:25] for b in btns if b.strip()]}")
                             hit = await page.evaluate('''() => {
-                                const bs = Array.from(document.querySelectorAll('button'));
-                                for (const b of bs) if (b.textContent.includes('Authorize')) { b.click(); return b.textContent; }
+                                const bs = Array.from(document.querySelectorAll('button, [role=button], a'));
+                                for (const b of bs) if (b.textContent && (b.textContent.includes('Authorize') || b.textContent.includes('Accept and Connect'))) { b.scrollIntoView(); b.click(); return b.textContent; }
                                 return null;
                             }''')
                             if hit:
                                 print(f"  ✓ JS clicked Authorize {hit[:20]}")
                         except: pass
                 except Exception as ce:
-                    print(f"  ⚠️  Authorize click err: {str(ce)[:120]}")
+                    if _ % 30 == 0: print(f"  ⚠️  Authorize click err: {str(ce)[:120]}")
                 if "127.0.0.1" in page.url and "code=" in page.url:
                     result_holder["query"] = urllib.parse.parse_qs(urllib.parse.urlparse(page.url).query)
                     print("  ✓ Captured code via page.url")
