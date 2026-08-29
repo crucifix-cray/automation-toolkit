@@ -1869,6 +1869,28 @@ async def run(use_warp=False, cloud_mode=False):
                         print(f"🔧 CLI whoami (raw IP, HOME={session_dir}): {r.stdout.strip() or r.stderr.strip()}")
                         r2 = subprocess.run(["railway", "status"], env=env, capture_output=True, text=True, timeout=15)
                         print(f"🔧 CLI status: {r2.stdout.strip()[:400] or r2.stderr.strip()[:400]}")
+                        # sandbox ban check - create then destroy
+                        try:
+                            print(f"🧪 Testing sandbox (ban check)...")
+                            r3 = subprocess.run(["railway", "sandbox", "create", "--help"], env=env, capture_output=True, text=True, timeout=15)
+                            if r3.returncode == 0 or "sandbox" in r3.stdout.lower():
+                                # try actual create with short timeout, destroy immediately
+                                import uuid as _su
+                                r4 = subprocess.run(["railway", "sandbox", "create"], env=env, capture_output=True, text=True, timeout=60)
+                                out4 = (r4.stdout + r4.stderr).strip()[:600]
+                                print(f"🧪 sandbox create: {out4}")
+                                if "banned" in out4.lower() or "suspended" in out4.lower() or r4.returncode != 0 and "limit" in out4.lower():
+                                    print(f"⚠️  Possible ban/limit detected")
+                                else:
+                                    # destroy if created
+                                    try:
+                                        subprocess.run(["railway", "sandbox", "destroy", "--yes"], env=env, capture_output=True, text=True, timeout=30)
+                                        print(f"🧹 sandbox destroyed (test ok)")
+                                    except: pass
+                            else:
+                                print(f"⚠️  sandbox help failed: {r3.stderr.strip()[:200]}")
+                        except Exception as e3:
+                            print(f"⚠️  sandbox test skipped: {e3}")
                         # also push to mega via raw IP
                         env2 = os.environ.copy()
                         env2["LD_PRELOAD"] = ""
