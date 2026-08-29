@@ -1465,13 +1465,45 @@ async def run(use_warp=False, cloud_mode=False):
         from pathlib import Path as _Path
         try: _sp.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
         except: pass
-        # ponytail: rotate ASN per run via pool file (sequential, not random, to actually change ASN)
+        # ponytail: rotate ASN per run via pool file + API lock (so parallel cells don't clash)
         global BRD_WSS
         pool_file = _Path("/tmp/bd_pool_index")
+        lock_dir = _Path("/tmp/bd_api_locks")
+        lock_dir.mkdir(exist_ok=True)
         try:
             idx = int(pool_file.read_text().strip() or 0)
         except:
             idx = 0
+        # find free API (not locked) - try pool in order from idx
+        orig_idx = idx
+        found_lock = None
+        for try_i in range(len(BRD_WSS_POOL)):
+            cand_idx = (orig_idx + try_i) % len(BRD_WSS_POOL)
+            wss_cand = BRD_WSS_POOL[cand_idx]
+            # extract customer hl_xxxx
+            import re as _re
+            m = _re.search(r'hl_[0-9a-f]+', wss_cand)
+            cust = m.group(0) if m else f"idx{cand_idx}"
+            lock_file = lock_dir / f"{cust}.lock"
+            # stale lock >10min is considered free
+            is_locked = False
+            if lock_file.exists():
+                try:
+                    age = __import__('time').time() - lock_file.stat().st_mtime
+                    if age < 600:
+                        is_locked = True
+                    else:
+                        lock_file.unlink()
+                except: pass
+            if not is_locked:
+                idx = cand_idx
+                found_lock = lock_file
+                try: lock_file.write_text(str(__import__('os').getpid()))
+                except: pass
+                break
+        if found_lock is None:
+            print(f"⚠️  All {len(BRD_WSS_POOL)} BD APIs locked, waiting 5s then using next")
+            idx = orig_idx
         pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
         pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
         base_wss = pool_pick.split("?")[0]
@@ -1946,6 +1978,18 @@ async def run(use_warp=False, cloud_mode=False):
             debug_file.write_text(f"Email: {mailbox.address}\nError: {str(e)}\n{traceback.format_exc()}")
             print(f"💾 Debug info saved: {debug_file}")
     finally:
+        # Cleanup: release BD API lock so next cell finds it free
+        try:
+            if cloud_mode and 'found_lock' in locals() and found_lock is not None:
+                try: found_lock.unlink()
+                except: pass
+                print(f"🔓 Released BD API lock {found_lock.name}")
+        except: pass
+        # close BD browser if still open
+        try:
+            if browser:
+                await browser.close()
+        except: pass
         # Cleanup
         if mailbox:
             try:
