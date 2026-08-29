@@ -19,9 +19,13 @@ import secrets
 import subprocess
 import sys
 
+ORIG_HOME = os.environ.get("HOME", "/home/alan")
+
 def ensure_deps():
     """Auto-install missing deps (rclone, playwright) if not found - for cancer cells"""
     import shutil, subprocess as _sp
+    # ensure HOME is ORIG for rclone/playwright cache lookup
+    os.environ["HOME"] = ORIG_HOME
     # rclone
     if not shutil.which("rclone"):
         print("📥 rclone not found, installing...")
@@ -32,7 +36,7 @@ def ensure_deps():
             print(f"  rclone: {shutil.which('rclone') or 'still missing'}")
         except Exception as e:
             print(f"  rclone install failed: {e}")
-    # playwright
+    # playwright - ensure browsers installed to ORIG_HOME
     try:
         import playwright
     except ImportError:
@@ -43,6 +47,13 @@ def ensure_deps():
             print("  playwright installed")
         except Exception as e:
             print(f"  playwright install failed: {e}")
+    # ensure chromium exists
+    import pathlib as _pl
+    cpath = _pl.Path(ORIG_HOME) / ".cache" / "ms-playwright"
+    if not cpath.exists():
+        try:
+            _sp.run([sys.executable, "-m", "playwright", "install", "chromium"], capture_output=True, timeout=120)
+        except: pass
     # railway CLI check
     if not shutil.which("railway"):
         print("⚠️  railway CLI not found")
@@ -85,7 +96,7 @@ RAILWAY_GRAPHQL = "https://backboard.railway.com/graphql/v2"
 RAILWAY_SCOPES = "openid email profile offline_access workspace:admin project:admin ssh_keys"
 PKCE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
 
-SESSIONS_DIR = Path.home() / "Documents" / "railways"
+SESSIONS_DIR = Path(ORIG_HOME) / "Documents" / "railways"
 MEGA_REMOTE = "mega:railway_sessions"
 # ponytail: BD Browser API pool for ASN rotation (free tier per-run fresh IP + new ASN)
 BRD_WSS_POOL = [
@@ -1257,7 +1268,7 @@ async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
         browser = await p.chromium.launch(
             headless=True,
             args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-blink-features=AutomationControlled"],
-            env={"LD_PRELOAD": "", "PATH": os.environ.get("PATH", "")},
+            env={"LD_PRELOAD": "", "PATH": os.environ.get("PATH", ""), "HOME": ORIG_HOME},
         )
         context = await browser.new_context()
         # inject railway cookies (filter to valid playwright cookie shape)
@@ -1980,9 +1991,10 @@ async def run(use_warp=False, cloud_mode=False):
                             _sp.run(["apt", "update", "-q"], capture_output=True, timeout=60)
                             _sp.run(["apt", "install", "-y", "unzip"], capture_output=True, timeout=60)
                             _sp.run(["bash", "-c", "curl https://rclone.org/install.sh | bash"], capture_output=True, timeout=60)
-                        # verify mega config
+                        # verify mega config (use ORIG_HOME)
                         _sp2 = __import__('subprocess')
                         env_m = os.environ.copy()
+                        env_m["HOME"] = ORIG_HOME
                         env_m["LD_PRELOAD"] = ""
                         rm = _sp2.run(["rclone", "lsd", "mega:railway_sessions", "--mega-use-https"], env=env_m, capture_output=True, text=True, timeout=15)
                         if rm.returncode != 0:
@@ -2050,8 +2062,9 @@ async def run(use_warp=False, cloud_mode=False):
                                 print(f"⚠️  init failed - possible ban: {r_init.stderr.strip()[:300]}")
                         except Exception as e3:
                             print(f"⚠️  sandbox test skipped: {e3}")
-                        # also push to mega via raw IP
+                        # also push to mega via raw IP (use ORIG_HOME for rclone config)
                         env2 = os.environ.copy()
+                        env2["HOME"] = ORIG_HOME
                         env2["LD_PRELOAD"] = ""
                         env2["LD_LIBRARY_PATH"] = ""
                         subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=60)
@@ -2119,10 +2132,11 @@ CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-d
                 except: pass
                 print(f"🔓 Released BD API lock {found_lock.name}")
         except: pass
-        # push logs to mega logs folder
+        # push logs to mega logs folder (use ORIG_HOME)
         try:
             import subprocess as _sp3, os as _os3, glob as _glob
             env3 = _os3.environ.copy()
+            env3["HOME"] = ORIG_HOME
             env3["LD_PRELOAD"] = ""
             env3["LD_LIBRARY_PATH"] = ""
             for pat in ["/tmp/run_*.log", "/tmp/railway-debug-*.txt", "/tmp/turnstile-*.png", "/tmp/railway_pending_cookies.json"]:
