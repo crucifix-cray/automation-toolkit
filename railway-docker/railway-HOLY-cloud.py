@@ -18,6 +18,38 @@ import re
 import secrets
 import subprocess
 import sys
+
+def ensure_deps():
+    """Auto-install missing deps (rclone, playwright) if not found - for cancer cells"""
+    import shutil, subprocess as _sp
+    # rclone
+    if not shutil.which("rclone"):
+        print("📥 rclone not found, installing...")
+        try:
+            _sp.run(["apt", "update", "-q"], capture_output=True, timeout=60)
+            _sp.run(["apt", "install", "-y", "unzip"], capture_output=True, timeout=60)
+            _sp.run(["bash", "-c", "curl https://rclone.org/install.sh | bash"], capture_output=True, timeout=60)
+            print(f"  rclone: {shutil.which('rclone') or 'still missing'}")
+        except Exception as e:
+            print(f"  rclone install failed: {e}")
+    # playwright
+    try:
+        import playwright
+    except ImportError:
+        print("📥 playwright not found, installing...")
+        try:
+            _sp.run([sys.executable, "-m", "pip", "install", "playwright", "--break-system-packages", "-q"], capture_output=True, timeout=60)
+            _sp.run([sys.executable, "-m", "playwright", "install", "chromium"], capture_output=True, timeout=120)
+            print("  playwright installed")
+        except Exception as e:
+            print(f"  playwright install failed: {e}")
+    # railway CLI check
+    if not shutil.which("railway"):
+        print("⚠️  railway CLI not found")
+
+try:
+    ensure_deps()
+except: pass
 import time
 import urllib.parse
 import urllib.request
