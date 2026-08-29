@@ -750,8 +750,8 @@ async def sign_in_to_railway(page, mailbox):
     print("⏳ Waiting 15s for Railway email...")
     await asyncio.sleep(15)
     
-    # Get OTP from dispose.lol
-    code = await mailbox.wait_for_railway_code()
+    # Get OTP from dispose.lol — short 80s wait; if nothing arrives, breaker rotates mail+browser+ASN
+    code = await mailbox.wait_for_railway_code(timeout_seconds=80)
     print(f"✅ Got OTP: {code}")
     
     # Fill OTP - wait for Magic.link modal to appear
