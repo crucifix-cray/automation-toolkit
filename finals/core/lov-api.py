@@ -712,8 +712,27 @@ async def click_exact(page: Page, text: str) -> None:
         raise
 
 
+async def _is_white(page: Page) -> bool:
+    try:
+        txt=await page.locator("body").inner_text(timeout=1000)
+        if len(txt.strip()) < 30:
+            raw=await page.content()
+            return len(raw) < 2000 or "Failed to fetch" in raw
+        return False
+    except: return False
+
 async def wait_for_lovable_ready(page: Page) -> None:
-    """Wait for Lovable page to be ready + white-screen fix."""
+    """Wait for Lovable page to be ready + white-screen fix + live watcher."""
+    # live watcher: if blank at any time, reload
+    async def _watcher():
+        for _ in range(35):
+            await asyncio.sleep(2)
+            if await _is_white(page):
+                try:
+                    print("⚠️  Blank detected (watcher) → reload /", file=sys.stderr)
+                    await page.goto(LOVABLE_URL, wait_until="domcontentloaded", timeout=30_000)
+                except: pass
+    watcher_task=asyncio.create_task(_watcher())
     deadline = asyncio.get_running_loop().time() + 75
     white_retries=0
     while asyncio.get_running_loop().time() < deadline:
@@ -759,10 +778,14 @@ async def wait_for_lovable_ready(page: Page) -> None:
             continue
         
         if "Log in" in text or ("/dashboard" in page.url and "Dashboard" in text):
+            try: watcher_task.cancel()
+            except: pass
             return
         
         await page.wait_for_timeout(1_000)
     
+    try: watcher_task.cancel()
+    except: pass
     raise FlowError("Lovable did not finish loading or its security check")
 
 
