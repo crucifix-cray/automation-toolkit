@@ -1291,6 +1291,15 @@ async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
                         print(f"  🍪 dismissed cookie banner via '{ctxt}'")
                         await page.wait_for_timeout(800)
                 except: pass
+            # close Cookie Preferences dialog if open
+            try:
+                cp = page.get_by_role("button", name="Cookie Preferences")
+                if await cp.count() and await cp.first.is_visible():
+                    # press Escape to close it
+                    await page.keyboard.press("Escape")
+                    await page.wait_for_timeout(800)
+                    print(f"  🍪 closed Cookie Preferences")
+            except: pass
             # scroll consent dialog (Authorize may be below fold)
             try:
                 await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -1299,6 +1308,9 @@ async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
                 if await dlg.count():
                     await dlg.evaluate("el => { el.scrollTop = el.scrollHeight; el.dispatchEvent(new Event('scroll', {bubbles:true})); }")
                     await page.wait_for_timeout(500)
+                # also scroll any scrollable container
+                await page.evaluate("document.querySelectorAll('[role=dialog], .modal, [class*=consent]').forEach(el=>el.scrollTop=el.scrollHeight)")
+                await page.wait_for_timeout(500)
             except: pass
             # click Authorize, then capture code from the 127.0.0.1 callback (page.url or server)
             for _ in range(30):
@@ -1319,12 +1331,24 @@ async def get_oauth_tokens_local_chrome(cookies: list[dict]) -> dict:
                             btn = b.first
                     if btn:
                         lbl = await btn.inner_text()
-                        await btn.click(timeout=3000)
+                        try:
+                            await btn.click(timeout=3000)
+                        except:
+                            # JS fallback
+                            await btn.evaluate("el => el.click()")
                         print(f"  ✓ Clicked Authorize (local chrome) [btn='{lbl.strip()[:30]}'], url now={page.url[:90]}")
                     elif _ == 0:
                         try:
                             btns = await page.locator("button").all_inner_texts()
                             print(f"  🔍 consent buttons: {[b.strip()[:25] for b in btns if b.strip()]}")
+                            # JS directly click Authorize
+                            hit = await page.evaluate('''() => {
+                                const bs = Array.from(document.querySelectorAll('button'));
+                                for (const b of bs) if (b.textContent.includes('Authorize')) { b.click(); return b.textContent; }
+                                return null;
+                            }''')
+                            if hit:
+                                print(f"  ✓ JS clicked Authorize {hit[:20]}")
                         except: pass
                 except Exception as ce:
                     print(f"  ⚠️  Authorize click err: {str(ce)[:120]}")
@@ -1930,6 +1954,13 @@ async def run(use_warp=False, cloud_mode=False):
                         print(f"  pending cookies save failed: {_pe}")
                     # close BD browser now, local chrome will run on raw IP
                     try: await browser.close()
+                    except: pass
+                    # release BD API lock BEFORE local PKCE (raw IP doesn't need BD)
+                    try:
+                        if 'found_lock' in locals() and found_lock is not None and found_lock.exists():
+                            found_lock.unlink()
+                            print(f"🔓 Released BD API lock {found_lock.name} before PKCE")
+                            found_lock = None
                     except: pass
                     session_dir = await register_cli_session_local_chrome(bd_cookies, SESSIONS_DIR)
                 else:
