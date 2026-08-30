@@ -1044,13 +1044,23 @@ async def sign_in_to_railway(page, mailbox):
         # fallback: type code and press Enter on page
         try:
             await page.keyboard.type(code)
-            await page.keyboard.press("Enter")
-            print(f"  ✅ Typed OTP {code} + Enter (fallback)")
+            print(f"  ✅ Typed OTP {code} (fallback)")
             filled = True
         except Exception as e3:
             print(f"  ⚠️  Fallback failed: {e3}")
-        except Exception as e2:
-            raise Exception(f"Both OTP methods failed: {e}, {e2}")
+    # submit OTP — try clicking verify button, then Enter
+    try:
+        verify_btn = page.locator('button[type="submit"], button:has-text("Verify"), button:has-text("Log in"), button:has-text("Continue")')
+        if await verify_btn.count() and await verify_btn.first.is_visible():
+            await verify_btn.first.click(timeout=3000)
+            print("  ✅ Clicked submit/verify button")
+        else:
+            await page.keyboard.press("Enter")
+            print("  ✅ Pressed Enter to submit OTP")
+    except:
+        await page.keyboard.press("Enter")
+        print("  ✅ Pressed Enter to submit OTP (fallback)")
+    await page.wait_for_timeout(3000)
     
     # Wait for redirect to dashboard — poll for 60s
     print("⏳ Waiting for login to complete...")
