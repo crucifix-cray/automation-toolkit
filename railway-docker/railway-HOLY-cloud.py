@@ -1887,10 +1887,26 @@ async def run(use_warp=False, cloud_mode=False):
                     break
                 except Exception as e:
                     msg = str(e)
-                    # whatever err, restart till 8 tries
-                    is_breaker = True
-                    # keep specific checks for logging, but all errs are breaker
-                    is_domlimit = ("navigate_domains_limit" in msg or "domain limit" in msg)
+                    # auto-detect suspended/credit done -> mark API as drained and try next
+                    if "customer_suspended" in msg or "403" in msg or "Auth Failed" in msg:
+                        print(f"🛑 BD API {pool_pick[:30]}*** suspended/drained, marking done and trying next")
+                        # mark lock as drained (write drained file)
+                        try:
+                            drain_file = lock_dir / f"{cust}.drained"
+                            drain_file.write_text("suspended")
+                            if found_lock and found_lock.exists():
+                                found_lock.unlink()
+                        except: pass
+                        # try next API immediately
+                        is_breaker = True
+                        is_domlimit = False
+                        # force next iteration to pick next free API
+                        # continue will go to next attempt with new API
+                    else:
+                        # whatever err, restart till 8 tries
+                        is_breaker = True
+                        # keep specific checks for logging, but all errs are breaker
+                        is_domlimit = ("navigate_domains_limit" in msg or "domain limit" in msg)
                     if is_domlimit:
                         print(f"⚠️  BD domain-limit hit — cooling down 120s, then fresh session")
                         import asyncio as _as
