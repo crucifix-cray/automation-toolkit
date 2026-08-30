@@ -281,45 +281,26 @@ class TempTfInbox:
         self._created_at = time.time()
         return self.address
 
-    async def wait_for_railway_code(self, timeout_seconds=300):
+    async def wait_for_railway_code(self, timeout_seconds=420):
         if not self.address:
             raise Exception("No address set")
         print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
         pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
-        # get baseline count BEFORE our OTP arrives
-        baseline_total = 0
-        try:
-            resp = self._get("/check", {"email": self.address})
-            baseline_total = resp.get("totalReceived", 0)
-        except: pass
-        print(f"  📊 Baseline: {baseline_total} messages")
-        max_checks = 20
+        max_checks = 14
         for check_num in range(1, max_checks + 1):
-            await asyncio.sleep(8)
+            await asyncio.sleep(30)
             try:
                 resp = self._get("/check", {"email": self.address})
                 items = resp.get("data", [])
                 total = resp.get("totalReceived", 0)
-                # only look at NEW messages (arrived after baseline)
-                new_msgs = items[:max(1, total - baseline_total)] if total > baseline_total else []
-                subjects = [m.get("subject", "")[:40] for m in items[:3]]
-                print(f"  Check #{check_num}/{max_checks}: {len(items)} msg(s), {total} total (+{total - baseline_total} new) | recent: {subjects}")
-                for msg in new_msgs:
-                    subj = msg.get("subject", "")
-                    body = msg.get("body", "")
-                    m = pattern.search(subj + " " + body)
+                last5 = items[:5]
+                subjects = [m.get("subject", "")[:40] for m in last5]
+                print(f"  Check #{check_num}/{max_checks}: {len(items)} msg(s), {total} total | last5: {subjects}")
+                for msg in last5:
+                    m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
                     if m:
-                        print(f"  ✅ OTP: {m.group(1)} (from NEW message)")
+                        print(f"  ✅ OTP: {m.group(1)}")
                         return m.group(1)
-                if total > baseline_total:
-                    # new messages arrived but none matched — check ALL items just in case
-                    for msg in items[:10]:
-                        subj = msg.get("subject", "")
-                        body = msg.get("body", "")
-                        m = pattern.search(subj + " " + body)
-                        if m:
-                            print(f"  ✅ OTP: {m.group(1)} (fallback match)")
-                            return m.group(1)
             except urllib.error.HTTPError as e:
                 if e.code == 500:
                     print(f"  Check #{check_num}: inbox initializing (500)... waiting")
@@ -330,7 +311,6 @@ class TempTfInbox:
                     print(f"  Check #{check_num}: HTTP {e.code}")
             except Exception as e:
                 print(f"  Check #{check_num}: error {str(e)[:60]}")
-            await asyncio.sleep(5)
         raise RuntimeError("OTP not received within timeout")
 
 
@@ -1013,6 +993,9 @@ async def sign_in_to_railway(page, mailbox):
             await asyncio.sleep(0.15)
         print("  ✅ Filled OTP (iframe method)")
         filled = True
+        # press Enter inside iframe to submit
+        await inputs.last.press("Enter")
+        print("  ✅ Pressed Enter inside iframe")
     except Exception as e:
         print(f"  ⚠️  iframe method failed: {e}")
     if not filled:
@@ -1027,6 +1010,8 @@ async def sign_in_to_railway(page, mailbox):
                     await asyncio.sleep(0.15)
                 print("  ✅ Filled OTP (direct)")
                 filled = True
+                await all_inputs.last.press("Enter")
+                print("  ✅ Pressed Enter (direct)")
             else:
                 await page.wait_for_selector('input', timeout=10000)
                 all_inputs = page.locator('input')
@@ -1038,28 +1023,19 @@ async def sign_in_to_railway(page, mailbox):
                         await asyncio.sleep(0.15)
                     print("  ✅ Filled OTP")
                     filled = True
+                    await all_inputs.last.press("Enter")
+                    print("  ✅ Pressed Enter")
         except Exception as e2:
             print(f"  ⚠️  Direct method failed: {e2}")
     if not filled:
         # fallback: type code and press Enter on page
         try:
             await page.keyboard.type(code)
-            print(f"  ✅ Typed OTP {code} (fallback)")
+            await page.keyboard.press("Enter")
+            print(f"  ✅ Typed OTP {code} + Enter (fallback)")
             filled = True
         except Exception as e3:
             print(f"  ⚠️  Fallback failed: {e3}")
-    # submit OTP — try clicking verify button, then Enter
-    try:
-        verify_btn = page.locator('button[type="submit"], button:has-text("Verify"), button:has-text("Log in"), button:has-text("Continue")')
-        if await verify_btn.count() and await verify_btn.first.is_visible():
-            await verify_btn.first.click(timeout=3000)
-            print("  ✅ Clicked submit/verify button")
-        else:
-            await page.keyboard.press("Enter")
-            print("  ✅ Pressed Enter to submit OTP")
-    except:
-        await page.keyboard.press("Enter")
-        print("  ✅ Pressed Enter to submit OTP (fallback)")
     await page.wait_for_timeout(3000)
     
     # Wait for redirect to dashboard — poll for 60s
