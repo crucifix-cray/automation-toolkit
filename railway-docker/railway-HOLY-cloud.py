@@ -272,26 +272,46 @@ class TempTfInbox:
         if not self.address:
             raise Exception("No address set")
         print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
+        print("  ⏳ temp.tf needs ~60s to init fresh inbox, polling耐心...")
         pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
         deadline = time.time() + timeout_seconds
         check_count = 0
+        inbox_ready = False
+        # record baseline message count so we detect NEW arrivals only
+        baseline_count = 0
         while time.time() < deadline:
             check_count += 1
             try:
                 resp = self._get("/check", {"email": self.address})
                 items = resp.get("data", [])
-                if check_count % 10 == 1:
-                    print(f"  Check #{check_count}: {len(items)} message(s)")
+                total = resp.get("totalReceived", 0)
+                if not inbox_ready:
+                    inbox_ready = True
+                    baseline_count = total
+                    print(f"  ✅ Inbox ready! ({total} total messages)")
+                if check_count % 5 == 1:
+                    print(f"  Check #{check_count}: {len(items)} message(s), {total} total")
                 for msg in items:
+                    # only check messages newer than baseline (skip old shared inbox msgs)
+                    msg_date = msg.get("date", "")
                     m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
                     if m:
-                        print(f"  ✅ OTP: {m.group(1)}")
-                        return m.group(1)
+                        # verify it's recent (within last 10 min)
+                        try:
+                            msg_time = time.mktime(time.strptime(msg_date[:19], "%Y-%m-%dT%H:%M:%S"))
+                            if time.time() - msg_time < 600:
+                                print(f"  ✅ OTP: {m.group(1)} (from {msg_date[:19]})")
+                                return m.group(1)
+                            else:
+                                if check_count % 10 == 1:
+                                    print(f"  ⏭ Skipping old OTP from {msg_date[:19]}")
+                        except:
+                            print(f"  ✅ OTP: {m.group(1)}")
+                            return m.group(1)
             except urllib.error.HTTPError as e:
                 if e.code == 500:
-                    # temp.tf returns 500 for fresh addresses with 0 messages — normal
                     if check_count % 10 == 1:
-                        print(f"  Check #{check_count}: no messages yet (fresh inbox)")
+                        print(f"  Check #{check_count}: inbox initializing (500)... waiting")
                 elif e.code == 429:
                     print(f"  Check #{check_count}: rate limited, waiting 10s...")
                     await asyncio.sleep(10)
