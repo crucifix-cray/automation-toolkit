@@ -1787,44 +1787,45 @@ async def run(use_warp=False, cloud_mode=False):
             mailbox = None
             if cloud_mode:
                 # ponytail: Gmail first — dispose.lol Gmail (separate BD) per user, then 22.do, then mail.tm
-                print("☁️  Cloud mailbox fallback: dispose Gmail -> 22.do -> mail.tm")
-                tried = False
-                # 1. dispose.lol Gmail via separate BD (keep open)
-                try:
-                    print("☁️  Trying dispose.lol Gmail (separate BD, keep open)...")
-                    from playwright.async_api import async_playwright as _p
-                    import uuid as _uuid2
-                    dispose_wss = BRD_WSS.split("?")[0] + f"?sessionId={_uuid2.uuid4()}"
-                    p2 = await _p().start()
-                    b_dispose = await p2.chromium.connect_over_cdp(dispose_wss)
-                    ctx_dispose = b_dispose.contexts[0] if b_dispose.contexts else await b_dispose.new_context()
-                    pg = await ctx_dispose.new_page()
-                    await pg.goto("https://dispose.lol", wait_until="load", timeout=60000)
-                    await pg.wait_for_timeout(5000)
-                    email_text = await pg.evaluate('''() => {
-                        const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
-                        while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
-                        return null;
-                    }''')
-                    if email_text and '@gmail.com' in email_text:
-                        mailbox = DisposeLolInbox(context=context)
-                        mailbox.page = pg
-                        mailbox._dispose_browser = b_dispose
-                        mailbox._dispose_context = ctx_dispose
-                        mailbox._dispose_playwright = p2
-                        mailbox.address = email_text.strip()
-                        print(f"✅ Mailbox ready: {mailbox.address} (via dispose.lol separate BD, keep for polling)")
-                        tried = True
-                    else:
-                        await b_dispose.close()
-                        await p2.stop()
-                        raise Exception("dispose Gmail not found")
-                except Exception as e:
-                    print(f"⚠️  dispose.lol failed ({e}), trying 22.do...")
-                if not tried:
-                    for dom in ["@gmail.com", "@outlook.com", "@hotmail.com", "@linshiyou.com", "@colabeta.com", "@youxiang.dev"]:
+                print("☁️  Cloud mailbox fallback: dispose Gmail -> 22.do -> mail.tm (loop till success)")
+                for _provider_round in range(12):
+                    # 1. dispose.lol Gmail via separate BD
+                    try:
+                        print(f"☁️  [round {_provider_round+1}] Trying dispose.lol Gmail (separate BD)...")
+                        from playwright.async_api import async_playwright as _p
+                        import uuid as _uuid2
+                        dispose_wss = BRD_WSS.split("?")[0] + f"?sessionId={_uuid2.uuid4()}"
+                        p2 = await _p().start()
+                        b_dispose = await p2.chromium.connect_over_cdp(dispose_wss)
+                        ctx_dispose = b_dispose.contexts[0] if b_dispose.contexts else await b_dispose.new_context()
+                        pg = await ctx_dispose.new_page()
+                        await pg.goto("https://dispose.lol", wait_until="load", timeout=60000)
+                        await pg.wait_for_timeout(5000)
+                        email_text = await pg.evaluate('''() => {
+                            const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
+                            while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
+                            return null;
+                        }''')
+                        if email_text and '@gmail.com' in email_text:
+                            mailbox = DisposeLolInbox(context=context)
+                            mailbox.page = pg
+                            mailbox._dispose_browser = b_dispose
+                            mailbox._dispose_context = ctx_dispose
+                            mailbox._dispose_playwright = p2
+                            mailbox.address = email_text.strip()
+                            print(f"✅ Mailbox ready: {mailbox.address} (via dispose.lol)")
+                            break
+                        else:
+                            await b_dispose.close()
+                            await p2.stop()
+                            raise Exception("dispose Gmail not found")
+                    except Exception as e:
+                        print(f"  dispose.lol failed: {str(e)[:80]}")
+                    # 2. 22.do via separate BD
+                    _22do_ok = False
+                    for dom in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
                         try:
-                            print(f"☁️  Trying 22.do {dom} (separate BD)...")
+                            print(f"☁️  [round {_provider_round+1}] Trying 22.do {dom} (separate BD)...")
                             from playwright.async_api import async_playwright as _p2
                             import uuid as _uuid3
                             wss_22 = BRD_WSS.split("?")[0] + f"?sessionId={_uuid3.uuid4()}"
@@ -1837,8 +1838,8 @@ async def run(use_warp=False, cloud_mode=False):
                             mailbox._22_browser = b22
                             mailbox._22_playwright = p22
                             mailbox._22_context = ctx22
-                            print(f"✅ Mailbox ready: {mailbox.address} (via 22.do {dom} separate BD)")
-                            tried = True
+                            print(f"✅ Mailbox ready: {mailbox.address} (via 22.do {dom})")
+                            _22do_ok = True
                             break
                         except Exception as ex:
                             print(f"  22.do {dom} failed: {str(ex)[:80]}")
@@ -1847,10 +1848,21 @@ async def run(use_warp=False, cloud_mode=False):
                                 await p22.stop()
                             except: pass
                             continue
-                if not tried:
-                    print("☁️  Cloud mailbox: mail.tm API (fallback)")
-                    mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
-                    await mailbox.create()
+                    if _22do_ok:
+                        break
+                    # 3. mail.tm API
+                    try:
+                        print(f"☁️  [round {_provider_round+1}] Trying mail.tm API...")
+                        mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                        await mailbox.create()
+                        print(f"✅ Mailbox ready: {mailbox.address} (via mail.tm)")
+                        break
+                    except Exception as _mtm_e:
+                        print(f"  mail.tm failed: {str(_mtm_e)[:80]} — cycling back to dispose...")
+                        await asyncio.sleep(3)
+                        continue
+                else:
+                    raise RuntimeError("All mailbox providers exhausted after 12 rounds")
             else:
                 for _crash_attempt in range(3):
                     try:
@@ -1973,91 +1985,82 @@ async def run(use_warp=False, cloud_mode=False):
                             browser = await p3.chromium.connect_over_cdp(new_wss)
                             context = browser.contexts[0] if browser.contexts else await browser.new_context()
                             page = await context.new_page()
-                        # next mailbox: 5x dispose -> mail.tm -> repeat till 8
-                        is_dispose = (attempt % 6) < 5
-                        if is_dispose:
-                            try:
-                                print(f"🔄 Trying dispose Gmail (breaker {attempt+1}/8, dispose {(attempt%6)+1}/5)...")
-                                from playwright.async_api import async_playwright as _p4
-                                import uuid as _uuid4b
-                                disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
-                                p4 = await _p4().start()
-                                b4 = await p4.chromium.connect_over_cdp(disp_wss)
-                                ctx4 = b4.contexts[0] if b4.contexts else await b4.new_context()
-                                pg4 = await ctx4.new_page()
-                                await pg4.goto("https://dispose.lol", wait_until="load", timeout=60000)
-                                await pg4.wait_for_timeout(5000)
-                                email_text = await pg4.evaluate('''() => {
-                                    const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
-                                    while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
-                                    return null;
-                                }''')
-                                if email_text and '@gmail.com' in email_text:
-                                    mailbox = DisposeLolInbox(context=context)
-                                    mailbox.page = pg4
-                                    mailbox._dispose_browser = b4
-                                    mailbox._dispose_context = ctx4
-                                    mailbox._dispose_playwright = p4
-                                    mailbox.address = email_text.strip()
-                                    print(f"🔄 Dispose Gmail -> {mailbox.address}")
-                                else:
-                                    await b4.close()
-                                    await p4.stop()
-                                    raise Exception("dispose not found")
-                            except Exception as e2:
-                                print(f"  dispose failed {str(e2)[:60]}, trying mail.tm")
+                        # next mailbox: cycle dispose -> 22.do -> mail.tm -> repeat
+                        mailbox = None
+                        for _prov in range(3):
+                            if _prov == 0:
+                                # dispose.lol
                                 try:
+                                    print(f"🔄 [breaker {attempt+1}/8] Trying dispose.lol...")
+                                    from playwright.async_api import async_playwright as _p4
+                                    import uuid as _uuid4b
+                                    disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
+                                    p4 = await _p4().start()
+                                    b4 = await p4.chromium.connect_over_cdp(disp_wss)
+                                    ctx4 = b4.contexts[0] if b4.contexts else await b4.new_context()
+                                    pg4 = await ctx4.new_page()
+                                    await pg4.goto("https://dispose.lol", wait_until="load", timeout=60000)
+                                    await pg4.wait_for_timeout(5000)
+                                    email_text = await pg4.evaluate('''() => {
+                                        const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null); let n;
+                                        while(n=w.nextNode()){ const t=n.textContent.trim(); if(t.includes('@gmail.com') && t.length<100) return t; }
+                                        return null;
+                                    }''')
+                                    if email_text and '@gmail.com' in email_text:
+                                        mailbox = DisposeLolInbox(context=context)
+                                        mailbox.page = pg4
+                                        mailbox._dispose_browser = b4
+                                        mailbox._dispose_context = ctx4
+                                        mailbox._dispose_playwright = p4
+                                        mailbox.address = email_text.strip()
+                                        print(f"🔄 Dispose Gmail -> {mailbox.address}")
+                                        break
+                                    else:
+                                        await b4.close()
+                                        await p4.stop()
+                                except Exception as e2:
+                                    print(f"  dispose failed: {str(e2)[:60]}")
+                            elif _prov == 1:
+                                # 22.do
+                                for dom2 in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
+                                    try:
+                                        print(f"🔄 [breaker {attempt+1}/8] Trying 22.do {dom2}...")
+                                        from playwright.async_api import async_playwright as _p5
+                                        import uuid as _uuid5
+                                        wss_22b = new_wss.split("?")[0] + f"?sessionId={_uuid5.uuid4()}"
+                                        p22b = await _p5().start()
+                                        b22b = await p22b.chromium.connect_over_cdp(wss_22b)
+                                        ctx22b = b22b.contexts[0] if b22b.contexts else await b22b.new_context()
+                                        tmp_mb2 = TwoTwoDoInbox(context=ctx22b, target_domain=dom2)
+                                        await tmp_mb2.create()
+                                        mailbox = tmp_mb2
+                                        mailbox._22_browser = b22b
+                                        mailbox._22_playwright = p22b
+                                        mailbox._22_context = ctx22b
+                                        print(f"🔄 22.do {dom2} -> {mailbox.address}")
+                                        break
+                                    except Exception as _ex2:
+                                        print(f"  22.do {dom2} failed: {str(_ex2)[:60]}")
+                                        try:
+                                            await b22b.close()
+                                            await p22b.stop()
+                                        except: pass
+                                        continue
+                                if mailbox:
+                                    break
+                            elif _prov == 2:
+                                # mail.tm
+                                try:
+                                    print(f"🔄 [breaker {attempt+1}/8] Trying mail.tm...")
                                     mailbox = MailTmInbox(context=context)
                                     await mailbox.create()
-                                    print(f"🔄 Fallback mail.tm -> {mailbox.address}")
-                                except Exception as _mtm_e:
-                                    print(f"  mail.tm also failed ({str(_mtm_e)[:60]}), trying 22.do...")
-                                    try:
-                                        for dom2 in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
-                                            try:
-                                                wss_22b = new_wss.split("?")[0] + f"?sessionId={_uuid.uuid4()}"
-                                                p22b = await _p3().start()
-                                                b22b = await p22b.chromium.connect_over_cdp(wss_22b)
-                                                ctx22b = b22b.contexts[0] if b22b.contexts else await b22b.new_context()
-                                                tmp_mb2 = TwoTwoDoInbox(context=ctx22b, target_domain=dom2)
-                                                await tmp_mb2.create()
-                                                mailbox = tmp_mb2
-                                                mailbox._22_browser = b22b
-                                                mailbox._22_playwright = p22b
-                                                mailbox._22_context = ctx22b
-                                                print(f"🔄 Fallback 22.do {dom2} -> {mailbox.address}")
-                                                break
-                                            except: pass
-                                    except: pass
-                                    if mailbox is None:
-                                        print("  all providers exhausted this attempt")
-                        else:
-                            print(f"🔄 Trying mail.tm (breaker {attempt+1}/8, loop {(attempt//6)+1})...")
-                            try:
-                                mailbox = MailTmInbox(context=context)
-                                await mailbox.create()
-                                print(f"🔄 mail.tm -> {mailbox.address}")
-                            except Exception as _mtm_e2:
-                                print(f"  mail.tm failed ({str(_mtm_e2)[:60]}), trying 22.do...")
-                                try:
-                                    for dom3 in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
-                                        try:
-                                            wss_22c = new_wss.split("?")[0] + f"?sessionId={_uuid.uuid4()}"
-                                            p22c = await _p3().start()
-                                            b22c = await p22c.chromium.connect_over_cdp(wss_22c)
-                                            ctx22c = b22c.contexts[0] if b22c.contexts else await b22c.new_context()
-                                            tmp_mb3 = TwoTwoDoInbox(context=ctx22c, target_domain=dom3)
-                                            await tmp_mb3.create()
-                                            mailbox = tmp_mb3
-                                            mailbox._22_browser = b22c
-                                            mailbox._22_playwright = p22c
-                                            mailbox._22_context = ctx22c
-                                            print(f"🔄 Fallback 22.do {dom3} -> {mailbox.address}")
-                                            break
-                                        except: pass
-                                except: pass
-                                if mailbox is None:
-                                    print("  all providers exhausted this attempt")
+                                    print(f"🔄 mail.tm -> {mailbox.address}")
+                                    break
+                                except Exception as _mtm_e2:
+                                    print(f"  mail.tm failed: {str(_mtm_e2)[:60]} — cycling back to dispose...")
+                                    await asyncio.sleep(3)
+                        if mailbox is None:
+                            print("  all providers exhausted this attempt")
                         continue
                     else:
                         print(f"❌ All 8 attempts failed, killing script and releasing lock")
