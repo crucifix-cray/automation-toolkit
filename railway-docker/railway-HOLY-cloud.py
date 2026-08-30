@@ -243,7 +243,10 @@ class TempTfInbox:
             req = urllib.request.Request(url, data=json.dumps(data).encode(), headers={"Content-Type": "application/json"}, method="POST")
         else:
             req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        # bypass Tor/proxy — temp.tf blocks Tor exits
+        handler = urllib.request.ProxyHandler({})
+        opener = urllib.request.build_opener(handler)
+        with opener.open(req, timeout=15) as resp:
             return json.loads(resp.read())
 
     async def create(self):
