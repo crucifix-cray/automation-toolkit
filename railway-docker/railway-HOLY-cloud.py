@@ -20,6 +20,8 @@ import subprocess
 import sys
 
 ORIG_HOME = os.environ.get("HOME", "/home/alan")
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(Path(ORIG_HOME) / ".cache" / "ms-playwright")
+os.environ["HOME"] = ORIG_HOME  # ensure rclone/playwright use orig home, railway uses session_dir via env override
 
 def ensure_deps():
     """Auto-install missing deps (rclone, playwright) if not found - for cancer cells"""
