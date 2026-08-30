@@ -2254,6 +2254,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Railway account creator — 22.do pool edition")
     parser.add_argument("--no-warp", action="store_true", help="Disable WARP proxy")
     parser.add_argument("--cloud", action="store_true", help="Use Bright Data Browser API (WSS) instead of local Chromium")
+    parser.add_argument("--cloud-no-c", action="store_true", help="Cloud without cancer/sandbox spawn, just create acc + Mega loop")
     parser.add_argument("--domain", type=str, default=None, help="Enforce 22.do handler domain, e.g. @linshiyou.com, @gmail.com, @hotmail.com, @outlook.com (default: random) — @googlemail.com banned")
     parser.add_argument("--recov", type=str, default=None, help="Recover existing 22.do inbox, e.g. g92w@colabeta.com (skips creation, opens https://22.do/inbox/#/<mail>)")
     parser.add_argument("--cli", type=str, default=None, metavar="PATH", help="CLI-only: resume a web session dir (loads browser_cookies.json) and register Railway CLI PKCE only, no re-login. Writes next free session dir.")
@@ -2264,8 +2265,9 @@ if __name__ == "__main__":
     # expose to run() via globals (used inside)
     CLI_TARGET_DOMAIN = args.domain
     CLI_RECOVERY_EMAIL = args.recov
-    CLOUD_MODE = args.cloud or os.environ.get("BRD_WSS") is not None
-    CLI_CELLS = args.cells
+    CLOUD_MODE = args.cloud or args.cloud_no_c or os.environ.get("BRD_WSS") is not None
+    CLOUD_NO_C = args.cloud_no_c
+    CLI_CELLS = 0 if args.cloud_no_c else args.cells
     CLI_DEPTH = args.depth
 
     if args.cli:
