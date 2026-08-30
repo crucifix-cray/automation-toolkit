@@ -264,6 +264,7 @@ class TempTfInbox:
         for attempt in range(10):
             acct = self._get("/account?dot=1&providers=gmail")
             self.address = acct["email"]
+            self._created_at = time.time()
             # pre-check: can we read the inbox? (500 = not ready)
             try:
                 self._get("/check", {"email": self.address})
@@ -277,6 +278,7 @@ class TempTfInbox:
                 raise
         # if all 10 failed, just use last one and hope for the best
         print(f"  ⚠️ Using {self.address} anyway (all pre-checks returned 500)")
+        self._created_at = time.time()
         return self.address
 
     async def wait_for_railway_code(self, timeout_seconds=300):
@@ -289,7 +291,7 @@ class TempTfInbox:
         check_count = 0
         inbox_ready = False
         baseline_count = 0
-        started_waiting = time.time()
+        created_at = getattr(self, '_created_at', time.time() - 120)
         while time.time() < deadline:
             check_count += 1
             try:
@@ -299,22 +301,21 @@ class TempTfInbox:
                 if not inbox_ready:
                     inbox_ready = True
                     baseline_count = total
-                    started_waiting = time.time()
                     print(f"  ✅ Inbox ready! ({total} total messages)")
                 if check_count % 5 == 1:
                     print(f"  Check #{check_count}: {len(items)} message(s), {total} total")
                 for msg in items:
                     m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
                     if m:
-                        # only accept OTPs from messages after we started waiting (skip shared inbox old msgs)
+                        # skip old shared inbox messages — only accept OTPs sent after address was created
                         msg_date = msg.get("date", "")
                         try:
                             msg_time = time.mktime(time.strptime(msg_date[:19], "%Y-%m-%dT%H:%M:%S"))
-                            if msg_time < started_waiting - 60:
+                            if msg_time < created_at - 60:
                                 continue
                         except:
                             pass
-                        print(f"  ✅ OTP: {m.group(1)} (from shared inbox, date={msg_date[:19]})")
+                        print(f"  ✅ OTP: {m.group(1)} (date={msg_date[:19]})")
                         return m.group(1)
             except urllib.error.HTTPError as e:
                 if e.code == 500:
