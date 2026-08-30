@@ -1856,7 +1856,7 @@ async def run(use_warp=False, cloud_mode=False):
                     break
                 except Exception as e:
                     msg = str(e)
-                    is_breaker = ("OTP not received" in msg or "Turnstile/button timeout" in msg or "Continue with Email" in msg)
+                    is_breaker = ("OTP not received" in msg or "Turnstile/button timeout" in msg or "Continue with Email" in msg or "ECONNRESET" in msg or "WebSocket error" in msg or "Target closed" in msg or "Browser closed" in msg)
                     is_domlimit = ("navigate_domains_limit" in msg or "domain limit" in msg)
                     if is_domlimit:
                         print(f"⚠️  BD domain-limit hit — cooling down 120s, then fresh session")
