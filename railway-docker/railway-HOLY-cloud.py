@@ -286,16 +286,18 @@ class TempTfInbox:
             raise Exception("No address set")
         print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
         pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
-        max_checks = 15
+        max_checks = 20
         for check_num in range(1, max_checks + 1):
             await asyncio.sleep(5)
             try:
                 resp = self._get("/check", {"email": self.address})
                 items = resp.get("data", [])
                 total = resp.get("totalReceived", 0)
-                print(f"  Check #{check_num}/{max_checks}: {len(items)} message(s), {total} total")
                 # check last 5 messages only
-                for msg in items[:5]:
+                last5 = items[:5]
+                subjects = [m.get("subject", "")[:40] for m in last5]
+                print(f"  Check #{check_num}/{max_checks}: {len(items)} msg(s), {total} total | last5 subj: {subjects}")
+                for msg in last5:
                     m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
                     if m:
                         print(f"  ✅ OTP: {m.group(1)}")
