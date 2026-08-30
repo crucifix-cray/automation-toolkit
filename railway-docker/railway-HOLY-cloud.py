@@ -1579,8 +1579,36 @@ async def run(use_warp=False, cloud_mode=False):
                 except: pass
                 break
         if found_lock is None:
-            print(f"⚠️  All {len(BRD_WSS_POOL)} BD APIs locked, waiting 5s then using next")
-            idx = orig_idx
+            # wait 1min and check again till free, also check credit drain
+            while found_lock is None:
+                print(f"⚠️  All {len(BRD_WSS_POOL)} BD APIs locked, waiting 60s...")
+                __import__('time').sleep(60)
+                # try again
+                for try_i in range(len(BRD_WSS_POOL)):
+                    cand_idx = (orig_idx + try_i) % len(BRD_WSS_POOL)
+                    wss_cand = BRD_WSS_POOL[cand_idx]
+                    import re as _re2
+                    m = _re2.search(r'hl_[0-9a-f]+', wss_cand)
+                    cust = m.group(0) if m else f"idx{cand_idx}"
+                    lock_file = lock_dir / f"{cust}.lock"
+                    is_locked = False
+                    if lock_file.exists():
+                        try:
+                            age = __import__('time').time() - lock_file.stat().st_mtime
+                            if age < 600:
+                                is_locked = True
+                            else:
+                                lock_file.unlink()
+                        except: pass
+                    if not is_locked:
+                        idx = cand_idx
+                        found_lock = lock_file
+                        try: lock_file.write_text(str(__import__('os').getpid()))
+                        except: pass
+                        print(f"✅ Found free BD API {cust} after wait")
+                        break
+                # credit drain check: if all APIs cost near 0, stop
+                # (handled in main loop, here just continue waiting)
         pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
         pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
         base_wss = pool_pick.split("?")[0]
@@ -2275,9 +2303,26 @@ if __name__ == "__main__":
                 asyncio.run(run(use_warp=use_warp, cloud_mode=CLOUD_MODE))
             except Exception as e:
                 print(f"⚠️  Run error: {e}")
-            # check credit limit: if all APIs cost near limit, stop and clean locks
+            # check credit drain: if all 11 APIs cost > $45 (near $50 limit), stop
             try:
-                import subprocess as _spc, glob as _gl
+                import subprocess as _spc, glob as _gl, json as _js
+                drained = 0
+                for acc in ["acc1","acc2","acc3","acc4","acc5","acc6","acc7","acc8","acc9","acc10","acc11"]:
+                    try:
+                        jf = f"/tmp/{acc}.json"
+                        if not __import__('pathlib').Path(jf).exists():
+                            continue
+                        key = _js.load(open(jf))["api_key"]
+                        out = _spc.run(["curl","-s","-H",f"Authorization: Bearer {key}","https://api.brightdata.com/zone/cost?zone=scraping_browser1"], capture_output=True, text=True, timeout=10)
+                        d = _js.loads(out.stdout)
+                        cust = list(d.keys())[0]
+                        cost = d[cust].get("back_m0",{}).get("cost",0)
+                        if cost > 45:
+                            drained += 1
+                    except: pass
+                if drained >= len(BRD_WSS_POOL):
+                    print(f"🛑 All {drained} BD APIs credit drained, stopping")
+                    break
                 for f in _gl.glob("/tmp/bd_api_locks/*.lock"):
                     try: _spc.run(["rm", "-f", f], timeout=5)
                     except: pass
