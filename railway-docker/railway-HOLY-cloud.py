@@ -1546,88 +1546,95 @@ async def run(use_warp=False, cloud_mode=False):
         try: _sp.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
         except: pass
         # ponytail: rotate ASN per run via pool file + API lock (so parallel cells don't clash)
-        # if BRD_WSS was passed via env for 1:1, use only that one (don't rotate)
+        # if BRD_WSS was passed via env for 1:1, use only that one (don't rotate, skip locks)
         global BRD_WSS, BRD_WSS_POOL
         passed_wss = os.environ.get("BRD_WSS")
         # strip ?sessionId for comparison
         passed_base = passed_wss.split("?")[0] if passed_wss else None
-        pool_bases = [w.split("?")[0] for w in BRD_WSS_POOL]
-        if passed_base and passed_base in pool_bases:
-            # 1:1 mode - use only the passed one
+        is_one_to_one = bool(passed_base)
+        if is_one_to_one:
+            # 1:1 mode - use only the passed one, no locking needed
             BRD_WSS_POOL = [passed_base]
-        elif passed_wss:
-            BRD_WSS_POOL = [passed_base] + [w for w in BRD_WSS_POOL if w.split("?")[0] != passed_base]
-        pool_file = _Path("/tmp/bd_pool_index")
-        lock_dir = _Path("/tmp/bd_api_locks")
-        lock_dir.mkdir(exist_ok=True)
-        try:
-            idx = int(pool_file.read_text().strip() or 0)
-        except:
-            idx = 0
-        # find free API (not locked) - try pool in order from idx
-        orig_idx = idx
-        found_lock = None
-        for try_i in range(len(BRD_WSS_POOL)):
-            cand_idx = (orig_idx + try_i) % len(BRD_WSS_POOL)
-            wss_cand = BRD_WSS_POOL[cand_idx]
-            # extract customer hl_xxxx
-            import re as _re
-            m = _re.search(r'hl_[0-9a-f]+', wss_cand)
-            cust = m.group(0) if m else f"idx{cand_idx}"
-            lock_file = lock_dir / f"{cust}.lock"
-            # stale lock >10min is considered free
-            is_locked = False
-            if lock_file.exists():
-                try:
-                    age = __import__('time').time() - lock_file.stat().st_mtime
-                    if age < 600:
-                        is_locked = True
-                    else:
-                        lock_file.unlink()
-                except: pass
-            if not is_locked:
-                idx = cand_idx
-                found_lock = lock_file
-                try: lock_file.write_text(str(__import__('os').getpid()))
-                except: pass
-                break
-        if found_lock is None:
-            # wait 1min and check again till free, also check credit drain
-            while found_lock is None:
-                print(f"⚠️  All {len(BRD_WSS_POOL)} BD APIs locked, waiting 60s...")
-                __import__('time').sleep(60)
-                # try again
-                for try_i in range(len(BRD_WSS_POOL)):
-                    cand_idx = (orig_idx + try_i) % len(BRD_WSS_POOL)
-                    wss_cand = BRD_WSS_POOL[cand_idx]
-                    import re as _re2
-                    m = _re2.search(r'hl_[0-9a-f]+', wss_cand)
-                    cust = m.group(0) if m else f"idx{cand_idx}"
-                    lock_file = lock_dir / f"{cust}.lock"
-                    is_locked = False
-                    if lock_file.exists():
-                        try:
-                            age = __import__('time').time() - lock_file.stat().st_mtime
-                            if age < 600:
-                                is_locked = True
-                            else:
-                                lock_file.unlink()
-                        except: pass
-                    if not is_locked:
-                        idx = cand_idx
-                        found_lock = lock_file
-                        try: lock_file.write_text(str(__import__('os').getpid()))
-                        except: pass
-                        print(f"✅ Found free BD API {cust} after wait")
-                        break
-                # credit drain check: if all APIs cost near 0, stop
-                # (handled in main loop, here just continue waiting)
-        pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
-        pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
-        base_wss = pool_pick.split("?")[0]
-        BRD_WSS = base_wss + f"?sessionId={_uuid.uuid4()}"
-        print("☁️  Cloud mode: BD Browser API (ASN rotation), no local WARP")
-        print(f"☁️  Fresh BD session: {BRD_WSS[:55]}*** (pool {idx % len(BRD_WSS_POOL) + 1}/{len(BRD_WSS_POOL)} ASN rotation)")
+            BRD_WSS = passed_base
+        else:
+            pool_bases = [w.split("?")[0] for w in BRD_WSS_POOL]
+        if not is_one_to_one:
+          pool_file = _Path("/tmp/bd_pool_index")
+          lock_dir = _Path("/tmp/bd_api_locks")
+          lock_dir.mkdir(exist_ok=True)
+          try:
+              idx = int(pool_file.read_text().strip() or 0)
+          except:
+              idx = 0
+          # find free API (not locked) - try pool in order from idx
+          orig_idx = idx
+          found_lock = None
+          for try_i in range(len(BRD_WSS_POOL)):
+              cand_idx = (orig_idx + try_i) % len(BRD_WSS_POOL)
+              wss_cand = BRD_WSS_POOL[cand_idx]
+              # extract customer hl_xxxx
+              import re as _re
+              m = _re.search(r'hl_[0-9a-f]+', wss_cand)
+              cust = m.group(0) if m else f"idx{cand_idx}"
+              lock_file = lock_dir / f"{cust}.lock"
+              # stale lock >10min is considered free
+              is_locked = False
+              if lock_file.exists():
+                  try:
+                      age = __import__('time').time() - lock_file.stat().st_mtime
+                      if age < 600:
+                          is_locked = True
+                      else:
+                          lock_file.unlink()
+                  except: pass
+              if not is_locked:
+                  idx = cand_idx
+                  found_lock = lock_file
+                  try: lock_file.write_text(str(__import__('os').getpid()))
+                  except: pass
+                  break
+          if found_lock is None:
+              # wait 1min and check again till free, also check credit drain
+              while found_lock is None:
+                  print(f"⚠️  All {len(BRD_WSS_POOL)} BD APIs locked, waiting 60s...")
+                  __import__('time').sleep(60)
+                  # try again
+                  for try_i in range(len(BRD_WSS_POOL)):
+                      cand_idx = (orig_idx + try_i) % len(BRD_WSS_POOL)
+                      wss_cand = BRD_WSS_POOL[cand_idx]
+                      import re as _re2
+                      m = _re2.search(r'hl_[0-9a-f]+', wss_cand)
+                      cust = m.group(0) if m else f"idx{cand_idx}"
+                      lock_file = lock_dir / f"{cust}.lock"
+                      is_locked = False
+                      if lock_file.exists():
+                          try:
+                              age = __import__('time').time() - lock_file.stat().st_mtime
+                              if age < 600:
+                                  is_locked = True
+                              else:
+                                  lock_file.unlink()
+                          except: pass
+                      if not is_locked:
+                          idx = cand_idx
+                          found_lock = lock_file
+                          try: lock_file.write_text(str(__import__('os').getpid()))
+                          except: pass
+                          print(f"✅ Found free BD API {cust} after wait")
+                          break
+                  # credit drain check: if all APIs cost near 0, stop
+                  # (handled in main loop, here just continue waiting)
+          pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
+          pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
+          base_wss = pool_pick.split("?")[0]
+          BRD_WSS = base_wss + f"?sessionId={_uuid.uuid4()}"
+          print("☁️  Cloud mode: BD Browser API (ASN rotation), no local WARP")
+          print(f"☁️  Fresh BD session: {BRD_WSS[:55]}*** (pool {idx % len(BRD_WSS_POOL) + 1}/{len(BRD_WSS_POOL)} ASN rotation)")
+        else:
+          # 1:1 mode - just add sessionId, no lock/drain
+          BRD_WSS = passed_base + f"?sessionId={_uuid.uuid4()}"
+          print("☁️  Cloud mode: BD Browser API (ASN rotation), no local WARP")
+          print(f"☁️  1:1 dedicated session: {BRD_WSS[:55]}***")
     
     try:
         # Start WARP if requested - warp-cli proxy mode (isolated)
