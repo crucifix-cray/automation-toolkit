@@ -298,8 +298,14 @@ class TempTfInbox:
                 subjects = [m.get("subject", "")[:40] for m in last5]
                 print(f"  Check #{check_num}/{max_checks}: {len(items)} msg(s), {total} total | last5 subj: {subjects}")
                 for msg in last5:
-                    m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
+                    subj = msg.get("subject", "")
+                    body = msg.get("body", "")
+                    m = pattern.search(subj + " " + body)
                     if m:
+                        # shared inbox: skip if OTP not sent to OUR email
+                        if self.address.lower() not in body.lower():
+                            print(f"  ⏭️  OTP {m.group(1)} not for {self.address}, skipping")
+                            continue
                         print(f"  ✅ OTP: {m.group(1)}")
                         return m.group(1)
             except urllib.error.HTTPError as e:
@@ -640,21 +646,47 @@ def stop_warp():
 # ============================================================================
 # MEGA SYNC
 # ============================================================================
+def clean_session_dir(session_dir: Path):
+    """Remove browser cache/junk before sync to speed up transfer"""
+    import shutil
+    junk_dirs = ["Default/Cache", "Default/Code Cache", "Default/GPUCache",
+                 "Default/Service Worker/CacheStorage", "ShaderCache"]
+    junk_files = ["SingletonLock", "SingletonCookie", "SingletonSocket"]
+    for d in junk_dirs:
+        p = session_dir / d
+        if p.exists():
+            try: shutil.rmtree(p)
+            except: pass
+    for f in junk_files:
+        p = session_dir / f
+        if p.exists():
+            try: p.unlink()
+            except: pass
+    # also remove any .log files
+    for p in session_dir.rglob("*.log"):
+        try: p.unlink()
+        except: pass
+
 def sync_to_mega(session_dir: Path):
     """Upload session to Mega"""
     print(f"\n☁️  Syncing to Mega...")
+    clean_session_dir(session_dir)
+    env = os.environ.copy()
+    env["HOME"] = ORIG_HOME
+    env["LD_PRELOAD"] = ""
     try:
         remote_path = f"{MEGA_REMOTE}/{session_dir.name}"
         result = subprocess.run(
-            ["rclone", "sync", str(session_dir), remote_path, "-v"],
+            ["rclone", "copy", str(session_dir), remote_path, "--mega-use-https", "-v"],
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=300,
+            env=env
         )
         if result.returncode == 0:
             print(f"✅ Synced to {remote_path}")
         else:
-            print(f"⚠️  Mega sync failed: {result.stderr}")
+            print(f"⚠️  Mega sync failed: {result.stderr[:200]}")
     except Exception as e:
         print(f"⚠️  Mega sync error: {e}")
 
@@ -2298,11 +2330,12 @@ async def run(use_warp=False, cloud_mode=False):
                         except Exception as e3:
                             print(f"⚠️  sandbox test skipped: {e3}")
                         # also push to mega via raw IP (use ORIG_HOME for rclone config)
+                        clean_session_dir(session_dir)
                         env2 = os.environ.copy()
                         env2["HOME"] = ORIG_HOME
                         env2["LD_PRELOAD"] = ""
                         env2["LD_LIBRARY_PATH"] = ""
-                        subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=60)
+                        subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=300)
                         print(f"☁️  Pushed {session_dir.name} to mega:railway_sessions via raw IP")
                         # cancer cells: persistent - reuse project from ban check to avoid 1 per 30s limit
                         if 'CLI_CELLS' in globals() and CLI_CELLS > 0:
