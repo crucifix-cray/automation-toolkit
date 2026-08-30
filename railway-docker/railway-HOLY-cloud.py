@@ -290,22 +290,10 @@ class TempTfInbox:
                 if check_count % 5 == 1:
                     print(f"  Check #{check_count}: {len(items)} message(s), {total} total")
                 for msg in items:
-                    # only check messages newer than baseline (skip old shared inbox msgs)
-                    msg_date = msg.get("date", "")
                     m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
                     if m:
-                        # verify it's recent (within last 10 min)
-                        try:
-                            msg_time = time.mktime(time.strptime(msg_date[:19], "%Y-%m-%dT%H:%M:%S"))
-                            if time.time() - msg_time < 600:
-                                print(f"  ✅ OTP: {m.group(1)} (from {msg_date[:19]})")
-                                return m.group(1)
-                            else:
-                                if check_count % 10 == 1:
-                                    print(f"  ⏭ Skipping old OTP from {msg_date[:19]}")
-                        except:
-                            print(f"  ✅ OTP: {m.group(1)}")
-                            return m.group(1)
+                        print(f"  ✅ OTP: {m.group(1)}")
+                        return m.group(1)
             except urllib.error.HTTPError as e:
                 if e.code == 500:
                     if check_count % 10 == 1:
