@@ -151,14 +151,23 @@ class MailTmInbox:
         self.recovery_email = recovery_email
         self.handler_used = None
 
-    def _api(self, method, path, data=None, token=None):
+    def _api(self, method, path, data=None, token=None, retries=5):
         url = f"{self.MAIL_TM_API}{path}"
         headers = {"Content-Type": "application/json"}
         if token:
             headers["Authorization"] = f"Bearer {token}"
-        req = urllib.request.Request(url, data=json.dumps(data).encode() if data else None, headers=headers, method=method)
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read())
+        for attempt in range(retries):
+            try:
+                req = urllib.request.Request(url, data=json.dumps(data).encode() if data else None, headers=headers, method=method)
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    return json.loads(resp.read())
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt < retries - 1:
+                    wait = min(30, 5 * (2 ** attempt))
+                    print(f"  mail.tm 429 rate limit, waiting {wait}s (attempt {attempt+1}/{retries})...")
+                    time.sleep(wait)
+                    continue
+                raise
 
     async def create(self):
         if self.recovery_email:
@@ -1997,14 +2006,58 @@ async def run(use_warp=False, cloud_mode=False):
                                     raise Exception("dispose not found")
                             except Exception as e2:
                                 print(f"  dispose failed {str(e2)[:60]}, trying mail.tm")
-                                mailbox = MailTmInbox(context=context)
-                                await mailbox.create()
-                                print(f"🔄 Fallback mail.tm -> {mailbox.address}")
+                                try:
+                                    mailbox = MailTmInbox(context=context)
+                                    await mailbox.create()
+                                    print(f"🔄 Fallback mail.tm -> {mailbox.address}")
+                                except Exception as _mtm_e:
+                                    print(f"  mail.tm also failed ({str(_mtm_e)[:60]}), trying 22.do...")
+                                    try:
+                                        for dom2 in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
+                                            try:
+                                                wss_22b = new_wss.split("?")[0] + f"?sessionId={_uuid.uuid4()}"
+                                                p22b = await _p3().start()
+                                                b22b = await p22b.chromium.connect_over_cdp(wss_22b)
+                                                ctx22b = b22b.contexts[0] if b22b.contexts else await b22b.new_context()
+                                                tmp_mb2 = TwoTwoDoInbox(context=ctx22b, target_domain=dom2)
+                                                await tmp_mb2.create()
+                                                mailbox = tmp_mb2
+                                                mailbox._22_browser = b22b
+                                                mailbox._22_playwright = p22b
+                                                mailbox._22_context = ctx22b
+                                                print(f"🔄 Fallback 22.do {dom2} -> {mailbox.address}")
+                                                break
+                                            except: pass
+                                    except: pass
+                                    if mailbox is None:
+                                        print("  all providers exhausted this attempt")
                         else:
                             print(f"🔄 Trying mail.tm (breaker {attempt+1}/8, loop {(attempt//6)+1})...")
-                            mailbox = MailTmInbox(context=context)
-                            await mailbox.create()
-                            print(f"🔄 mail.tm -> {mailbox.address}")
+                            try:
+                                mailbox = MailTmInbox(context=context)
+                                await mailbox.create()
+                                print(f"🔄 mail.tm -> {mailbox.address}")
+                            except Exception as _mtm_e2:
+                                print(f"  mail.tm failed ({str(_mtm_e2)[:60]}), trying 22.do...")
+                                try:
+                                    for dom3 in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
+                                        try:
+                                            wss_22c = new_wss.split("?")[0] + f"?sessionId={_uuid.uuid4()}"
+                                            p22c = await _p3().start()
+                                            b22c = await p22c.chromium.connect_over_cdp(wss_22c)
+                                            ctx22c = b22c.contexts[0] if b22c.contexts else await b22c.new_context()
+                                            tmp_mb3 = TwoTwoDoInbox(context=ctx22c, target_domain=dom3)
+                                            await tmp_mb3.create()
+                                            mailbox = tmp_mb3
+                                            mailbox._22_browser = b22c
+                                            mailbox._22_playwright = p22c
+                                            mailbox._22_context = ctx22c
+                                            print(f"🔄 Fallback 22.do {dom3} -> {mailbox.address}")
+                                            break
+                                        except: pass
+                                except: pass
+                                if mailbox is None:
+                                    print("  all providers exhausted this attempt")
                         continue
                     else:
                         print(f"❌ All 8 attempts failed, killing script and releasing lock")
