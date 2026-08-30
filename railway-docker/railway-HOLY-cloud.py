@@ -226,6 +226,63 @@ class MailTmInbox:
         raise RuntimeError("OTP not received within timeout")
 
 
+class TempTfInbox:
+    """temp.tf API — free Gmail dot/plus aliases, no browser needed, 60 req/min"""
+    API = "https://temp.tf/api"
+
+    def __init__(self, context=None, target_domain=None, recovery_email=None):
+        self.context = context
+        self.address = recovery_email
+        self.target_domain = target_domain
+        self.recovery_email = recovery_email
+        self.handler_used = None
+
+    def _get(self, path, data=None):
+        url = f"{self.API}{path}"
+        if data:
+            req = urllib.request.Request(url, data=json.dumps(data).encode(), headers={"Content-Type": "application/json"}, method="POST")
+        else:
+            req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+
+    async def create(self):
+        if self.recovery_email:
+            self.address = self.recovery_email
+            print(f"♻️  Using recovery email: {self.address}")
+            return self.address
+        print("\n📧 Creating temp.tf Gmail (dots only)...")
+        acct = self._get("/account?dot=1&providers=gmail")
+        self.address = acct["email"]
+        print(f"✅ Mailbox ready: {self.address} (via temp.tf)")
+        return self.address
+
+    async def wait_for_railway_code(self, timeout_seconds=300):
+        if not self.address:
+            raise Exception("No address set")
+        print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
+        pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
+        deadline = time.time() + timeout_seconds
+        check_count = 0
+        while time.time() < deadline:
+            check_count += 1
+            try:
+                resp = self._get("/check", {"email": self.address})
+                items = resp.get("data", [])
+                if check_count % 10 == 1:
+                    print(f"  Check #{check_count}: {len(items)} message(s)")
+                for msg in items:
+                    m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
+                    if m:
+                        print(f"  ✅ OTP: {m.group(1)}")
+                        return m.group(1)
+            except Exception as e:
+                if check_count % 10 == 1:
+                    print(f"  Check #{check_count}: error {e}")
+            await asyncio.sleep(3)
+        raise RuntimeError("OTP not received within timeout")
+
+
 class DisposeLolInbox:
     """Dispose.lol Gmail - browser-based, works through WARP"""
     def __init__(self, context=None, target_domain=None, recovery_email=None):
@@ -1787,8 +1844,17 @@ async def run(use_warp=False, cloud_mode=False):
             mailbox = None
             if cloud_mode:
                 # ponytail: Gmail first — dispose.lol Gmail (separate BD) per user, then 22.do, then mail.tm
-                print("☁️  Cloud mailbox fallback: dispose Gmail -> 22.do -> mail.tm (loop till success)")
+                print("☁️  Cloud mailbox fallback: temp.tf -> dispose -> 22.do -> mail.tm (loop till success)")
                 for _provider_round in range(12):
+                    # 0. temp.tf API — instant Gmail dots, no browser
+                    try:
+                        print(f"☁️  [round {_provider_round+1}] Trying temp.tf Gmail (dots)...")
+                        mailbox = TempTfInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                        await mailbox.create()
+                        print(f"✅ Mailbox ready: {mailbox.address} (via temp.tf)")
+                        break
+                    except Exception as _ttf_e:
+                        print(f"  temp.tf failed: {str(_ttf_e)[:80]}")
                     # 1. dispose.lol Gmail via separate BD
                     try:
                         print(f"☁️  [round {_provider_round+1}] Trying dispose.lol Gmail (separate BD)...")
@@ -1985,10 +2051,20 @@ async def run(use_warp=False, cloud_mode=False):
                             browser = await p3.chromium.connect_over_cdp(new_wss)
                             context = browser.contexts[0] if browser.contexts else await browser.new_context()
                             page = await context.new_page()
-                        # next mailbox: cycle dispose -> 22.do -> mail.tm -> repeat
+                        # next mailbox: cycle temp.tf -> dispose -> 22.do -> mail.tm -> repeat
                         mailbox = None
-                        for _prov in range(3):
+                        for _prov in range(4):
                             if _prov == 0:
+                                # temp.tf API — instant Gmail dots
+                                try:
+                                    print(f"🔄 [breaker {attempt+1}/8] Trying temp.tf Gmail (dots)...")
+                                    mailbox = TempTfInbox(context=context)
+                                    await mailbox.create()
+                                    print(f"🔄 temp.tf -> {mailbox.address}")
+                                    break
+                                except Exception as _ttf_e:
+                                    print(f"  temp.tf failed: {str(_ttf_e)[:60]}")
+                            elif _prov == 1:
                                 # dispose.lol
                                 try:
                                     print(f"🔄 [breaker {attempt+1}/8] Trying dispose.lol...")
@@ -2020,7 +2096,7 @@ async def run(use_warp=False, cloud_mode=False):
                                         await p4.stop()
                                 except Exception as e2:
                                     print(f"  dispose failed: {str(e2)[:60]}")
-                            elif _prov == 1:
+                            elif _prov == 2:
                                 # 22.do
                                 for dom2 in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
                                     try:
@@ -2048,7 +2124,7 @@ async def run(use_warp=False, cloud_mode=False):
                                         continue
                                 if mailbox:
                                     break
-                            elif _prov == 2:
+                            elif _prov == 3:
                                 # mail.tm
                                 try:
                                     print(f"🔄 [breaker {attempt+1}/8] Trying mail.tm...")
@@ -2057,7 +2133,7 @@ async def run(use_warp=False, cloud_mode=False):
                                     print(f"🔄 mail.tm -> {mailbox.address}")
                                     break
                                 except Exception as _mtm_e2:
-                                    print(f"  mail.tm failed: {str(_mtm_e2)[:60]} — cycling back to dispose...")
+                                    print(f"  mail.tm failed: {str(_mtm_e2)[:60]} — cycling back to temp.tf...")
                                     await asyncio.sleep(3)
                         if mailbox is None:
                             print("  all providers exhausted this attempt")
