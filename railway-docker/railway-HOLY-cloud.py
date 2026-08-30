@@ -103,7 +103,7 @@ SESSIONS_DIR = Path(ORIG_HOME) / "Documents" / "railways"
 MEGA_REMOTE = "mega:railway_sessions"
 # ponytail: BD Browser API pool for ASN rotation (free tier per-run fresh IP + new ASN)
 BRD_WSS_POOL = [
-    f"wss://brd-customer-hl_709648b2-zone-scraping_browser1:gt3c86orms1c@brd.superproxy.io:9222",
+    # hl_709648b2 suspended - removed
     f"wss://brd-customer-hl_834743cb-zone-scraping_browser1:q7k1y7ug1v69@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_3496e863-zone-scraping_browser1:9glc7ho0mx9w@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_faaefe91-zone-scraping_browser1:1e6cx8umg6ax@brd.superproxy.io:9222",
