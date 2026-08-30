@@ -2095,17 +2095,15 @@ WORKDIR /app
 RUN git clone https://github.com/crucifix-cray/automation-toolkit.git /app/toolkit
 CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS}{depth_arg}"
 ''')
-                                    # deploy as new service via railway up (reuse project) - non-blocking
+                                    # deploy as new service via railway up (reuse project) - fully backgrounded
                                     try:
-                                        r_up = subprocess.run(["railway", "up", "--service", f"cancer-{ci}", "-y", "--detach"], cwd=tmpd, env=env, capture_output=True, text=True, timeout=60)
-                                        print(f"  🧬 Persistent cell {ci+1} deploy: {r_up.stdout.strip()[:200] or r_up.stderr.strip()[:200]}")
-                                    except subprocess.TimeoutExpired:
-                                        print(f"  🧬 Persistent cell {ci+1} deploy: build queued (continues in background)")
+                                        subprocess.Popen(["railway", "up", "--service", f"cancer-{ci}", "-y", "--detach"], cwd=tmpd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                        print(f"  🧬 Persistent cell {ci+1} deploy: backgrounded")
                                     except Exception as e:
                                         print(f"  🧬 Persistent cell {ci+1} deploy err: {e}")
-                                    # parent cooloff 30s then rerun itself
-                                    print(f"  ❄️  Cooloff 30s then parent reruns...")
-                                    await asyncio.sleep(30)
+                                    # parent cooloff 5s then rerun itself (don't block)
+                                    print(f"  ❄️  Cooloff 5s then parent reruns...")
+                                    await asyncio.sleep(5)
                                 except Exception as ce:
                                     print(f"  cell spawn failed: {ce}")
                     except Exception as e:
