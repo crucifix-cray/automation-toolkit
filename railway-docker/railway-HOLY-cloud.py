@@ -1088,13 +1088,16 @@ async def accept_railway_policies(page):
             return
         print(f"  📜 Terms dialog found")
         agree_buttons = ["I agree with Railway's Terms of Service", "I agree to the Fair Use Policy"]
+        all_clicked = set()
         for _ in range(6):
             try:
                 await scroll_terms_dialog(dialog)
             except:
                 break
-            clicked = False
+            clicked_any = False
             for name in agree_buttons:
+                if name in all_clicked:
+                    continue
                 await dismiss_cookie_banner(page)
                 button = page.get_by_role("button", name=name, exact=True)
                 try:
@@ -1108,9 +1111,10 @@ async def accept_railway_policies(page):
                     await dismiss_cookie_banner(page)
                     await button.click(force=True, timeout=5000)
                 print(f"  ✅ Clicked {name}")
-                clicked = True
+                all_clicked.add(name)
+                clicked_any = True
                 break
-            if not clicked:
+            if not clicked_any or len(all_clicked) >= len(agree_buttons):
                 break
             await page.wait_for_timeout(1500)
         try:
