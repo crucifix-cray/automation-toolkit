@@ -275,8 +275,8 @@ class TempTfInbox:
         deadline = time.time() + timeout_seconds
         check_count = 0
         inbox_ready = False
-        # record baseline message count so we detect NEW arrivals only
         baseline_count = 0
+        started_waiting = time.time()
         while time.time() < deadline:
             check_count += 1
             try:
@@ -286,13 +286,22 @@ class TempTfInbox:
                 if not inbox_ready:
                     inbox_ready = True
                     baseline_count = total
+                    started_waiting = time.time()
                     print(f"  ✅ Inbox ready! ({total} total messages)")
                 if check_count % 5 == 1:
                     print(f"  Check #{check_count}: {len(items)} message(s), {total} total")
                 for msg in items:
                     m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
                     if m:
-                        print(f"  ✅ OTP: {m.group(1)}")
+                        # only accept OTPs from messages after we started waiting (skip shared inbox old msgs)
+                        msg_date = msg.get("date", "")
+                        try:
+                            msg_time = time.mktime(time.strptime(msg_date[:19], "%Y-%m-%dT%H:%M:%S"))
+                            if msg_time < started_waiting - 60:
+                                continue
+                        except:
+                            pass
+                        print(f"  ✅ OTP: {m.group(1)} (from shared inbox, date={msg_date[:19]})")
                         return m.group(1)
             except urllib.error.HTTPError as e:
                 if e.code == 500:
