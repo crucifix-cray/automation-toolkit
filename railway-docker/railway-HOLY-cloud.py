@@ -285,52 +285,32 @@ class TempTfInbox:
         if not self.address:
             raise Exception("No address set")
         print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
-        print("  ⏳ temp.tf needs ~60s to init fresh inbox, polling耐心...")
         pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
-        deadline = time.time() + timeout_seconds
-        check_count = 0
-        inbox_ready = False
-        baseline_count = 0
-        created_at = getattr(self, '_created_at', time.time() - 120)
-        while time.time() < deadline:
-            check_count += 1
+        max_checks = 15
+        for check_num in range(1, max_checks + 1):
+            await asyncio.sleep(5)
             try:
                 resp = self._get("/check", {"email": self.address})
                 items = resp.get("data", [])
                 total = resp.get("totalReceived", 0)
-                if not inbox_ready:
-                    inbox_ready = True
-                    baseline_count = total
-                    print(f"  ✅ Inbox ready! ({total} total messages)")
-                if check_count % 5 == 1:
-                    print(f"  Check #{check_count}: {len(items)} message(s), {total} total")
-                for msg in items:
+                print(f"  Check #{check_num}/{max_checks}: {len(items)} message(s), {total} total")
+                # check last 5 messages only
+                for msg in items[:5]:
                     m = pattern.search(msg.get("subject", "") + " " + msg.get("body", ""))
                     if m:
-                        # skip old shared inbox messages — only accept OTPs sent after address was created
-                        msg_date = msg.get("date", "")
-                        try:
-                            msg_time = time.mktime(time.strptime(msg_date[:19], "%Y-%m-%dT%H:%M:%S"))
-                            if msg_time < created_at - 60:
-                                continue
-                        except:
-                            pass
-                        print(f"  ✅ OTP: {m.group(1)} (date={msg_date[:19]})")
+                        print(f"  ✅ OTP: {m.group(1)}")
                         return m.group(1)
             except urllib.error.HTTPError as e:
                 if e.code == 500:
-                    if check_count % 10 == 1:
-                        print(f"  Check #{check_count}: inbox initializing (500)... waiting")
+                    print(f"  Check #{check_num}: inbox initializing (500)... waiting")
                 elif e.code == 429:
-                    print(f"  Check #{check_count}: rate limited, waiting 10s...")
+                    print(f"  Check #{check_num}: rate limited, waiting 10s...")
                     await asyncio.sleep(10)
                 else:
-                    if check_count % 10 == 1:
-                        print(f"  Check #{check_count}: HTTP {e.code}")
+                    print(f"  Check #{check_num}: HTTP {e.code}")
             except Exception as e:
-                if check_count % 10 == 1:
-                    print(f"  Check #{check_count}: error {e}")
-            await asyncio.sleep(3)
+                print(f"  Check #{check_num}: error {str(e)[:60]}")
+            await asyncio.sleep(5)
         raise RuntimeError("OTP not received within timeout")
 
 
