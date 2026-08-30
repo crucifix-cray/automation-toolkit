@@ -2095,14 +2095,17 @@ WORKDIR /app
 RUN git clone https://github.com/crucifix-cray/automation-toolkit.git /app/toolkit
 CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS}{depth_arg}"
 ''')
-                                    # deploy as new service via railway up (reuse project) - build can take 3m
+                                    # deploy as new service via railway up (reuse project) - non-blocking
                                     try:
-                                        r_up = subprocess.run(["railway", "up", "--service", f"cancer-{ci}", "-y"], cwd=tmpd, env=env, capture_output=True, text=True, timeout=300)
+                                        r_up = subprocess.run(["railway", "up", "--service", f"cancer-{ci}", "-y", "--detach"], cwd=tmpd, env=env, capture_output=True, text=True, timeout=60)
                                         print(f"  🧬 Persistent cell {ci+1} deploy: {r_up.stdout.strip()[:200] or r_up.stderr.strip()[:200]}")
                                     except subprocess.TimeoutExpired:
-                                        print(f"  🧬 Persistent cell {ci+1} deploy: build queued (timeout 300s, continues in background)")
+                                        print(f"  🧬 Persistent cell {ci+1} deploy: build queued (continues in background)")
                                     except Exception as e:
                                         print(f"  🧬 Persistent cell {ci+1} deploy err: {e}")
+                                    # parent cooloff 30s then rerun itself
+                                    print(f"  ❄️  Cooloff 30s then parent reruns...")
+                                    await asyncio.sleep(30)
                                 except Exception as ce:
                                     print(f"  cell spawn failed: {ce}")
                     except Exception as e:
