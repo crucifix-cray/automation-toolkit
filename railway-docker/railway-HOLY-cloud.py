@@ -260,10 +260,23 @@ class TempTfInbox:
             self.address = self.recovery_email
             print(f"♻️  Using recovery email: {self.address}")
             return self.address
-        print("\n📧 Creating temp.tf Gmail (dots only)...")
-        acct = self._get("/account?dot=1&providers=gmail")
-        self.address = acct["email"]
-        print(f"✅ Mailbox ready: {self.address} (via temp.tf)")
+        print("\n📧 Creating temp.tf Gmail (dots only) — pre-checking inbox...")
+        for attempt in range(10):
+            acct = self._get("/account?dot=1&providers=gmail")
+            self.address = acct["email"]
+            # pre-check: can we read the inbox? (500 = not ready)
+            try:
+                self._get("/check", {"email": self.address})
+                print(f"✅ Mailbox ready: {self.address} (via temp.tf, inbox confirmed)")
+                return self.address
+            except urllib.error.HTTPError as e:
+                if e.code == 500:
+                    print(f"  ⚠️ {self.address} inbox not ready (500), trying next...")
+                    await asyncio.sleep(2)
+                    continue
+                raise
+        # if all 10 failed, just use last one and hope for the best
+        print(f"  ⚠️ Using {self.address} anyway (all pre-checks returned 500)")
         return self.address
 
     async def wait_for_railway_code(self, timeout_seconds=300):
