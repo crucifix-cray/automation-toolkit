@@ -244,10 +244,18 @@ class TempTfInbox:
         else:
             req = urllib.request.Request(url)
         # bypass Tor/proxy — temp.tf blocks Tor exits
-        handler = urllib.request.ProxyHandler({})
-        opener = urllib.request.build_opener(handler)
-        with opener.open(req, timeout=15) as resp:
-            return json.loads(resp.read())
+        old_https = os.environ.pop("HTTPS_PROXY", None)
+        old_http = os.environ.pop("HTTP_PROXY", None)
+        old_all = os.environ.pop("https_proxy", None)
+        old_all2 = os.environ.pop("http_proxy", None)
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                return json.loads(resp.read())
+        finally:
+            if old_https: os.environ["HTTPS_PROXY"] = old_https
+            if old_http: os.environ["HTTP_PROXY"] = old_http
+            if old_all: os.environ["https_proxy"] = old_all
+            if old_all2: os.environ["http_proxy"] = old_all2
 
     async def create(self):
         if self.recovery_email:
