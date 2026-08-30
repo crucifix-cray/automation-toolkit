@@ -1549,11 +1549,14 @@ async def run(use_warp=False, cloud_mode=False):
         # if BRD_WSS was passed via env for 1:1, use only that one (don't rotate)
         global BRD_WSS
         passed_wss = os.environ.get("BRD_WSS")
-        if passed_wss and passed_wss in BRD_WSS_POOL:
+        # strip ?sessionId for comparison
+        passed_base = passed_wss.split("?")[0] if passed_wss else None
+        pool_bases = [w.split("?")[0] for w in BRD_WSS_POOL]
+        if passed_base and passed_base in pool_bases:
             # 1:1 mode - use only the passed one
-            BRD_WSS_POOL = [passed_wss]
+            BRD_WSS_POOL = [passed_base]
         elif passed_wss:
-            BRD_WSS_POOL = [passed_wss] + [w for w in BRD_WSS_POOL if w != passed_wss]
+            BRD_WSS_POOL = [passed_base] + [w for w in BRD_WSS_POOL if w.split("?")[0] != passed_base]
         pool_file = _Path("/tmp/bd_pool_index")
         lock_dir = _Path("/tmp/bd_api_locks")
         lock_dir.mkdir(exist_ok=True)
