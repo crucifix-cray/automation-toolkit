@@ -287,6 +287,17 @@ class TempTfInbox:
                     if m:
                         print(f"  ✅ OTP: {m.group(1)}")
                         return m.group(1)
+            except urllib.error.HTTPError as e:
+                if e.code == 500:
+                    # temp.tf returns 500 for fresh addresses with 0 messages — normal
+                    if check_count % 10 == 1:
+                        print(f"  Check #{check_count}: no messages yet (fresh inbox)")
+                elif e.code == 429:
+                    print(f"  Check #{check_count}: rate limited, waiting 10s...")
+                    await asyncio.sleep(10)
+                else:
+                    if check_count % 10 == 1:
+                        print(f"  Check #{check_count}: HTTP {e.code}")
             except Exception as e:
                 if check_count % 10 == 1:
                     print(f"  Check #{check_count}: error {e}")
