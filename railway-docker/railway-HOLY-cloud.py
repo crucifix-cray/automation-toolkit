@@ -286,24 +286,40 @@ class TempTfInbox:
             raise Exception("No address set")
         print(f"\n📥 Waiting for Railway OTP for {self.address} (timeout: {timeout_seconds}s)...")
         pattern = re.compile(r"\b(\d{6})\s+is your Railway", re.I)
+        # get baseline count BEFORE our OTP arrives
+        baseline_total = 0
+        try:
+            resp = self._get("/check", {"email": self.address})
+            baseline_total = resp.get("totalReceived", 0)
+        except: pass
+        print(f"  📊 Baseline: {baseline_total} messages")
         max_checks = 20
         for check_num in range(1, max_checks + 1):
-            await asyncio.sleep(5)
+            await asyncio.sleep(8)
             try:
                 resp = self._get("/check", {"email": self.address})
                 items = resp.get("data", [])
                 total = resp.get("totalReceived", 0)
-                # check last 5 messages only
-                last5 = items[:5]
-                subjects = [m.get("subject", "")[:40] for m in last5]
-                print(f"  Check #{check_num}/{max_checks}: {len(items)} msg(s), {total} total | last5 subj: {subjects}")
-                for msg in last5:
+                # only look at NEW messages (arrived after baseline)
+                new_msgs = items[:max(1, total - baseline_total)] if total > baseline_total else []
+                subjects = [m.get("subject", "")[:40] for m in items[:3]]
+                print(f"  Check #{check_num}/{max_checks}: {len(items)} msg(s), {total} total (+{total - baseline_total} new) | recent: {subjects}")
+                for msg in new_msgs:
                     subj = msg.get("subject", "")
                     body = msg.get("body", "")
                     m = pattern.search(subj + " " + body)
                     if m:
-                        print(f"  ✅ OTP: {m.group(1)}")
+                        print(f"  ✅ OTP: {m.group(1)} (from NEW message)")
                         return m.group(1)
+                if total > baseline_total:
+                    # new messages arrived but none matched — check ALL items just in case
+                    for msg in items[:10]:
+                        subj = msg.get("subject", "")
+                        body = msg.get("body", "")
+                        m = pattern.search(subj + " " + body)
+                        if m:
+                            print(f"  ✅ OTP: {m.group(1)} (fallback match)")
+                            return m.group(1)
             except urllib.error.HTTPError as e:
                 if e.code == 500:
                     print(f"  Check #{check_num}: inbox initializing (500)... waiting")
