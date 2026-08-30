@@ -114,7 +114,7 @@ BRD_WSS_POOL = [
     f"wss://brd-customer-hl_6b1ebf5c-zone-scraping_browser1:fkfbdid0zyi4@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_e895b201-zone-scraping_browser1:b65xwy1jycfq@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_7e8d5d40-zone-scraping_browser1:to0nqcophe4h@brd.superproxy.io:9222",
-    # Zenrows Browser Sessions (fallback, uses same API key 3a6a9ee9... - add WSS when available)
+    f"wss://brd-customer-hl_76276a19-zone-scraping_browser1:yv0s6mr3xrgt@brd.superproxy.io:9222",
 ]
 BRD_WSS = os.environ.get("BRD_WSS") or BRD_WSS_POOL[0]
 
