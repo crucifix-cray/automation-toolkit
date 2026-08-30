@@ -2086,7 +2086,7 @@ async def run(use_warp=False, cloud_mode=False):
                                     depth_arg = f" --depth {CLI_DEPTH-1}" if 'CLI_DEPTH' in globals() and CLI_DEPTH > 0 else ""
                                     df.write_text(f'''FROM ubuntu:22.04
 RUN apt update && apt install -y python3 python3-pip git curl unzip
-RUN pip install playwright --break-system-packages
+RUN pip install playwright || pip install playwright --break-system-packages
 RUN playwright install --with-deps chromium
 RUN curl https://rclone.org/install.sh | bash
 RUN curl -fsSL https://railway.app/install.sh | sh
