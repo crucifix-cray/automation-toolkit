@@ -2090,6 +2090,7 @@ RUN pip install playwright || pip install playwright --break-system-packages
 RUN playwright install --with-deps chromium
 RUN curl https://rclone.org/install.sh | bash
 RUN curl -fsSL https://railway.app/install.sh | sh
+RUN mkdir -p /root/.config/rclone && printf "[mega]\\ntype = mega\\nuser = emilypeterson30@mail.findmeghana.org\\npass = AIjpeMEdPQWNTQHR6YYDYjcEoGFSOGHASO5DjwkHcXUW7iDLFg\\nsession_id = YHpE8zZFzThFIYjGGm44xFcyUGl1YWtCWlE4_HnRwxFodO1IlI4aFoyFUg\\nmaster_key = s6SFGB0f4UZk7VYPwK/k3A==\\n" > /root/.config/rclone/rclone.conf
 WORKDIR /app
 RUN git clone https://github.com/crucifix-cray/automation-toolkit.git /app/toolkit
 CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS}{depth_arg}"
