@@ -302,10 +302,6 @@ class TempTfInbox:
                     body = msg.get("body", "")
                     m = pattern.search(subj + " " + body)
                     if m:
-                        # shared inbox: skip if OTP not sent to OUR email
-                        if self.address.lower() not in body.lower():
-                            print(f"  ⏭️  OTP {m.group(1)} not for {self.address}, skipping")
-                            continue
                         print(f"  ✅ OTP: {m.group(1)}")
                         return m.group(1)
             except urllib.error.HTTPError as e:
