@@ -1546,7 +1546,14 @@ async def run(use_warp=False, cloud_mode=False):
         try: _sp.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
         except: pass
         # ponytail: rotate ASN per run via pool file + API lock (so parallel cells don't clash)
+        # if BRD_WSS was passed via env for 1:1, use only that one (don't rotate)
         global BRD_WSS
+        passed_wss = os.environ.get("BRD_WSS")
+        if passed_wss and passed_wss in BRD_WSS_POOL:
+            # 1:1 mode - use only the passed one
+            BRD_WSS_POOL = [passed_wss]
+        elif passed_wss:
+            BRD_WSS_POOL = [passed_wss] + [w for w in BRD_WSS_POOL if w != passed_wss]
         pool_file = _Path("/tmp/bd_pool_index")
         lock_dir = _Path("/tmp/bd_api_locks")
         lock_dir.mkdir(exist_ok=True)
