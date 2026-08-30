@@ -1848,15 +1848,17 @@ async def run(use_warp=False, cloud_mode=False):
                 page.on("crash", _on_crash)
                 page.on("close", lambda _: print("❌ tab closed"))
             
-            # Sign in to Railway — breaker: 5x dispose -> mail.tm -> loop again 5+1, then kill
+            # Sign in to Railway — breaker: whatever err, restart till 8 tries
             tried_mails = []
-            for attempt in range(12):
+            for attempt in range(8):
                 try:
                     await sign_in_to_railway(page, mailbox)
                     break
                 except Exception as e:
                     msg = str(e)
-                    is_breaker = ("OTP not received" in msg or "Turnstile/button timeout" in msg or "Continue with Email" in msg or "ECONNRESET" in msg or "WebSocket error" in msg or "Target closed" in msg or "Browser closed" in msg)
+                    # whatever err, restart till 8 tries
+                    is_breaker = True
+                    # keep specific checks for logging, but all errs are breaker
                     is_domlimit = ("navigate_domains_limit" in msg or "domain limit" in msg)
                     if is_domlimit:
                         print(f"⚠️  BD domain-limit hit — cooling down 120s, then fresh session")
@@ -1865,7 +1867,7 @@ async def run(use_warp=False, cloud_mode=False):
                         msg = msg.replace("\n", " ")[:60]
                         # fall through to breaker with fresh IP
                         is_breaker = True
-                    if is_breaker and attempt < 11:
+                    if is_breaker and attempt < 7:
                         print(f"⚠️  Breaker {attempt+1}/3: {msg[:80]} — fresh IP + next mailbox")
                         # fresh IP
                         import uuid as _uuid4
@@ -1898,11 +1900,11 @@ async def run(use_warp=False, cloud_mode=False):
                             browser = await p3.chromium.connect_over_cdp(new_wss)
                             context = browser.contexts[0] if browser.contexts else await browser.new_context()
                             page = await context.new_page()
-                        # next mailbox: 5x dispose -> mail.tm -> repeat
+                        # next mailbox: 5x dispose -> mail.tm -> repeat till 8
                         is_dispose = (attempt % 6) < 5
                         if is_dispose:
                             try:
-                                print(f"🔄 Trying dispose Gmail (breaker {attempt+1}/12, dispose {(attempt%6)+1}/5)...")
+                                print(f"🔄 Trying dispose Gmail (breaker {attempt+1}/8, dispose {(attempt%6)+1}/5)...")
                                 from playwright.async_api import async_playwright as _p4
                                 import uuid as _uuid4b
                                 disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
@@ -1935,13 +1937,13 @@ async def run(use_warp=False, cloud_mode=False):
                                 await mailbox.create()
                                 print(f"🔄 Fallback mail.tm -> {mailbox.address}")
                         else:
-                            print(f"🔄 Trying mail.tm (breaker {attempt+1}/12, loop {(attempt//6)+1})...")
+                            print(f"🔄 Trying mail.tm (breaker {attempt+1}/8, loop {(attempt//6)+1})...")
                             mailbox = MailTmInbox(context=context)
                             await mailbox.create()
                             print(f"🔄 mail.tm -> {mailbox.address}")
                         continue
                     else:
-                        print(f"❌ All 12 attempts failed, killing script and releasing lock")
+                        print(f"❌ All 8 attempts failed, killing script and releasing lock")
                         raise
             
             # PERSIST cookies right after login, BEFORE policies (tab may close during policies)
