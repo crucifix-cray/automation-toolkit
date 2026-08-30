@@ -11,7 +11,7 @@ sudo ip netns exec "$NS" ip link del wg0 2>/dev/null
 sudo ip netns exec "$NS" ip route replace default via 10.200.1.1 dev veth-w1n
 # fresh ovpn
 cd /tmp/proton
-OVPN=$(ls *.ovpn | grep -i "nl-free" | shuf -n1)
+OVPN=$(ls *.ovpn | shuf -n1)
 log "OVPN=$OVPN"
 sudo ip netns exec "$NS" openvpn --config "/tmp/proton/$OVPN" --auth-user-pass /tmp/auth.txt --daemon --log /tmp/ovpnR.log --writepid /tmp/ovpnR.pid
 # wait for tun0

@@ -673,7 +673,7 @@ def sync_to_mega(session_dir: Path):
     try:
         remote_path = f"{MEGA_REMOTE}/{session_dir.name}"
         result = subprocess.run(
-            ["rclone", "copy", str(session_dir), remote_path, "--mega-use-https", "-v"],
+            ["rclone", "copy", str(session_dir), remote_path, "", "-v"],
             capture_output=True,
             text=True,
             timeout=300,
@@ -2259,7 +2259,7 @@ async def run(use_warp=False, cloud_mode=False):
                         env_m = os.environ.copy()
                         env_m["HOME"] = ORIG_HOME
                         env_m["LD_PRELOAD"] = ""
-                        rm = _sp2.run(["rclone", "lsd", "mega:railway_sessions", "--mega-use-https"], env=env_m, capture_output=True, text=True, timeout=15)
+                        rm = _sp2.run(["rclone", "lsd", "mega:railway_sessions", ""], env=env_m, capture_output=True, text=True, timeout=15)
                         if rm.returncode != 0:
                             print(f"⚠️  Mega not configured: {rm.stderr.strip()[:200]}")
                         else:
@@ -2331,7 +2331,7 @@ async def run(use_warp=False, cloud_mode=False):
                         env2["HOME"] = ORIG_HOME
                         env2["LD_PRELOAD"] = ""
                         env2["LD_LIBRARY_PATH"] = ""
-                        subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "--mega-use-https", "-v"], env=env2, capture_output=True, timeout=300)
+                        subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "", "-v"], env=env2, capture_output=True, timeout=300)
                         print(f"☁️  Pushed {session_dir.name} to mega:railway_sessions via raw IP")
                         # cancer cells: persistent - reuse project from ban check to avoid 1 per 30s limit
                         if 'CLI_CELLS' in globals() and CLI_CELLS > 0:
@@ -2412,7 +2412,7 @@ CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-d
             env3["LD_LIBRARY_PATH"] = ""
             for pat in ["/tmp/run_*.log", "/tmp/railway-debug-*.txt", "/tmp/turnstile-*.png", "/tmp/railway_pending_cookies.json"]:
                 for f in _glob.glob(pat):
-                    try: _sp3.run(["rclone", "copy", f, "mega:railway_sessions/logs/", "--mega-use-https", "-v"], env=env3, capture_output=True, timeout=30)
+                    try: _sp3.run(["rclone", "copy", f, "mega:railway_sessions/logs/", "", "-v"], env=env3, capture_output=True, timeout=30)
                     except: pass
             print(f"📤 Pushed logs to mega:railway_sessions/logs/")
         except: pass
@@ -2517,7 +2517,7 @@ if __name__ == "__main__":
                 import subprocess as _sp0
                 env0 = os.environ.copy()
                 env0["LD_PRELOAD"] = ""
-                r0 = _sp0.run(["rclone", "lsd", "mega:railway_sessions", "--mega-use-https"], env=env0, capture_output=True, text=True, timeout=30)
+                r0 = _sp0.run(["rclone", "lsd", "mega:railway_sessions", ""], env=env0, capture_output=True, text=True, timeout=30)
                 init_sess = len([l for l in r0.stdout.splitlines() if "session-" in l])
                 print(f"🧬 CANCER DEMO: start {init_sess} sessions, target +{CLI_DEPTH} => {init_sess+CLI_DEPTH}")
             except: pass
@@ -2529,7 +2529,7 @@ if __name__ == "__main__":
                     import subprocess as _spd
                     envd = os.environ.copy()
                     envd["LD_PRELOAD"] = ""
-                    rd = _spd.run(["rclone", "lsd", "mega:railway_sessions", "--mega-use-https"], env=envd, capture_output=True, text=True, timeout=30)
+                    rd = _spd.run(["rclone", "lsd", "mega:railway_sessions", ""], env=envd, capture_output=True, text=True, timeout=30)
                     cur = len([l for l in rd.stdout.splitlines() if "session-" in l])
                     if cur >= init_sess + CLI_DEPTH:
                         print(f"✅ Demo depth reached {cur} >= {init_sess+CLI_DEPTH}, stopping")

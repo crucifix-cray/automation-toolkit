@@ -41,7 +41,7 @@ mkdir -p "$SESSIONS_DIR"
 # Loop: create accounts until stopped or mega has 500+
 while true; do
     # Check current count on mega
-    CURRENT_COUNT=$(rclone lsd "${MEGA_REMOTE}/" --mega-use-https 2>/dev/null | wc -l)
+    CURRENT_COUNT=$(rclone lsd "${MEGA_REMOTE}/" 2>/dev/null | wc -l)
     echo ""
     echo "📊 Mega sessions: ${CURRENT_COUNT}/500"
 
@@ -62,4 +62,4 @@ while true; do
     fi
 done
 
-echo "✅ Sandbox #${SANDBOX_NUM} finished. Total on mega: $(rclone lsd ${MEGA_REMOTE}/ --mega-use-https 2>/dev/null | wc -l)"
+echo "✅ Sandbox #${SANDBOX_NUM} finished. Total on mega: $(rclone lsd ${MEGA_REMOTE}/ 2>/dev/null | wc -l)"

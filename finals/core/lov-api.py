@@ -56,6 +56,7 @@ except ImportError:
 
 
 TEMPMAIL_API = "https://api.tempmailhub.org"
+TEMP_TF_API = "https://temp.tf/api"
 LOVABLE_URL = "https://lovable.dev/"
 RESET_LINK_RE = re.compile(r"https?://[^\"'\\\s<>]*lovable\.dev[^\"'\\\s<>]*", re.I)
 WARP_PROXY = "socks5://10.200.1.2:40001"
@@ -72,6 +73,235 @@ AD_BLOCK_PATTERNS = (
     "teads.tv", "doubleverify.com", "yieldmo.com", "adnxs.com", "adsafeprotected.com",
     "adzerk.net", "pubmatic.com", "casalemedia.com", "openx.net", "rubiconproject.com",
 )
+
+HANDLERS = [
+    ("@linshiyou.com", "https://22.do/", "@linshiyou.com"),
+    ("@colabeta.com", "https://22.do/", "@colabeta.com"),
+    ("@youxiang.dev", "https://22.do/", "@youxiang.dev"),
+    ("@colaname.com", "https://22.do/", "@colaname.com"),
+    ("@usdtbeta.com", "https://22.do/", "@usdtbeta.com"),
+    ("@tnbeta.com", "https://22.do/", "@tnbeta.com"),
+    ("@fft.edu.do", "https://22.do/", "@fft.edu.do"),
+    ("@gmail.com (Fake Gmail)", "https://22.do/fake-gmail-generator", "@gmail.com"),
+    ("@hotmail.com", "https://22.do/temporary-hotmail", "@hotmail.com"),
+    ("@outlook.com", "https://22.do/temporary-outlook", "@outlook.com"),
+]
+
+
+class TempTfInbox:
+    """temp.tf API — free Gmail dot/plus aliases, no browser needed"""
+    def __init__(self, context=None):
+        self.context = context
+        self.address = None
+
+    def _get(self, path, data=None):
+        url = f"{TEMP_TF_API}{path}"
+        if data:
+            req = urllib.request.Request(url, data=json.dumps(data).encode(), headers={"Content-Type": "application/json"}, method="POST")
+        else:
+            req = urllib.request.Request(url)
+        # bypass any proxy — temp.tf blocks Tor exits
+        old_env = {k: os.environ.pop(k, None) for k in ("HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy", "ALL_PROXY", "all_proxy")}
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                return json.loads(resp.read())
+        finally:
+            for k, v in old_env.items():
+                if v is not None:
+                    os.environ[k] = v
+
+    async def create(self):
+        print("\n📧 Creating temp.tf Gmail (dots only)...", file=sys.stderr)
+        for attempt in range(10):
+            try:
+                acct = self._get("/account?dot=1&providers=gmail")
+                self.address = acct["email"]
+                # pre-check inbox
+                self._get("/check", {"email": self.address})
+                print(f"✅ Mailbox ready: {self.address} (via temp.tf)", file=sys.stderr)
+                return self.address, None
+            except urllib.error.HTTPError as e:
+                if e.code == 500:
+                    print(f"  ⚠️ {self.address} inbox not ready (500), retrying...", file=sys.stderr)
+                    await asyncio.sleep(2)
+                    continue
+                raise
+            except Exception as e:
+                print(f"  ⚠️ temp.tf error: {e}", file=sys.stderr)
+                await asyncio.sleep(2)
+        raise FlowError("temp.tf email creation failed after 10 attempts")
+
+    async def wait_for_lovable_link(self, timeout_seconds=300):
+        if not self.address:
+            raise Exception("No address set")
+        print(f"\n📥 Waiting for Lovable link on temp.tf ({self.address})...", file=sys.stderr)
+        import time as _time
+        deadline = _time.time() + timeout_seconds
+        check = 0
+        while _time.time() < deadline:
+            check += 1
+            try:
+                resp = self._get("/check", {"email": self.address})
+                items = resp.get("data", [])
+                if check % 5 == 1:
+                    print(f"  Check #{check}: {len(items)} msg(s)", file=sys.stderr)
+                for msg in items:
+                    body = msg.get("body", "")
+                    subject = msg.get("subject", "")
+                    m = RESET_LINK_RE.search(subject + " " + body)
+                    if m:
+                        link = html.unescape(m.group(0)).replace("&amp;", "&")
+                        print(f"  🎯 Link: {link[:160]}", file=sys.stderr)
+                        return link
+            except urllib.error.HTTPError as e:
+                if e.code == 500:
+                    print(f"  Check #{check}: inbox initializing (500)...", file=sys.stderr)
+                elif e.code == 429:
+                    print(f"  Check #{check}: rate limited, waiting 10s...", file=sys.stderr)
+                    await asyncio.sleep(10)
+            except Exception as e:
+                print(f"  Check #{check}: error {str(e)[:60]}", file=sys.stderr)
+            await asyncio.sleep(5)
+        raise FlowError("Lovable link not received on temp.tf")
+
+
+class TwoTwoDoInbox:
+    """22.do Provider Pool — random handler per run"""
+    def __init__(self, context, target_domain=None):
+        self.context = context
+        self.address = None
+        self.target_domain = target_domain
+        self.handler_used = None
+
+    async def _pick_handler(self):
+        if self.target_domain:
+            for h in HANDLERS:
+                if h[2].lower() == self.target_domain.lower():
+                    return h
+        chosen = random.choice(HANDLERS)
+        print(f"🎲 Random handler: {chosen[0]}", file=sys.stderr)
+        return chosen
+
+    async def create(self):
+        self.handler_used = await self._pick_handler()
+        name, handler_url, handler_domain = self.handler_used
+        print(f"\n📧 Creating 22.do mailbox via {name}...", file=sys.stderr)
+        pg = await self.context.new_page()
+        try:
+            await pg.goto(handler_url, wait_until="domcontentloaded", timeout=60000)
+            await pg.wait_for_timeout(3000)
+
+            # close google vignette
+            try:
+                close = pg.locator('button:has-text("Close ad")').first
+                if await close.count() and await close.is_visible():
+                    await close.click(timeout=2000)
+                    print("  × closed ad overlay", file=sys.stderr)
+                    await pg.wait_for_timeout(1000)
+            except: pass
+
+            # For main-page domains: select domain from Choices.js dropdown
+            if handler_domain not in ("@gmail.com", "@hotmail.com", "@outlook.com"):
+                try:
+                    await pg.wait_for_timeout(1000)
+                    choices = pg.locator(".choices__inner")
+                    if await choices.count():
+                        await choices.click(timeout=5000)
+                        await pg.wait_for_timeout(800)
+                        # try multiple selector patterns
+                        item = pg.locator(f".choices__item--choice:has-text('{handler_domain}')").first
+                        if not await item.count():
+                            item = pg.locator(f".choices__list--dropdown .choices__item:has-text('{handler_domain}')").first
+                        if await item.count():
+                            await item.click(timeout=5000)
+                            print(f"  → selected domain {handler_domain}", file=sys.stderr)
+                        else:
+                            print(f"  ⚠️ domain {handler_domain} not found in dropdown", file=sys.stderr)
+                        await pg.wait_for_timeout(800)
+                except Exception as e:
+                    print(f"  ⚠️ domain select {handler_domain}: {e}", file=sys.stderr)
+
+            # Click Random
+            await pg.locator("#mail-random").click(timeout=5000)
+            await pg.wait_for_timeout(1000)
+            local = await pg.locator("#mail-input").input_value(timeout=5000)
+
+            # For fake-gmail: accept @gmail.com or @googlemail.com
+            if handler_domain == "@gmail.com":
+                for _ in range(3):
+                    v = (await pg.locator("#mail-input").input_value()).strip()
+                    if v.lower().endswith(("@gmail.com", "@googlemail.com")):
+                        local = v
+                        break
+                    print(f"  got {v}, retrying Random…", file=sys.stderr)
+                    await pg.locator("#mail-random").click(timeout=3000)
+                    await pg.wait_for_timeout(800)
+                email = (await pg.locator("#mail-input").input_value()).strip()
+                if "@" not in email:
+                    email = f"{local.strip()}{handler_domain}"
+            else:
+                try:
+                    dom = await pg.locator(".choices__list--single .choices__item").first.inner_text(timeout=2000)
+                    email = f"{local.strip()}{dom.strip()}"
+                except:
+                    email = f"{local.strip()}{handler_domain}"
+
+            await pg.locator("#into-mailbox").click(timeout=5000)
+            await pg.wait_for_timeout(4000)
+            self.address = email.strip()
+            print(f"✅ Mailbox ready: {self.address} (via {name})", file=sys.stderr)
+            return self.address, None
+        finally:
+            await pg.close()
+
+    async def wait_for_lovable_link(self, timeout_seconds=300):
+        if not self.address:
+            raise Exception("No address set")
+        print(f"\n📥 Waiting for Lovable link on 22.do ({self.address})...", file=sys.stderr)
+        import time as _time
+        deadline = _time.time() + timeout_seconds
+        check = 0
+        pg = await self.context.new_page()
+        await pg.goto(f"https://22.do/inbox/#/{self.address}", wait_until="domcontentloaded", timeout=60000)
+        await pg.wait_for_timeout(3000)
+        try:
+            while _time.time() < deadline:
+                check += 1
+                await pg.reload(wait_until="domcontentloaded")
+                await pg.wait_for_timeout(2000)
+                # look for Lovable email in inbox
+                rows = await pg.locator("#email-list-wrap .mail-item, #email-list-wrap tr, .inbox-item").all()
+                if check % 5 == 1:
+                    print(f"  Check #{check}: {len(rows)} message(s)", file=sys.stderr)
+                for row in rows:
+                    try:
+                        txt = await row.inner_text()
+                        if "lovable" in txt.lower() or "verification" in txt.lower() or "verify" in txt.lower():
+                            print(f"  ✅ Found Lovable email: {txt[:80]}", file=sys.stderr)
+                            await row.click(timeout=5000)
+                            await pg.wait_for_timeout(3000)
+                            # extract link from email body
+                            body = await pg.evaluate("() => document.body.innerHTML")
+                            m = RESET_LINK_RE.search(body or "")
+                            if m:
+                                link = html.unescape(m.group(0)).replace("&amp;", "&")
+                                print(f"  🎯 Link: {link[:160]}", file=sys.stderr)
+                                return link
+                            # try frames
+                            for frame in pg.frames:
+                                try:
+                                    fhtml = await frame.content()
+                                    m2 = RESET_LINK_RE.search(fhtml or "")
+                                    if m2:
+                                        link = html.unescape(m2.group(0)).replace("&amp;", "&")
+                                        print(f"  🎯 Link (frame): {link[:160]}", file=sys.stderr)
+                                        return link
+                                except: continue
+                    except: continue
+                await asyncio.sleep(3)
+        finally:
+            await pg.close()
+        raise FlowError("Lovable link not received on 22.do")
 
 
 class DisposeLolLovable:
@@ -204,8 +434,8 @@ def proxy_settings(for_api: bool = False) -> dict | None:
             # ponytail: tempmailhub direct works; no Tor (prohibited) — keep direct
             candidates = []
         else:
-            # ponytail: warp 40000 dual-stack fixed (wireproxy IPv6) warp=on 2a09:bac5:: — dispose needs warp, direct flagged per older commit but warp now works
-            candidates = [40000]
+            # ponytail: warp 40002 (warp-cli proxy mode) → 40000 (old wireproxy) → direct
+            candidates = [40002, 40000]
 
     for port in candidates:
         try:
@@ -894,13 +1124,13 @@ async def request_login(page: Page, email: str) -> str:
     
     # Retry loop: click login button until email input popup appears (15 min max)
     deadline = asyncio.get_running_loop().time() + 900  # 15 minutes
-    email_input = page.locator('input[type="email"]').last
+    email_input = page.locator('input#auth-dialog-email').last
     login_clicked = False
     
     while asyncio.get_running_loop().time() < deadline:
         # Check if popup already visible
         try:
-            if await email_input.is_visible(timeout=1_000):
+            if await email_input.is_visible(timeout=3_000):
                 print("  ✅ Login popup appeared!", file=sys.stderr)
                 break
         except:
@@ -994,13 +1224,13 @@ async def do_password_reset(page: Page, email: str) -> None:
     # Wait for reset form to appear
     await asyncio.sleep(1)
     
-    reset_email = page.locator('input[placeholder*="email"]')
+    reset_email = page.locator('input#auth-dialog-email')
     if await reset_email.count() == 0:
-        reset_email = page.locator('input[type="email"]')
+        reset_email = page.locator('input#auth-dialog-email')
     current_email = (await reset_email.last.input_value()).strip().lower()
     if current_email != email.lower():
         await click_exact(page, "Use a different email")
-        reset_email = page.locator('input[placeholder*="email"]')
+        reset_email = page.locator('input#auth-dialog-email')
         await reset_email.last.fill(email)
     
     # Use click_exact for consistency (waits for visibility)
@@ -1029,7 +1259,7 @@ async def do_signup(page: Page, email: str, password: str) -> str:
                 await page.wait_for_timeout(400)
             except Exception:
                 pass
-        email_input = page.locator('input[type="email"]').last
+        email_input = page.locator('input#auth-dialog-email').last
         if await email_input.count():
             cur = (await email_input.input_value()).strip().lower()
             if cur != email.lower():
@@ -1045,160 +1275,77 @@ async def do_signup(page: Page, email: str, password: str) -> str:
         await human_type(passwords.nth(0), password)
         if await passwords.count() >= 2:
             await human_type(passwords.nth(1), password)
-        # --- Turnstile handling — retry loop with Verification failed + reload fallback ---
+        # --- Turnstile handling — click checkbox + ClickSolver ---
         for _ts_try in range(5):
             try:
-                # if Verification failed -> click Troubleshoot (may be inside Turnstile iframe or main)
-                vfh = False
-                for ctx in [page] + page.frames:
-                    try:
-                        txt=""
-                        if hasattr(ctx, "locator"):
-                            vf=ctx.get_by_text("Verification failed", exact=False) if hasattr(ctx,"get_by_text") else None
-                            if vf and await vf.count():
-                                vfh=True; break
-                        else:
-                            # frame
-                            html=await ctx.content()
-                            if "Verification failed" in html: vfh=True; break
-                    except: continue
-                if vfh or await page.get_by_text("Verification failed", exact=False).count():
-                    # try main page first
-                    try:
-                        ts=page.get_by_text("Troubleshoot", exact=False)
-                        if await ts.count():
-                            await ts.first.click(timeout=3000, force=True)
-                            print("🔧 Verification failed — clicked Troubleshoot (main)", file=sys.stderr)
-                            await page.wait_for_timeout(4000)
-                            continue
-                    except: pass
-                    # then inside Turnstile iframe - precise
-                    clicked_ts=False
-                    try:
-                        fl=page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
-                        t2=fl.get_by_text("Troubleshoot", exact=False)
-                        if await t2.count():
-                            box=await page.locator('iframe[src*="challenges.cloudflare.com"]').first.bounding_box()
-                            if box:
-                                await bezier_mouse(page, int(box["x"]+box["width"]*0.5), int(box["y"]+box["height"]*0.85))
-                            await t2.first.click(timeout=3000)
-                            print("🔧 Clicked Troubleshoot inside iframe", file=sys.stderr)
-                            clicked_ts=True
-                            await page.wait_for_timeout(5000)
-                            continue
-                    except: pass
-                    if not clicked_ts:
-                        try:
-                            # coordinate fallback: Troubleshoot link is near bottom of widget
-                            iframe_el=page.locator('iframe[src*="challenges.cloudflare.com"]').first
-                            if await iframe_el.count():
-                                box=await iframe_el.bounding_box()
-                                if box:
-                                    # Troubleshoot is bottom-center of widget
-                                    await bezier_mouse(page, int(box["x"]+box["width"]*0.35), int(box["y"]+box["height"]*0.9))
-                                    await page.mouse.click(int(box["x"]+box["width"]*0.35), int(box["y"]+box["height"]*0.9))
-                                    print("🔧 Clicked Troubleshoot via coords", file=sys.stderr)
-                                    await page.wait_for_timeout(5000)
-                                    continue
-                        except: pass
-                    # fallback: click via evaluate
-                    try:
-                        await page.evaluate("""() => {
-                            for(const f of document.querySelectorAll('iframe')){ try{
-                                const d=f.contentDocument; if(!d) continue;
-                                const a=[...d.querySelectorAll('a,button')].find(b=>b.textContent.includes('Troubleshoot'));
-                                if(a){ a.click(); return true; }
-                            }catch(e){} }
-                            const b=[...document.querySelectorAll('a,button')].find(x=>x.textContent.includes('Troubleshoot'));
-                            if(b) b.click();
-                        }""")
-                        await page.wait_for_timeout(5000)
-                        continue
-                    except: pass
-                # wait for Turnstile iframe to appear (Verify you are human)
+                # wait for Turnstile iframe
                 try:
-                    await page.wait_for_selector('iframe[src*="challenges.cloudflare.com"]', timeout=5000)
+                    await page.wait_for_selector('iframe[src*="challenges.cloudflare.com"]', timeout=8000)
                 except: pass
                 turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
-                if await turnstile_iframe.count() > 0:
-                    print(f"🤖 Turnstile detected (try {_ts_try+1}/5) — solving...", file=sys.stderr)
-                    # human behavior before solve: scroll + mouse wiggle
+                if await turnstile_iframe.count() > 0 and await turnstile_iframe.first.is_visible():
+                    print(f"🤖 Turnstile detected (try {_ts_try+1}/5)", file=sys.stderr)
+                    # human scroll before solve
                     try:
                         await page.mouse.wheel(0, 80); await asyncio.sleep(0.4)
                         await page.mouse.wheel(0, -40); await asyncio.sleep(0.3)
                     except: pass
-                    # precise left-side checkbox click with bezier before solver
+                    # click checkbox: frame_locator selectors first
+                    clicked = False
                     try:
-                        box=await turnstile_iframe.first.bounding_box()
-                        if box:
-                            await bezier_mouse(page, int(box["x"]+22), int(box["y"]+box["height"]/2))
-                            await page.mouse.click(int(box["x"]+22), int(box["y"]+box["height"]/2))
-                            await asyncio.sleep(0.8)
+                        fl = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
+                        for sel in ['input[type="checkbox"]', '[role="checkbox"]', 'label', '#challenge-stage', 'body']:
+                            try:
+                                el = fl.locator(sel).first
+                                if await el.count():
+                                    box = await el.bounding_box()
+                                    if box and box["width"] > 0:
+                                        await el.click(timeout=1500)
+                                        print(f"  🔘 Clicked via {sel}")
+                                        clicked = True
+                                        break
+                            except: continue
                     except: pass
-                    if CAPTCHA_SOLVER_AVAILABLE:
+                    # coord click: 22px from left edge
+                    if not clicked:
                         try:
-                            # try PATCHRIGHT first, fallback to PLAYWRIGHT (dispose uses plain playwright)
-                            try:
-                                solver_framework = FrameworkType.PATCHRIGHT
-                                async with ClickSolver(framework=solver_framework, page=page, max_attempts=2, attempt_delay=2) as solver:
-                                    await solver.solve_captcha(captcha_container=page, captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE)
-                            except Exception as _e1:
-                                # fallback to PLAYWRIGHT framework for plain Firefox
-                                async with ClickSolver(framework=FrameworkType.PLAYWRIGHT, page=page, max_attempts=2, attempt_delay=2) as solver:
-                                    await solver.solve_captcha(captcha_container=page, captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE)
-                            print("✅ Turnstile solved via ClickSolver", file=sys.stderr)
-                        except Exception as e:
-                            print(f"⚠️ ClickSolver failed: {e}", file=sys.stderr)
-                            # fallback: manual checkbox click inside iframe with bezier
-                            try:
-                                frame = page.frame_locator('iframe[src*="challenges.cloudflare.com"]').first
-                                checkbox = frame.get_by_role("checkbox", name="Verify you are human")
-                                if await checkbox.count():
-                                    cb_box=await turnstile_iframe.first.bounding_box()
-                                    if cb_box:
-                                        await bezier_mouse(page, int(cb_box["x"]+22), int(cb_box["y"]+cb_box["height"]/2))
-                                    await checkbox.click(timeout=5000, force=True)
-                                    print("✅ Manual checkbox clicked", file=sys.stderr)
-                                else:
-                                    await turnstile_iframe.first.click(timeout=5000, force=True)
-                            except Exception as ee:
-                                print(f"manual checkbox fail: {ee}", file=sys.stderr)
-                    else:
-                        try:
-                            box2=await turnstile_iframe.first.bounding_box()
-                            if box2:
-                                await bezier_mouse(page, int(box2["x"]+22), int(box2["y"]+box2["height"]/2))
-                            await turnstile_iframe.first.click(timeout=5000, force=True)
+                            box = await turnstile_iframe.first.bounding_box()
+                            if box and box["width"] > 0:
+                                await page.mouse.click(box["x"] + 22, box["y"] + box["height"] / 2, delay=100)
+                                await page.wait_for_timeout(500)
+                                await page.mouse.click(box["x"] + 30, box["y"] + box["height"] / 2, delay=100)
+                                print("  🔘 Clicked via coords")
+                                clicked = True
                         except: pass
+                    # ClickSolver fallback
+                    if CAPTCHA_SOLVER_AVAILABLE and not clicked:
+                        try:
+                            async with ClickSolver(framework=FrameworkType.PATCHRIGHT, page=page, max_attempts=2, attempt_delay=2) as solver:
+                                await solver.solve_captcha(captcha_container=page, captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE)
+                            print("  ✅ Solved via ClickSolver")
+                        except Exception as e:
+                            print(f"  ⚠️ ClickSolver failed: {e}", file=sys.stderr)
                     await page.wait_for_timeout(4000)
                 # check if Create button enabled
                 create_btn = page.get_by_role("button", name="Create your account", exact=True)
                 try:
                     from playwright.async_api import expect
                     await expect(create_btn).to_be_enabled(timeout=10000)
-                    print("✅ Create button enabled", file=sys.stderr)
+                    print("✅ Create button enabled — Turnstile solved", file=sys.stderr)
+                    try: await save_cf_clearance(page.context)
+                    except: pass
                     break
                 except:
                     token_len = await page.evaluate('''() => document.querySelector('input[name="cf-turnstile-response"]')?.value?.length || 0''')
                     is_disabled = await create_btn.is_disabled() if await create_btn.count() else True
-                    print(f"⚠️ Token len {token_len}, disabled={is_disabled} — retry Solve...", file=sys.stderr)
+                    print(f"⚠️ Token len {token_len}, disabled={is_disabled} — retry...", file=sys.stderr)
                     if token_len > 20 and not is_disabled:
                         break
                     await page.wait_for_timeout(2000)
                     continue
             except Exception as e:
-                print(f"turnstile helper try {_ts_try}: {e}", file=sys.stderr)
+                print(f"turnstile try {_ts_try}: {e}", file=sys.stderr)
                 await page.wait_for_timeout(1000)
-                # if last try and still Verification failed, reload signup page as final fallback
-                if _ts_try == 4:
-                    try:
-                        print("🔄 Verification failed 5x → reload signup page fallback", file=sys.stderr)
-                        await page.reload(wait_until="domcontentloaded", timeout=30_000)
-                        await page.wait_for_timeout(3000)
-                        # also try to save cf_clearance after reload
-                        try: await save_cf_clearance(page.context)
-                        except: pass
-                    except: pass
         await click_exact(page, "Create your account")
         
         deadline = asyncio.get_running_loop().time() + 60
@@ -1390,7 +1537,7 @@ def keep_browser_open() -> bool:
 
 
 async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool = False) -> dict[str, object]:
-    print(f"🚀 Starting automation... (provider={'dispose.lol' if use_dispose else 'tempmailhub'})", file=sys.stderr)
+    print(f"🚀 Starting automation... (provider={'22.do' if use_dispose else 'tempmailhub'})", file=sys.stderr)
     
     # Configure proxy - isolated warp proxy
     proxy_config = proxy_settings(for_api=False)
@@ -1404,16 +1551,15 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
     else:
         print("🌐 Browser direct (warp=off, isolated)", file=sys.stderr)
     
-    # Launch browser — --dispose uses Firefox + weak-sandbox minimal (like SCRIPT3: headless True, 1280x720, memory-pressure-off)
+    # Launch browser — Patchright (navigator.webdriver=false natively, Turnstile bypass)
     _browser_ctx = None
     _pw_ctx = None
     if use_dispose:
-        # Dispose path now Chromium headed 1920x1080 (was Firefox — Turnstile stricter on FF, Chromium solves better)
-        print("🦊 Dispose mode: Chromium headed 1920x1080 (plain, stealth)", file=sys.stderr)
-        from playwright.async_api import async_playwright as _pw
+        print("🦊 Dispose mode: Patchright Chromium headed (Turnstile native bypass)", file=sys.stderr)
+        from patchright.async_api import async_playwright as _pw
         _pw_ctx = _pw()
         _pw_enter = await _pw_ctx.__aenter__()
-        browser = await _pw_enter.chromium.launch(headless=False, channel="chrome", proxy=playwright_proxy, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-extensions","--no-first-run","--window-size=1920,1080","--disable-blink-features=AutomationControlled","--disable-infobars","--exclude-switches=enable-automation"])
+        browser = await _pw_enter.chromium.launch(headless=False, proxy=playwright_proxy, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu"])
         _browser_ctx = _pw_enter
     else:
         try:
@@ -1421,11 +1567,11 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
             browser = await _browser_ctx.__aenter__()
         except Exception as e:
             if "GeoTimezone" in type(e).__name__ or "egress IP discovery" in str(e):
-                print(f"⚠️  Invisible geo failed ({e}) — fallback plain", file=sys.stderr)
-                from playwright.async_api import async_playwright as _pw
+                print(f"⚠️  Invisible geo failed ({e}) — fallback Patchright", file=sys.stderr)
+                from patchright.async_api import async_playwright as _pw
                 _pw_ctx = _pw()
                 _pw_enter = await _pw_ctx.__aenter__()
-                browser = await _pw_enter.chromium.launch(headless=False, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--disable-blink-features=AutomationControlled"], proxy=playwright_proxy)
+                browser = await _pw_enter.chromium.launch(headless=True, proxy=playwright_proxy, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu"])
                 _browser_ctx = _pw_enter
             else:
                 raise
@@ -1460,25 +1606,16 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
                 except: pass
             else:
                 context = await browser.new_context(**ctx_kwargs)
-            # add stealth at context level for all pages
-            try:
-                await context.add_init_script("""() => {
-                    try{ Object.defineProperty(navigator,'webdriver',{get:()=>undefined,configurable:true}); }catch(e){}
-                    try{ Object.defineProperty(navigator,'plugins',{get:()=>{const p=[{name:'PDF Viewer'}]; p.length=5; return p;},configurable:true}); }catch(e){}
-                    try{ if(!window.chrome) window.chrome={}; window.chrome.runtime={}; }catch(e){}
-                }""")
-            except: pass
+            # NO stealth init_script — Patchright handles navigator.webdriver=false natively
             # reuse cf_clearance
             try: await load_cf_clearance(context)
             except: pass
         
         print("✅ Context ready", file=sys.stderr)
-        # Create Lovable page (NO TempMail page - TRUE API-ONLY!)
+        # Create Lovable page
         lovable_page = await context.new_page()
-        await install_ad_blocker(lovable_page)
-        # save cf_clearance after each navigation
-        try: lovable_page.on("response", lambda r: asyncio.create_task(save_cf_clearance(context)) if "lovable" in r.url else None)
-        except: pass
+        # NO ad-blocker — Lovable needs googletagmanager for consent/SPA hydration
+        # cf_clearance saved ONLY after Turnstile solve (not on every response)
         
         # Check egress IP (skip if times out)
         try:
@@ -1489,14 +1626,21 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         
         dispose_inbox = None
         if use_dispose:
-            dispose_inbox = DisposeLolLovable(context)
-            await dispose_inbox._ensure_page()
+            # Try temp.tf first (API, no browser), fallback to 22.do
+            try:
+                _tf = TempTfInbox(context)
+                await _tf.create()
+                dispose_inbox = _tf
+                print(f"📧 Using temp.tf as email provider", file=sys.stderr)
+            except Exception as e:
+                print(f"⚠️ temp.tf failed ({e}), falling back to 22.do", file=sys.stderr)
+                dispose_inbox = TwoTwoDoInbox(context)
 
         last_error: Optional[Exception] = None
         for attempt in range(1, 4):
             try:
                 if use_dispose:
-                    print(f"\n🔄 Attempt {attempt}/3: Creating account via dispose.lol...", file=sys.stderr)
+                    print(f"\n🔄 Attempt {attempt}/3: Creating account via 22.do...", file=sys.stderr)
                     email, email_id = await dispose_inbox.create()
                 else:
                     print(f"\n🔄 Attempt {attempt}/3: Creating account via TRUE API-ONLY mode...", file=sys.stderr)
@@ -1538,7 +1682,7 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
                             await wait_for_dashboard(lovable_page, timeout=45)
                 else:
                     if use_dispose:
-                        print("📝 Lovable: exists in dispose mode — setting pwd then verify link...", file=sys.stderr)
+                        print("📝 Lovable: exists in 22.do mode — setting pwd then verify link...", file=sys.stderr)
                         try:
                             await do_signup(lovable_page, email, password)
                             reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
@@ -1692,11 +1836,11 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create Lovable account via TempMailHub / dispose.lol")
+    parser = argparse.ArgumentParser(description="Create Lovable account via TempMailHub / 22.do")
     parser.add_argument("--cdp-url", help="Connect to existing browser via CDP")
     parser.add_argument("--end", action="store_true", help="Close browser when done (don't wait for Enter)")
     parser.add_argument("--raw", action="store_true", help="Force direct connection (no proxy/WARP)")
-    parser.add_argument("--dispose", action="store_true", help="Use dispose.lol Gmail (separate tab, setting pwd → verify link + onboarding)")
+    parser.add_argument("--dispose", action="store_true", help="Use 22.do disposable email (random handler, verify link + onboarding)")
     args = parser.parse_args()
     
     cdp = args.cdp_url or os.getenv("BU_CDP_WS")
