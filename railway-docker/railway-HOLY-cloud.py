@@ -1547,7 +1547,7 @@ async def run(use_warp=False, cloud_mode=False):
         except: pass
         # ponytail: rotate ASN per run via pool file + API lock (so parallel cells don't clash)
         # if BRD_WSS was passed via env for 1:1, use only that one (don't rotate)
-        global BRD_WSS
+        global BRD_WSS, BRD_WSS_POOL
         passed_wss = os.environ.get("BRD_WSS")
         # strip ?sessionId for comparison
         passed_base = passed_wss.split("?")[0] if passed_wss else None
