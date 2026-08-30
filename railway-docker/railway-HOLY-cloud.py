@@ -104,13 +104,13 @@ MEGA_REMOTE = "mega:railway_sessions"
 # ponytail: BD Browser API pool for ASN rotation (free tier per-run fresh IP + new ASN)
 BRD_WSS_POOL = [
     # hl_709648b2 suspended - removed
+    # hl_19c80b8e suspended - removed
     f"wss://brd-customer-hl_834743cb-zone-scraping_browser1:q7k1y7ug1v69@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_3496e863-zone-scraping_browser1:9glc7ho0mx9w@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_faaefe91-zone-scraping_browser1:1e6cx8umg6ax@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_caa3da41-zone-scraping_browser1:ur2v4xcy072v@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_93561405-zone-scraping_browser1:g3jqlqtsjtkc@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_9a778bf1-zone-scraping_browser1:ft5y6mo4jngz@brd.superproxy.io:9222",
-    f"wss://brd-customer-hl_19c80b8e-zone-scraping_browser1:o3o5s908y9sh@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_6b1ebf5c-zone-scraping_browser1:fkfbdid0zyi4@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_e895b201-zone-scraping_browser1:b65xwy1jycfq@brd.superproxy.io:9222",
     f"wss://brd-customer-hl_7e8d5d40-zone-scraping_browser1:to0nqcophe4h@brd.superproxy.io:9222",
