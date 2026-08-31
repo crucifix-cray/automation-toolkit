@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>BD Browser Stream</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#111; color:#fff; font-family:monospace; overflow:hidden; height:100vh; display:flex; flex-direction:column; }
+#bar { background:#222; padding:6px 12px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #333; flex-shrink:0; z-index:10; }
+#bar input { flex:1; background:#333; color:#fff; border:1px solid #555; padding:4px 8px; font-family:monospace; font-size:13px; border-radius:3px; }
+#bar button { background:#4a9eff; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-family:monospace; border-radius:3px; }
+#bar button:hover { background:#3a8eef; }
+#info { font-size:11px; color:#888; white-space:nowrap; }
+#wrap { flex:1; position:relative; overflow:hidden; cursor:crosshair; background:#000; }
+canvas { display:block; width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <input id="url" placeholder="Enter URL and press Go" />
+  <button onclick="go()">Go</button>
+  <span id="info">Connecting...</span>
+</div>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const wrap = document.getElementById('wrap');
+const urlInput = document.getElementById('url');
+const info = document.getElementById('info');
+const viewport = {w: 1280, h: 720};
+
+let paused = false;
+let urlFocused = false;
+
+// Poll screenshot
+let loading = false;
+function poll() {
+  if (loading || paused) { setTimeout(poll, 100); return; }
+  loading = true;
+  const x = new XMLHttpRequest();
+  x.open('GET', '/screenshot?' + Date.now(), true);
+  x.responseType = 'blob';
+  x.onload = function() {
+    loading = false;
+    if (!x.response || x.response.size === 0) { setTimeout(poll, 100); return; }
+    const bmp = createImageBitmap(x.response).then(bmp => {
+      cv.width = bmp.width;
+      cv.height = bmp.height;
+      ctx.drawImage(bmp, 0, 0);
+      bmp.close();
+      setTimeout(poll, 50);
+    }).catch(() => { setTimeout(poll, 100); });
+  };
+  x.onerror = function() { loading = false; setTimeout(poll, 200); };
+  x.send();
+}
+poll();
+
+// Status poll
+urlInput.addEventListener('focus', () => { urlFocused = true; });
+urlInput.addEventListener('blur', () => { urlFocused = false; });
+urlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); go(); }
+});
+setInterval(() => {
+  if (paused) return;
+  fetch('/status').then(r=>r.json()).then(d => {
+    info.textContent = 'IP: ' + d.ip + ' | ' + (d.title || d.url);
+    if (!urlFocused) urlInput.value = d.url || '';
+    if (d.width) { viewport.w = d.width; viewport.h = d.height; }
+  }).catch(()=>{});
+}, 2000);
+
+function post(url, body) {
+  fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+}
+
+function toRemote(e) {
+  const rect = cv.getBoundingClientRect();
+  const sx = cv.width / rect.width;
+  const sy = cv.height / rect.height;
+  const x = Math.round((e.clientX - rect.left) * sx);
+  const y = Math.round((e.clientY - rect.top) * sy);
+  return {x: Math.max(0, Math.min(viewport.w, x)), y: Math.max(0, Math.min(viewport.h, y))};
+}
+
+// Click on canvas
+cv.addEventListener('mousedown', e => {
+  e.preventDefault();
+  post('/click', toRemote(e));
+});
+
+// Scroll on wrap
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  post('/scroll', {dy: e.deltaY});
+}, {passive:false});
+
+// Keyboard on document
+document.addEventListener('keydown', e => {
+  if (urlFocused) return;
+  e.preventDefault();
+  const keyMap = {'Enter':'Enter','Backspace':'Backspace','Tab':'Tab','Escape':'Escape',
+    'ArrowUp':'ArrowUp','ArrowDown':'ArrowDown','ArrowLeft':'ArrowLeft','ArrowRight':'ArrowRight',
+    ' ':'Space','Delete':'Delete','Home':'Home','End':'End'};
+  if (keyMap[e.key]) {
+    post('/key', {key: keyMap[e.key]});
+  } else if (e.key.length === 1) {
+    post('/type', {text: e.key});
+  }
+});
+
+function go() {
+  const u = urlInput.value.trim();
+  if (!u) return;
+  paused = true;
+  post('/goto', {url: u});
+  setTimeout(() => { paused = false; }, 5000);
+}
+</script>
+</body>
+</html>

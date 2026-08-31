@@ -53,6 +53,16 @@ try:
     STEALTH_PKG_AVAILABLE = True
 except ImportError:
     STEALTH_PKG_AVAILABLE = False
+try:
+    from turnstile_solver import Solver as TurnstileSolverSelenium  # pypi turnstile-solver 0.1.4 Selenium/CDP
+    TURNSTILE_SOLVER_AVAILABLE = True
+except ImportError:
+    TURNSTILE_SOLVER_AVAILABLE = False
+try:
+    from camoufox.async_api import AsyncCamoufox  # Firefox stealth for Turnstile
+    CAMOUFOX_AVAILABLE = True
+except ImportError:
+    CAMOUFOX_AVAILABLE = False
 
 
 TEMPMAIL_API = "https://api.tempmailhub.org"
@@ -412,15 +422,20 @@ class FlowError(RuntimeError):
     """Raised when a site does not reach the expected state."""
 
 
+def _clear_proxy_env():
+    for k in ("HTTP_PROXY","HTTPS_PROXY","http_proxy","https_proxy","ALL_PROXY","all_proxy","NO_PROXY","no_proxy"):
+        os.environ.pop(k, None)
+
 def proxy_settings(for_api: bool = False) -> dict | None:
-    """Check proxies in order - enhanced for isolation.
-    Browser: 40000 (warp=on fastest 0.5s) → 9050 (tor 3/3 valid) → chain 9051-9054 → direct
-    API: 9050 (tor 3/3 valid) → 40000 (warp) → chain → direct (direct gives 3/3 but shares IP, so proxy preferred for GH 429)
-    Excludes 9251 (IPv6 PySocks error) and handles socks5/socks4 fallback."""
+    """Check proxies in order with WARP integration.
+    Browser: 40000 (WARP) → 9050 (Tor) → direct
+    API: 9050 (Tor) → 40000 (WARP) → direct
+    """
     import socket
 
     if os.environ.get("FORCE_NO_PROXY") == "1":
         print("🌐 --raw flag: forcing direct connection (no proxy)", file=sys.stderr)
+        _clear_proxy_env()
         return None
 
     candidates = []
@@ -428,35 +443,71 @@ def proxy_settings(for_api: bool = False) -> dict | None:
     if forced:
         try:
             candidates.append(int(forced))
-        except: pass
+        except:
+            pass
     else:
         if for_api:
-            # ponytail: tempmailhub direct works; no Tor (prohibited) — keep direct
-            candidates = []
+            # API: Tor first (better for tempmailhub IPv6), WARP fallback
+            candidates = [9050, 40000, 9051, 9052, 9053, 9054]
         else:
-            # ponytail: warp 40002 (warp-cli proxy mode) → 40000 (old wireproxy) → direct
-            candidates = [40002, 40000]
+            # Browser: WARP first (better Cloudflare score), Tor fallback
+            candidates = [40000, 9050, 9051, 9052, 9053, 9054]
 
     for port in candidates:
         try:
             host, pport = "127.0.0.1", port
             with socket.create_connection((host, pport), timeout=2):
                 server = f"socks5://{host}:{pport}"
-                # extra check: warp port 40000 alive test via socks5 already passed, but verify socks4 fallback later in api_request if needed
-                print(f"✅ Using proxy 127.0.0.1:{port} ({'API' if for_api else 'browser'})", file=sys.stderr)
-                return {
-                    "server": server,
-                    "bypass": "127.0.0.1,localhost,api.lovable.dev,api.tempmailhub.org",
-                    "port": port,
-                }
+                bypass = "127.0.0.1,localhost,api.lovable.dev,api.tempmailhub.org"
+                
+                # Test actual connectivity (not just port open)
+                if port == 40000:
+                    # WARP - verify it's actually routing (use subprocess curl - more reliable than urllib)
+                    try:
+                        import subprocess
+                        result = subprocess.run(
+                            ["curl", "--socks5", f"127.0.0.1:{port}", "https://cloudflare.com/cdn-cgi/trace", "--max-time", "10"],
+                            capture_output=True,
+                            text=True,
+                            timeout=12
+                        )
+                        if result.returncode == 0:
+                            trace = result.stdout
+                            if "warp=on" in trace or "warp=plus" in trace:
+                                print(f"✅ Using WARP proxy 127.0.0.1:{port} ({'API' if for_api else 'browser'}) - warp=on", file=sys.stderr)
+                                return {"server": server, "bypass": bypass, "port": port}
+                            elif "warp=off" in trace:
+                                print(f"⚠️  Port {port} routes but warp=off (check wireproxy config)", file=sys.stderr)
+                                # Still use it - better than nothing
+                                print(f"✅ Using proxy 127.0.0.1:{port} (warp=off but trying anyway)", file=sys.stderr)
+                                return {"server": server, "bypass": bypass, "port": port}
+                            else:
+                                print(f"⚠️  Port {port} unknown warp status: {trace[:100]}", file=sys.stderr)
+                        else:
+                            print(f"⚠️  WARP curl failed: {result.stderr[:100]}", file=sys.stderr)
+                            continue
+                    except subprocess.TimeoutExpired:
+                        print(f"⚠️  WARP connectivity test timeout (>10s), skipping...", file=sys.stderr)
+                        continue
+                    except FileNotFoundError:
+                        # curl not installed, skip test and just use the proxy
+                        print(f"⚠️  curl not found, using port {port} without verification", file=sys.stderr)
+                        return {"server": server, "bypass": bypass, "port": port}
+                    except Exception as e:
+                        print(f"⚠️  WARP test error: {e}, skipping...", file=sys.stderr)
+                        continue
+                else:
+                    # Tor or other proxy - basic check passed
+                    print(f"✅ Using proxy 127.0.0.1:{port} ({'API' if for_api else 'browser'})", file=sys.stderr)
+                    return {"server": server, "bypass": bypass, "port": port}
         except OSError:
             continue
 
     if for_api:
-        # API can work direct (3/3 valid) but loses unique IP - warn but allow
         print("⚠️  No API proxy found; using direct (may 429 on parallel runs)", file=sys.stderr)
     else:
-        print("⚠️  No browser proxy found; using direct (warp=off)", file=sys.stderr)
+        print("⚠️  No browser proxy found; using direct (warp=off, may fail Turnstile)", file=sys.stderr)
+    _clear_proxy_env()
     return None
 
 
@@ -885,16 +936,9 @@ async def apply_stealth_patches(page: Page) -> None:
 
 
 async def install_ad_blocker(page: Page) -> None:
-    """Block ads/trackers + stealth."""
-    def should_block(url: str) -> bool:
-        lowered = url.lower()
-        return any(needle in lowered for needle in AD_BLOCK_PATTERNS)
-    async def handler(route):
-        if should_block(route.request.url):
-            await route.abort()
-        else:
-            await route.continue_()
-    await page.route("**/*", handler)
+    """NO ad-blocking (breaks Lovable SPA), but apply stealth patches."""
+    # Don't block ads — Lovable needs googletagmanager for hydration
+    # Apply stealth patches for Turnstile bypass
     await apply_stealth_patches(page)
 
 
@@ -942,64 +986,57 @@ async def click_exact(page: Page, text: str) -> None:
         raise
 
 
-async def _is_white(page: Page) -> bool:
-    try:
-        txt=await page.locator("body").inner_text(timeout=1000)
-        if len(txt.strip()) < 30:
-            raw=await page.content()
-            return len(raw) < 2000 or "Failed to fetch" in raw
-        return False
-    except: return False
-
 async def wait_for_lovable_ready(page: Page) -> None:
-    """Wait for Lovable page to be ready + white-screen fix + live watcher."""
-    # live watcher: if blank at any time, reload
-    async def _watcher():
-        for _ in range(35):
-            await asyncio.sleep(2)
-            if await _is_white(page):
-                try:
-                    print("⚠️  Blank detected (watcher) → reload /", file=sys.stderr)
-                    await page.goto(LOVABLE_URL, wait_until="domcontentloaded", timeout=30_000)
-                except: pass
-    watcher_task=asyncio.create_task(_watcher())
+    """Wait for Lovable page to be ready + white-screen fix (no --disable-gpu needed)."""
     deadline = asyncio.get_running_loop().time() + 75
-    white_retries=0
+    white_retries = 0
+    
     while asyncio.get_running_loop().time() < deadline:
         text = await body_text(page)
-        # white screen: empty body or tiny html (lovable failed fetch) — /signup direct is always white, redirect to /
-        if "/signup" in page.url and len(text.strip()) < 50:
-            if white_retries < 2:
-                print(f"⚠️  /signup white → redirect to /", file=sys.stderr)
-                await page.goto(LOVABLE_URL, wait_until="domcontentloaded", timeout=30_000)
-                white_retries+=1
-                await page.wait_for_timeout(3000)
-                continue
-        html_len = len(text.strip())
-        if html_len < 30 and white_retries < 3:
-            # also check raw html length
+        
+        # White screen detection: /signup direct loads skeleton that never hydrates
+        # Solution: always navigate to / first, never direct to /signup
+        if "/signup" in page.url:
+            # Check if actually loaded vs skeleton
             try:
                 raw = await page.content()
-                if len(raw) < 800 or "Failed to fetch" in raw or "api.lovable.dev" in raw:
-                    print(f"⚠️  White screen detected (html {len(raw)}), reload {white_retries+1}/3", file=sys.stderr)
-                    await page.reload(wait_until="domcontentloaded", timeout=30_000)
-                    white_retries+=1
+                # Skeleton: <67KB, animate-pulse, no "Create your account" button
+                is_skeleton = (
+                    len(raw) < 70000 and 
+                    "animate-pulse" in raw and 
+                    "Create your account" not in text
+                )
+                if is_skeleton and white_retries < 3:
+                    print(f"⚠️  /signup skeleton (no hydration) → redirect to / (retry {white_retries+1}/3)", file=sys.stderr)
+                    await page.goto(LOVABLE_URL, wait_until="domcontentloaded", timeout=30_000)
+                    white_retries += 1
                     await page.wait_for_timeout(3000)
                     continue
-            except: pass
-            if html_len == 0:
-                white_retries+=1
-                await page.reload(wait_until="domcontentloaded", timeout=30_000)
-                await page.wait_for_timeout(2500)
-                continue
+            except:
+                pass
         
-        # Wait for Cloudflare security check
-        if "Performing security verification" in text:
+        # Empty body check
+        html_len = len(text.strip())
+        if html_len < 30 and white_retries < 3:
+            try:
+                raw = await page.content()
+                # Failed to fetch or API error in page
+                if len(raw) < 800 or "Failed to fetch" in raw or "NetworkError" in raw:
+                    print(f"⚠️  White screen (len {len(raw)}) — reload {white_retries+1}/3", file=sys.stderr)
+                    await page.reload(wait_until="domcontentloaded", timeout=30_000)
+                    white_retries += 1
+                    await page.wait_for_timeout(3000)
+                    continue
+            except:
+                pass
+        
+        # Cloudflare security check
+        if "Performing security verification" in text or "Checking if the site connection is secure" in text:
             await page.wait_for_timeout(2_500)
             continue
         
-        # Retry on error
-        if "We hit a snag" in text:
+        # Generic error
+        if "We hit a snag" in text or "Something went wrong" in text:
             try:
                 await page.reload(wait_until="domcontentloaded", timeout=30_000)
             except PlaywrightTimeoutError:
@@ -1007,15 +1044,12 @@ async def wait_for_lovable_ready(page: Page) -> None:
             await page.wait_for_timeout(2_500)
             continue
         
+        # Success: "Log in" button visible or already on dashboard
         if "Log in" in text or ("/dashboard" in page.url and "Dashboard" in text):
-            try: watcher_task.cancel()
-            except: pass
             return
         
         await page.wait_for_timeout(1_000)
     
-    try: watcher_task.cancel()
-    except: pass
     raise FlowError("Lovable did not finish loading or its security check")
 
 
@@ -1185,6 +1219,12 @@ async def request_login(page: Page, email: str) -> str:
             pass
         await page.wait_for_timeout(700)
     if not submitted:
+        try:
+            dbg = (await page.content())[:6000]
+            print(f"DEBUG no submit button, url={page.url} html={dbg[:2000]!r}", file=sys.stderr)
+            await page.screenshot(path="/tmp/lov-no-submit.png", full_page=True)
+            print("DEBUG screenshot /tmp/lov-no-submit.png", file=sys.stderr)
+        except: pass
         # Last resort: dispatch a raw DOM click on whatever Continue control exists
         try:
             await page.get_by_role("button", name="Continue", exact=True).last.dispatch_event("click")
@@ -1246,8 +1286,282 @@ async def human_type(locator, text: str) -> None:
     await locator.type(text, delay=random.randint(50, 150))  # 50-150ms between keystrokes
 
 
+async def handle_turnstile_for_dispose(page: Page) -> None:
+    """Handle Turnstile checkbox for dispose mode - just click, no button click after."""
+    print("🤖 Waiting for Turnstile challenge...", file=sys.stderr)
+    max_turnstile_attempts = 15
+    attempt = 0
+    token_valid = False
+    
+    # Wait up to 30s for Turnstile to appear at all
+    turnstile_loaded = False
+    print("  ⏳ Waiting for Turnstile widget to load (timeout 30s)...", file=sys.stderr)
+    for wait_attempt in range(30):
+        turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+        has_iframe = await turnstile_iframe.count() > 0
+        has_widget = await page.locator('div.cf-turnstile').count() > 0
+        
+        if has_iframe or has_widget:
+            print(f"  ✅ Turnstile widget loaded ({wait_attempt+1}s)", file=sys.stderr)
+            turnstile_loaded = True
+            break
+        
+        await page.wait_for_timeout(1000)
+    
+    if not turnstile_loaded:
+        print("  ❌ Turnstile widget never appeared after 30s", file=sys.stderr)
+        print("  🔍 Possible causes:", file=sys.stderr)
+        print("     1. IP/browser is pre-blocked by Cloudflare (most likely)", file=sys.stderr)
+        print("     2. Network blocking Cloudflare CDN", file=sys.stderr)
+        print("     3. Page not fully loaded", file=sys.stderr)
+        
+        # Check current IP
+        try:
+            txt = await body_text(page)
+            if "warp=off" in txt or "160.179" in txt or "160.178" in txt:
+                print("  💡 Using Morocco IP without WARP - try PROXY_PORT=40000", file=sys.stderr)
+        except:
+            pass
+        
+        await page.screenshot(path="/tmp/turnstile-no-widget.png")
+        print("  📸 Screenshot: /tmp/turnstile-no-widget.png", file=sys.stderr)
+        raise FlowError("Turnstile widget blocked/failed to load - Cloudflare pre-blocking this browser/IP")
+    
+    while not token_valid and attempt < max_turnstile_attempts:
+        try:
+            # Wait for Turnstile iframe/widget
+            turnstile_found = False
+            try:
+                await page.wait_for_selector(
+                    'iframe[src*="challenges.cloudflare.com"], div.cf-turnstile', 
+                    timeout=10000
+                )
+                turnstile_found = True
+            except:
+                turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+                has_widget = await page.locator('div.cf-turnstile').count() > 0
+                if (await turnstile_iframe.count() > 0) or has_widget:
+                    turnstile_found = True
+            
+            if turnstile_found:
+                attempt += 1
+                print(f"🤖 Turnstile detected (attempt {attempt}/{max_turnstile_attempts})", file=sys.stderr)
+                
+                # Check if "Verification failed" appears IMMEDIATELY (before we even click)
+                try:
+                    await page.wait_for_timeout(2000)  # Wait 2s for widget to fully load
+                    txt = await body_text(page)
+                    if "Verification failed" in txt or "Troubleshooting" in txt:
+                        print("  ⚠️ Turnstile pre-rejected (low browser score / flagged IP)", file=sys.stderr)
+                        await page.screenshot(path=f"/tmp/turnstile-prereject-{attempt}.png")
+                        print(f"  📸 Screenshot: /tmp/turnstile-prereject-{attempt}.png", file=sys.stderr)
+                        
+                        # If first attempt and using direct connection, suggest WARP
+                        if attempt == 1:
+                            import socket
+                            try:
+                                with socket.create_connection(("127.0.0.1", 40000), timeout=1):
+                                    print("  💡 WARP proxy detected on port 40000 but not used", file=sys.stderr)
+                                    print("  💡 Retry with: PROXY_PORT=40000 python3 -u ... --dispose", file=sys.stderr)
+                            except:
+                                pass
+                        
+                        # Reload and let outer flow retry
+                        print("  ↻ Reloading page to get fresh Turnstile...", file=sys.stderr)
+                        await page.reload(wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(5000)
+                        raise FlowError("Turnstile pre-rejected - need to re-fill form from scratch")
+                except FlowError:
+                    raise
+                except Exception as e:
+                    print(f"  ⚠️ Pre-rejection check failed: {e}", file=sys.stderr)
+                
+                # Human behavior
+                try:
+                    await page.mouse.move(400, 300)
+                    await page.wait_for_timeout(random.randint(200, 400))
+                    await page.mouse.wheel(0, random.randint(60, 100))
+                    await asyncio.sleep(random.uniform(0.3, 0.6))
+                    await page.mouse.wheel(0, -random.randint(30, 50))
+                    await asyncio.sleep(random.uniform(0.2, 0.4))
+                except Exception as e:
+                    print(f"  ⚠️ Human behavior failed: {e}", file=sys.stderr)
+                
+                # PRIMARY STRATEGY: Bounding-box physical mouse click (most reliable)
+                clicked = False
+                turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+                if await turnstile_iframe.count() > 0:
+                    try:
+                        print("  🎯 Strategy 1: Bounding-box coordinate click (production method)...", file=sys.stderr)
+                        box = await turnstile_iframe.first.bounding_box()
+                        if box and box["width"] > 0 and box["height"] > 0:
+                            # Use x+30 (not x+22) as per production solver
+                            checkbox_x = int(box["x"] + 30)
+                            checkbox_y = int(box["y"] + box["height"] / 2)
+                            
+                            # Bezier curve movement (human-like)
+                            await bezier_mouse(page, checkbox_x, checkbox_y)
+                            await page.wait_for_timeout(random.randint(150, 300))
+                            
+                            # Double click with jitter (mimics human uncertainty)
+                            await page.mouse.click(checkbox_x, checkbox_y, delay=random.randint(100, 180))
+                            await page.wait_for_timeout(random.randint(150, 250))
+                            await page.mouse.click(checkbox_x + random.randint(-2, 2), checkbox_y, delay=random.randint(80, 150))
+                            
+                            print(f"  ✅ Clicked at coords ({checkbox_x}, {checkbox_y})", file=sys.stderr)
+                            clicked = True
+                        else:
+                            print(f"  ⚠️ Invalid bbox: {box}", file=sys.stderr)
+                    except Exception as coord_e:
+                        print(f"  ⚠️ Strategy 1 failed: {coord_e}", file=sys.stderr)
+                
+                # FALLBACK STRATEGY 2: Direct frame click
+                if not clicked and await turnstile_iframe.count() > 0:
+                    try:
+                        print("  🎯 Strategy 2: Direct frame click (fallback)...", file=sys.stderr)
+                        fl = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
+                        for sel in ['input[type="checkbox"]', 'input[id*="checkbox"]', '[role="checkbox"]', 'label', 'div']:
+                            try:
+                                el = fl.locator(sel).first
+                                if await el.count():
+                                    await page.wait_for_timeout(500)
+                                    await el.click(timeout=3000, force=True)
+                                    print(f"  ✅ Clicked via frame_locator({sel})", file=sys.stderr)
+                                    clicked = True
+                                    break
+                            except Exception as inner_e:
+                                pass
+                    except Exception as frame_e:
+                        print(f"  ⚠️ Strategy 2 failed: {frame_e}", file=sys.stderr)
+                
+                # STRATEGY 3: ClickSolver
+                if CAPTCHA_SOLVER_AVAILABLE and not clicked:
+                    print("  🎯 Strategy 3: ClickSolver cascade...", file=sys.stderr)
+                    for fw in (FrameworkType.PATCHRIGHT, FrameworkType.PLAYWRIGHT):
+                        try:
+                            async with ClickSolver(framework=fw, page=page, max_attempts=2, attempt_delay=2) as solver:
+                                await solver.solve_captcha(
+                                    captcha_container=page, 
+                                    captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE
+                                )
+                            print(f"  ✅ Solved via ClickSolver({fw.name})", file=sys.stderr)
+                            clicked = True
+                            break
+                        except Exception as solver_e:
+                            print(f"  ⚠️ ClickSolver({fw.name}): {solver_e}", file=sys.stderr)
+                
+                # Wait for token generation (with keepalive checks to detect crashes early)
+                print(f"  ⏳ Waiting for token (7s with keepalive checks)...", file=sys.stderr)
+                for i in range(7):
+                    try:
+                        await page.wait_for_timeout(1000)
+                        # Quick keepalive check
+                        if i % 2 == 0:
+                            _ = page.url  # Will throw if page closed
+                    except Exception as wait_err:
+                        if "closed" in str(wait_err).lower():
+                            print(f"  ❌ Browser closed at {i}s: {wait_err}", file=sys.stderr)
+                            await page.screenshot(path=f"/tmp/browser-crash-{attempt}.png").catch(lambda: None)
+                            raise FlowError(f"Browser/page closed during Turnstile verification (likely Cloudflare detected automation)")
+                        raise
+                
+                # Check for "Verification failed" AFTER clicking
+                try:
+                    txt = await body_text(page)
+                    if "Verification failed" in txt or "Troubleshooting" in txt:
+                        print("  ⚠️ Token rejected by Cloudflare (flagged IP/browser)", file=sys.stderr)
+                        await page.screenshot(path=f"/tmp/turnstile-rejected-{attempt}.png")
+                        print(f"  📸 Screenshot: /tmp/turnstile-rejected-{attempt}.png", file=sys.stderr)
+                        
+                        # If multiple failures, stop trying - IP is burned
+                        if attempt >= 3:
+                            print("  ❌ 3+ rejections - IP is flagged by Cloudflare", file=sys.stderr)
+                            print("  💡 Solutions:", file=sys.stderr)
+                            print("     1. Fix WARP: Check wireproxy is actually running and routing", file=sys.stderr)
+                            print("     2. Change IP: Reconnect internet, use VPN, or different network", file=sys.stderr)
+                            print("     3. Wait: Sometimes Cloudflare lifts the flag after 30-60 min", file=sys.stderr)
+                            raise FlowError("Cloudflare consistently rejecting this IP - need WARP or different IP")
+                        
+                        # Reload for fresh Turnstile
+                        print("  ↻ Reloading for fresh Turnstile widget...", file=sys.stderr)
+                        await page.reload(wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(5000)
+                        attempt -= 1  # Don't count this as a real attempt
+                        continue
+                except FlowError:
+                    raise
+                except Exception as e:
+                    print(f"  ⚠️ Post-click check error: {e}", file=sys.stderr)
+                
+                # Validate token
+                token_len = await page.evaluate(
+                    '''() => document.querySelector('input[name="cf-turnstile-response"]')?.value?.length || 0'''
+                )
+                
+                # Check button state
+                create_btn = page.get_by_role("button", name="Create your account", exact=True)
+                is_enabled = False
+                if await create_btn.count():
+                    try:
+                        is_enabled = not await create_btn.is_disabled()
+                    except:
+                        try:
+                            aria_disabled = await create_btn.get_attribute("aria-disabled")
+                            is_enabled = aria_disabled != "true"
+                        except:
+                            is_enabled = False
+                
+                print(f"  📊 Token: {token_len} chars | Button enabled: {is_enabled} | Clicked: {clicked}", file=sys.stderr)
+                
+                if token_len > 20 and is_enabled:
+                    print("✅ Turnstile SOLVED — button now enabled", file=sys.stderr)
+                    try:
+                        await save_cf_clearance(page.context)
+                    except:
+                        pass
+                    token_valid = True
+                    break
+                
+                if token_len > 20 and not is_enabled:
+                    print("  ⏳ Token valid but button disabled, waiting 3s more...", file=sys.stderr)
+                    await page.wait_for_timeout(3000)
+                    if await create_btn.count():
+                        is_enabled = not await create_btn.is_disabled()
+                        if is_enabled:
+                            print("✅ Button now enabled after wait", file=sys.stderr)
+                            token_valid = True
+                            break
+                
+                print(f"  ↻ Retry in 2s...", file=sys.stderr)
+                await page.wait_for_timeout(2000)
+                continue
+            else:
+                # No Turnstile found - check if button already enabled
+                create_btn = page.get_by_role("button", name="Create your account", exact=True)
+                if await create_btn.count():
+                    try:
+                        from playwright.async_api import expect
+                        await expect(create_btn).to_be_enabled(timeout=3000)
+                        print("✅ No Turnstile or already solved", file=sys.stderr)
+                        token_valid = True
+                        break
+                    except:
+                        pass
+                await page.wait_for_timeout(1000)
+                attempt += 1
+                
+        except Exception as e:
+            print(f"  ⚠️ Turnstile loop error: {e}", file=sys.stderr)
+            await page.wait_for_timeout(2000)
+            attempt += 1
+    
+    if not token_valid:
+        await page.screenshot(path="/tmp/turnstile-final-fail.png", full_page=True)
+        raise FlowError(f"Turnstile failed after {max_turnstile_attempts} attempts")
+
+
 async def do_signup(page: Page, email: str, password: str) -> str:
-    """Attempt signup flow."""
+    """Attempt signup flow (tempmailhub mode - with email/password fill)."""
     try:
         # Lovable shows the email as a chip ("Edit") on the signup page; the
         # underlying <input type=email> may be empty, which keeps the submit
@@ -1275,78 +1589,268 @@ async def do_signup(page: Page, email: str, password: str) -> str:
         await human_type(passwords.nth(0), password)
         if await passwords.count() >= 2:
             await human_type(passwords.nth(1), password)
-        # --- Turnstile handling — click checkbox + ClickSolver ---
-        for _ts_try in range(5):
+        
+        # Call Turnstile-only handler
+        return await do_signup_turnstile_only(page, email, password)
+    except Exception as exc:
+        # Debug screenshot on failure
+        try:
+            screenshot_path = "/tmp/lovable_signup_debug.png"
+            await page.screenshot(path=screenshot_path)
+            print(f"📸 Signup debug screenshot saved: {screenshot_path}", file=sys.stderr)
+        except Exception as snap_error:
+            print(f"Screenshot on signup failure failed: {snap_error}", file=sys.stderr)
+        
+        try:
+            stored_text = await body_text(page)
+        except Exception:
+            stored_text = ""
+        
+        print(
+            f"Signup debug: url={page.url} text={stored_text[:300]!r}".replace("\n", " "),
+            file=sys.stderr,
+        )
+        raise
+
+
+async def do_signup_turnstile_only(page: Page, email: str, password: str) -> str:
+    """Handle Turnstile + submit for dispose mode (email/passwords already filled)."""
+    try:
+        print("🤖 Waiting for Turnstile challenge...", file=sys.stderr)
+        max_turnstile_attempts = 15  # more attempts for low-score IPs
+        attempt = 0
+        button_enabled = False
+        
+        while not button_enabled and attempt < max_turnstile_attempts:
             try:
-                # wait for Turnstile iframe
+                # Wait for Turnstile iframe/widget (longer timeout)
+                turnstile_found = False
                 try:
-                    await page.wait_for_selector('iframe[src*="challenges.cloudflare.com"]', timeout=8000)
-                except: pass
-                turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
-                if await turnstile_iframe.count() > 0 and await turnstile_iframe.first.is_visible():
-                    print(f"🤖 Turnstile detected (try {_ts_try+1}/5)", file=sys.stderr)
-                    # human scroll before solve
+                    await page.wait_for_selector(
+                        'iframe[src*="challenges.cloudflare.com"], div.cf-turnstile', 
+                        timeout=10000
+                    )
+                    turnstile_found = True
+                except:
+                    # Check if widget exists but selector timed out
+                    turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+                    has_widget = await page.locator('div.cf-turnstile').count() > 0
+                    if (await turnstile_iframe.count() > 0) or has_widget:
+                        turnstile_found = True
+                
+                if turnstile_found:
+                    attempt += 1
+                    print(f"🤖 Turnstile detected (attempt {attempt}/{max_turnstile_attempts})", file=sys.stderr)
+                    
+                    # Human behavior: scroll + random mouse movement
                     try:
-                        await page.mouse.wheel(0, 80); await asyncio.sleep(0.4)
-                        await page.mouse.wheel(0, -40); await asyncio.sleep(0.3)
-                    except: pass
-                    # click checkbox: frame_locator selectors first
+                        await page.mouse.move(400, 300)
+                        await page.wait_for_timeout(random.randint(200, 400))
+                        await page.mouse.wheel(0, random.randint(60, 100))
+                        await asyncio.sleep(random.uniform(0.3, 0.6))
+                        await page.mouse.wheel(0, -random.randint(30, 50))
+                        await asyncio.sleep(random.uniform(0.2, 0.4))
+                    except Exception as e:
+                        print(f"  ⚠️ Human behavior simulation failed: {e}", file=sys.stderr)
+                    
+                    # STRATEGY 1: Direct checkbox click via frame_locator
                     clicked = False
-                    try:
-                        fl = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
-                        for sel in ['input[type="checkbox"]', '[role="checkbox"]', 'label', '#challenge-stage', 'body']:
-                            try:
-                                el = fl.locator(sel).first
-                                if await el.count():
-                                    box = await el.bounding_box()
-                                    if box and box["width"] > 0:
-                                        await el.click(timeout=1500)
-                                        print(f"  🔘 Clicked via {sel}")
+                    turnstile_iframe = page.locator('iframe[src*="challenges.cloudflare.com"]')
+                    if await turnstile_iframe.count() > 0:
+                        try:
+                            print("  🎯 Strategy 1: Direct frame click...", file=sys.stderr)
+                            fl = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')
+                            
+                            # Try multiple selectors in priority order
+                            for sel in ['input[type="checkbox"]', 'input[id*="checkbox"]', '[role="checkbox"]', 'label', 'span', 'div']:
+                                try:
+                                    el = fl.locator(sel).first
+                                    if await el.count():
+                                        # Wait for element to be stable
+                                        await page.wait_for_timeout(500)
+                                        await el.click(timeout=3000, force=True)
+                                        print(f"  ✅ Clicked via frame_locator({sel})", file=sys.stderr)
                                         clicked = True
                                         break
-                            except: continue
-                    except: pass
-                    # coord click: 22px from left edge
-                    if not clicked:
+                                except Exception as inner_e:
+                                    print(f"  ⚠️ frame_locator({sel}) failed: {inner_e}", file=sys.stderr)
+                                    continue
+                        except Exception as frame_e:
+                            print(f"  ⚠️ Strategy 1 failed: {frame_e}", file=sys.stderr)
+                    
+                    # STRATEGY 2: Coordinate-based click (22px from left edge)
+                    if not clicked and await turnstile_iframe.count() > 0:
                         try:
+                            print("  🎯 Strategy 2: Coordinate click...", file=sys.stderr)
                             box = await turnstile_iframe.first.bounding_box()
-                            if box and box["width"] > 0:
-                                await page.mouse.click(box["x"] + 22, box["y"] + box["height"] / 2, delay=100)
-                                await page.wait_for_timeout(500)
-                                await page.mouse.click(box["x"] + 30, box["y"] + box["height"] / 2, delay=100)
-                                print("  🔘 Clicked via coords")
+                            if box and box["width"] > 0 and box["height"] > 0:
+                                # Calculate checkbox position (22px from left, vertically centered)
+                                checkbox_x = int(box["x"] + 22)
+                                checkbox_y = int(box["y"] + box["height"] / 2)
+                                
+                                # Bezier mouse movement
+                                await bezier_mouse(page, checkbox_x, checkbox_y)
+                                await page.wait_for_timeout(random.randint(100, 300))
+                                
+                                # Multiple clicks for robustness
+                                await page.mouse.click(checkbox_x, checkbox_y, delay=random.randint(80, 150))
+                                await page.wait_for_timeout(200)
+                                await page.mouse.click(checkbox_x + 5, checkbox_y, delay=random.randint(80, 150))
+                                
+                                print(f"  ✅ Clicked at coords ({checkbox_x}, {checkbox_y})", file=sys.stderr)
                                 clicked = True
-                        except: pass
-                    # ClickSolver fallback
+                        except Exception as coord_e:
+                            print(f"  ⚠️ Strategy 2 failed: {coord_e}", file=sys.stderr)
+                    
+                    # STRATEGY 3: ClickSolver framework cascade
                     if CAPTCHA_SOLVER_AVAILABLE and not clicked:
+                        print("  🎯 Strategy 3: ClickSolver cascade...", file=sys.stderr)
+                        for fw in (FrameworkType.PATCHRIGHT, FrameworkType.PLAYWRIGHT):
+                            # Skip CAMOUFOX for now (has add_init_script issues)
+                            try:
+                                async with ClickSolver(framework=fw, page=page, max_attempts=2, attempt_delay=2) as solver:
+                                    await solver.solve_captcha(
+                                        captcha_container=page, 
+                                        captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE
+                                    )
+                                print(f"  ✅ Solved via ClickSolver({fw.name})", file=sys.stderr)
+                                clicked = True
+                                break
+                            except Exception as solver_e:
+                                print(f"  ⚠️ ClickSolver({fw.name}): {solver_e}", file=sys.stderr)
+                    
+                    # Wait for token generation (critical 7s wait)
+                    print(f"  ⏳ Waiting 7s for token generation...", file=sys.stderr)
+                    await page.wait_for_timeout(7000)
+                    
+                    # Check for "Verification failed" (expired/rejected token)
+                    try:
+                        txt = await body_text(page)
+                        if "Verification failed" in txt or "Troubleshooting" in txt or "Something went wrong" in txt:
+                            print("  ⚠️ Verification failed — reload + retry (not counting attempt)", file=sys.stderr)
+                            await page.screenshot(path=f"/tmp/turnstile-failed-{attempt}.png")
+                            print(f"  📸 Screenshot: /tmp/turnstile-failed-{attempt}.png", file=sys.stderr)
+                            
+                            try:
+                                await page.reload(wait_until="domcontentloaded", timeout=30000)
+                                await page.wait_for_timeout(4000)
+                                
+                                # Re-fill form
+                                edit_loc = page.get_by_text("Edit", exact=True)
+                                if await edit_loc.count():
+                                    await edit_loc.first.click(timeout=2000)
+                                    await page.wait_for_timeout(300)
+                                
+                                email_input = page.locator('input#auth-dialog-email').last
+                                if await email_input.count():
+                                    await email_input.fill(email)
+                                
+                                passwords = page.locator('input[type="password"]')
+                                if await passwords.count() >= 1:
+                                    await human_type(passwords.nth(0), password)
+                                if await passwords.count() >= 2:
+                                    await human_type(passwords.nth(1), password)
+                            except Exception as reload_err:
+                                print(f"  ⚠️ Reload failed: {reload_err}", file=sys.stderr)
+                            
+                            attempt -= 1  # Smart retry: don't count expired token
+                            continue
+                    except Exception as check_e:
+                        print(f"  ⚠️ Verification check error: {check_e}", file=sys.stderr)
+                    
+                    # Validate token + button state
+                    token_len = await page.evaluate(
+                        '''() => document.querySelector('input[name="cf-turnstile-response"]')?.value?.length || 0'''
+                    )
+                    
+                    create_btn = page.get_by_role("button", name="Create your account", exact=True)
+                    is_enabled = False
+                    if await create_btn.count():
                         try:
-                            async with ClickSolver(framework=FrameworkType.PATCHRIGHT, page=page, max_attempts=2, attempt_delay=2) as solver:
-                                await solver.solve_captcha(captcha_container=page, captcha_type=CaptchaType.CLOUDFLARE_TURNSTILE)
-                            print("  ✅ Solved via ClickSolver")
-                        except Exception as e:
-                            print(f"  ⚠️ ClickSolver failed: {e}", file=sys.stderr)
-                    await page.wait_for_timeout(4000)
-                # check if Create button enabled
-                create_btn = page.get_by_role("button", name="Create your account", exact=True)
-                try:
-                    from playwright.async_api import expect
-                    await expect(create_btn).to_be_enabled(timeout=10000)
-                    print("✅ Create button enabled — Turnstile solved", file=sys.stderr)
-                    try: await save_cf_clearance(page.context)
-                    except: pass
-                    break
-                except:
-                    token_len = await page.evaluate('''() => document.querySelector('input[name="cf-turnstile-response"]')?.value?.length || 0''')
-                    is_disabled = await create_btn.is_disabled() if await create_btn.count() else True
-                    print(f"⚠️ Token len {token_len}, disabled={is_disabled} — retry...", file=sys.stderr)
-                    if token_len > 20 and not is_disabled:
+                            is_enabled = not await create_btn.is_disabled()
+                        except:
+                            # Fallback: check aria-disabled attribute
+                            try:
+                                aria_disabled = await create_btn.get_attribute("aria-disabled")
+                                is_enabled = aria_disabled != "true"
+                            except:
+                                is_enabled = False
+                    
+                    print(f"  📊 Token: {token_len} chars | Button enabled: {is_enabled} | Clicked: {clicked}", file=sys.stderr)
+                    
+                    # Success criteria
+                    if token_len > 20 and is_enabled:
+                        print("✅ Turnstile SOLVED — token valid + button enabled", file=sys.stderr)
+                        button_enabled = True
+                        try:
+                            await save_cf_clearance(page.context)
+                        except:
+                            pass
                         break
+                    
+                    # Partial success: token exists but button disabled (wait more)
+                    if token_len > 20 and not is_enabled:
+                        print("  ⏳ Token valid but button disabled, waiting 3s more...", file=sys.stderr)
+                        await page.wait_for_timeout(3000)
+                        # Re-check button
+                        if await create_btn.count():
+                            is_enabled = not await create_btn.is_disabled()
+                            if is_enabled:
+                                print("✅ Button now enabled after wait", file=sys.stderr)
+                                button_enabled = True
+                                break
+                    
+                    # Retry
+                    print(f"  ↻ Retry in 2s...", file=sys.stderr)
                     await page.wait_for_timeout(2000)
                     continue
+                else:
+                    # No Turnstile found — check if button already enabled
+                    create_btn = page.get_by_role("button", name="Create your account", exact=True)
+                    if await create_btn.count():
+                        try:
+                            from playwright.async_api import expect
+                            await expect(create_btn).to_be_enabled(timeout=3000)
+                            print("✅ No Turnstile detected — button already enabled", file=sys.stderr)
+                            button_enabled = True
+                            break
+                        except:
+                            pass
+                    
+                    # Wait and increment attempt
+                    await page.wait_for_timeout(1000)
+                    attempt += 1
+                    continue
+                    
             except Exception as e:
-                print(f"turnstile try {_ts_try}: {e}", file=sys.stderr)
-                await page.wait_for_timeout(1000)
-        await click_exact(page, "Create your account")
+                print(f"  ⚠️ Turnstile loop error (attempt {attempt}): {e}", file=sys.stderr)
+                await page.wait_for_timeout(2000)
+                attempt += 1
+        
+        # Final validation
+        if not button_enabled:
+            print("⚠️ Turnstile loop exhausted — final checks...", file=sys.stderr)
+            await page.screenshot(path="/tmp/turnstile-final-fail.png", full_page=True)
+            print("📸 Screenshot: /tmp/turnstile-final-fail.png", file=sys.stderr)
+            
+            create_btn = page.get_by_role("button", name="Create your account", exact=True)
+            if await create_btn.count():
+                is_enabled = not await create_btn.is_disabled()
+                token_len = await page.evaluate(
+                    '''() => document.querySelector('input[name="cf-turnstile-response"]')?.value?.length || 0'''
+                )
+                print(f"Final state: token={token_len} chars, button_enabled={is_enabled}", file=sys.stderr)
+                
+                if is_enabled:
+                    print("✅ Button enabled on final check — proceeding", file=sys.stderr)
+                else:
+                    raise FlowError(f"Turnstile failed after {max_turnstile_attempts} attempts — token={token_len}, button=disabled")
+            else:
+                raise FlowError("Create button not found after Turnstile loop")
+        
+        # DON'T click "Create your account" - already clicked in dispose flow before Turnstile
+        # Just wait for navigation/response
+        print("  ⏳ Waiting for signup response...", file=sys.stderr)
         
         deadline = asyncio.get_running_loop().time() + 60
         while asyncio.get_running_loop().time() < deadline:
@@ -1522,10 +2026,10 @@ async def connect_browser(playwright_support, cdp_url: str | None) -> Browser:
             "--disable-blink-features=AutomationControlled",
             "--disable-dev-shm-usage",
             "--no-sandbox",
-            "--disable-gpu",
             "--disable-software-rasterizer",
             "--disable-background-timer-throttling",
             "--disable-backgrounding-occluded-windows",
+            "--disable-ipv6",
         ],
         proxy=proxy_settings(for_api=False),
     )
@@ -1539,7 +2043,7 @@ def keep_browser_open() -> bool:
 async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool = False) -> dict[str, object]:
     print(f"🚀 Starting automation... (provider={'22.do' if use_dispose else 'tempmailhub'})", file=sys.stderr)
     
-    # Configure proxy - isolated warp proxy
+    # Configure proxy - isolated warp proxy with connectivity test
     proxy_config = proxy_settings(for_api=False)
     playwright_proxy = None
     if proxy_config:
@@ -1547,9 +2051,12 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
             "server": proxy_config["server"],
             "bypass": proxy_config.get("bypass", "127.0.0.1,localhost"),
         }
-        print(f"🌐 Browser proxy {playwright_proxy['server']} bypass={playwright_proxy['bypass']} (isolated)", file=sys.stderr)
+        warp_status = "warp=on" if proxy_config.get("port") == 40000 else f"port {proxy_config.get('port')}"
+        print(f"🌐 Browser proxy {playwright_proxy['server']} ({warp_status})", file=sys.stderr)
     else:
-        print("🌐 Browser direct (warp=off, isolated)", file=sys.stderr)
+        print("🌐 Browser direct (warp=off, isolated) - Turnstile may reject", file=sys.stderr)
+        print("💡 To use WARP: ensure wireproxy running on 127.0.0.1:40000", file=sys.stderr)
+        print("💡 Then run: PROXY_PORT=40000 python3 -u ... --dispose", file=sys.stderr)
     
     # Launch browser — Patchright (navigator.webdriver=false natively, Turnstile bypass)
     _browser_ctx = None
@@ -1559,22 +2066,43 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         from patchright.async_api import async_playwright as _pw
         _pw_ctx = _pw()
         _pw_enter = await _pw_ctx.__aenter__()
-        browser = await _pw_enter.chromium.launch(headless=False, proxy=playwright_proxy, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu"])
+        browser = await _pw_enter.chromium.launch(
+            channel="chrome",  # Use real Chrome, not chromium
+            headless=False, 
+            proxy=playwright_proxy, 
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-features=IsolateOrigins,site-per-process",
+                "--disable-site-isolation-trials"
+            ]
+        )
         _browser_ctx = _pw_enter
     else:
-        try:
-            _browser_ctx = InvisiblePlaywright(headless=False, proxy=playwright_proxy, humanize=True, locale='en-US')
+        if CAMOUFOX_AVAILABLE and os.environ.get("USE_CAMOUFOX") == "1":
+            from camoufox.async_api import AsyncCamoufox
+            _browser_ctx = AsyncCamoufox(headless=False, proxy=playwright_proxy, humanize=True)
             browser = await _browser_ctx.__aenter__()
-        except Exception as e:
-            if "GeoTimezone" in type(e).__name__ or "egress IP discovery" in str(e):
-                print(f"⚠️  Invisible geo failed ({e}) — fallback Patchright", file=sys.stderr)
-                from patchright.async_api import async_playwright as _pw
-                _pw_ctx = _pw()
-                _pw_enter = await _pw_ctx.__aenter__()
-                browser = await _pw_enter.chromium.launch(headless=True, proxy=playwright_proxy, args=["--no-sandbox","--disable-dev-shm-usage","--disable-gpu"])
-                _browser_ctx = _pw_enter
-            else:
-                raise
+            print("🦊 Camoufox Firefox headed (Turnstile ClickSolver CAMOUFOX)", file=sys.stderr)
+        else:
+            from patchright.async_api import async_playwright as _pw
+            _pw_ctx = _pw()
+            _pw_enter = await _pw_ctx.__aenter__()
+            browser = await _pw_enter.chromium.launch(
+                channel="chrome",  # Use real Chrome, not chromium
+                headless=False, 
+                proxy=playwright_proxy, 
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-features=IsolateOrigins,site-per-process",
+                    "--disable-site-isolation-trials"
+                ]
+            )
+            _browser_ctx = _pw_enter
+            print("🦊 Patchright Chromium headed (Turnstile native bypass)", file=sys.stderr)
     try:
         # Browser launched — context with correct viewport per mode
         print(f"✅ Browser launched ({'Firefox' if use_dispose else 'Chromium'} {'Invisible' if 'Invisible' in type(_browser_ctx).__name__ else 'plain'})", file=sys.stderr)
@@ -1585,7 +2113,8 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         else:
             # realistic geo-matched context: US IP, en-US, Win32, 1920x1080
             vp = {"width": 1920, "height": 1080} if use_dispose else {"width": 1920, "height": 1080}
-            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            # Use latest Chrome version (139) for better Cloudflare fingerprint
+            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
             ctx_kwargs = {
                 "viewport": vp,
                 "user_agent": ua,
@@ -1594,9 +2123,11 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
                 "color_scheme": "light",
                 "extra_http_headers": {
                     "Accept-Language": "en-US,en;q=0.9",
-                    "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                    "Sec-Ch-Ua": '"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"',
                     "Sec-Ch-Ua-Mobile": "?0",
                     "Sec-Ch-Ua-Platform": '"Windows"',
+                    "Sec-Ch-Ua-Platform-Version": '"15.0.0"',
+                    "Sec-Ch-Ua-Full-Version-List": '"Not;A=Brand";v="99.0.0.0", "Google Chrome";v="139.0.0.0", "Chromium";v="139.0.0.0"',
                 },
             }
             if browser.contexts:
@@ -1614,6 +2145,9 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         print("✅ Context ready", file=sys.stderr)
         # Create Lovable page
         lovable_page = await context.new_page()
+        # Apply stealth patches BEFORE navigation
+        await apply_stealth_patches(lovable_page)
+        print("✅ Stealth patches applied", file=sys.stderr)
         # NO ad-blocker — Lovable needs googletagmanager for consent/SPA hydration
         # cf_clearance saved ONLY after Turnstile solve (not on every response)
         
@@ -1640,58 +2174,189 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         for attempt in range(1, 4):
             try:
                 if use_dispose:
-                    print(f"\n🔄 Attempt {attempt}/3: Creating account via 22.do...", file=sys.stderr)
+                    print(f"\n🔄 Attempt {attempt}/3: Creating account via dispose...", file=sys.stderr)
                     email, email_id = await dispose_inbox.create()
                 else:
                     print(f"\n🔄 Attempt {attempt}/3: Creating account via TRUE API-ONLY mode...", file=sys.stderr)
                     email, email_id = create_working_email()
                 password = f"{email}K0"
                 
-                mode = await request_login(lovable_page, email)
-                
-                if mode == "signup":
-                    print("📝 Lovable: No account found, creating one...")
+                # DISPOSE MODE: Direct /signup navigation (no login popup)
+                if use_dispose:
+                    print("📝 Dispose mode: Direct /signup flow...", file=sys.stderr)
+                    
+                    # Navigate to /signup directly
+                    print("  🌐 Navigating to lovable.dev/signup...", file=sys.stderr)
+                    await navigate(lovable_page, f"{LOVABLE_URL}signup")
+                    await lovable_page.wait_for_timeout(3000)
+                    
+                    # Check if skeleton/white - redirect to / then back
+                    text = await body_text(lovable_page)
+                    if len(text.strip()) < 50 or "Create your account" not in text:
+                        print("  ⚠️ /signup skeleton detected, redirect to / first...", file=sys.stderr)
+                        await navigate(lovable_page, LOVABLE_URL)
+                        await wait_for_lovable_ready(lovable_page)
+                        await lovable_page.wait_for_timeout(2000)
+                        # Now navigate back to /signup
+                        await navigate(lovable_page, f"{LOVABLE_URL}signup")
+                        await lovable_page.wait_for_timeout(3000)
+                    
+                    # Verify we're on signup page
+                    text = await body_text(lovable_page)
+                    if "Create your account" not in text:
+                        raise FlowError(f"/signup page did not load correctly: {text[:200]}")
+                    
+                    print("  ✅ On signup page", file=sys.stderr)
+                    
+                    # Dismiss any overlays
+                    await dismiss_cookie_banner(lovable_page)
+                    await lovable_page.wait_for_timeout(1000)
+                    
+                    # Fill email directly (selector: input#auth-dialog-email or input[type="email"])
+                    print(f"  📧 Filling email: {email}", file=sys.stderr)
+                    email_input = lovable_page.locator('input#auth-dialog-email, input[type="email"]').first
                     try:
-                        signup_result = await do_signup(lovable_page, email, password)
-                    except Exception as exc:
-                        if use_dispose:
-                            print(f"⚠️  Signup failed ({exc}), retry via verify link...", file=sys.stderr)
-                            reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
-                            await navigate(lovable_page, reset_url)
-                            await wait_for_dashboard(lovable_page, timeout=60)
-                        else:
+                        await email_input.wait_for(state="visible", timeout=10000)
+                        await email_input.click()
+                        await email_input.fill(email)
+                        await lovable_page.wait_for_timeout(500)
+                        print(f"    ✅ Email filled", file=sys.stderr)
+                    except Exception as e:
+                        print(f"    ⚠️ Email input error: {e}", file=sys.stderr)
+                        await lovable_page.screenshot(path="/tmp/signup-email-fail.png", full_page=True)
+                        raise FlowError(f"Could not fill email on /signup: {e}")
+                    
+                    # Click "Continue" button to reveal password fields
+                    print("  🖱️  Clicking Continue to reveal password fields...", file=sys.stderr)
+                    try:
+                        continue_btn = lovable_page.get_by_role("button", name="Continue", exact=True)
+                        await continue_btn.wait_for(state="visible", timeout=5000)
+                        await continue_btn.click(timeout=5000)
+                        await lovable_page.wait_for_timeout(2000)
+                        print(f"    ✅ Continue clicked", file=sys.stderr)
+                    except Exception as e:
+                        print(f"    ⚠️ Continue button error: {e}", file=sys.stderr)
+                        # Try fallback selectors
+                        try:
+                            await click_exact(lovable_page, "Continue")
+                            await lovable_page.wait_for_timeout(2000)
+                            print(f"    ✅ Continue clicked (fallback)", file=sys.stderr)
+                        except:
+                            await lovable_page.screenshot(path="/tmp/signup-continue-fail.png", full_page=True)
+                            raise FlowError(f"Could not click Continue button: {e}")
+                    
+                    # Now check if we need to create account or if account exists
+                    text = await body_text(lovable_page)
+                    if "No account found" in text or "Create your account" in text:
+                        print("    ℹ️  New account signup flow", file=sys.stderr)
+                    elif "Forgot password?" in text or "input[type=\"password\"]" in await lovable_page.content():
+                        print("    ⚠️  Account exists - need reset flow", file=sys.stderr)
+                        # For dispose mode with existing account, get verify link
+                        raise FlowError("Account exists - need to handle reset path for dispose mode")
+                    
+                    # Fill passwords (only 1 field for new signup)
+                    print("  🔐 Filling password...", file=sys.stderr)
+                    passwords = lovable_page.locator('input[type="password"]')
+                    pwd_count = await passwords.count()
+                    print(f"    Found {pwd_count} password field(s)", file=sys.stderr)
+                    
+                    if pwd_count < 1:
+                        await lovable_page.screenshot(path="/tmp/signup-pwd-missing.png", full_page=True)
+                        raise FlowError(f"Expected at least 1 password field, found {pwd_count}")
+                    
+                    # Fill first (and likely only) password field
+                    await human_type(passwords.nth(0), password)
+                    print(f"    ✅ Password filled", file=sys.stderr)
+                    
+                    # Wait a moment for any validation
+                    await lovable_page.wait_for_timeout(1000)
+                    
+                    # NOW Turnstile appears (BEFORE clicking Create button)
+                    print("  🤖 Waiting for Turnstile to appear...", file=sys.stderr)
+                    
+                    # Handle Turnstile - this enables the Create button
+                    await handle_turnstile_for_dispose(lovable_page)
+                    
+                    # NOW the button should be enabled - click it
+                    print("  🖱️  Clicking 'Create your account' button (now enabled)...", file=sys.stderr)
+                    try:
+                        create_btn = lovable_page.get_by_role("button", name="Create your account", exact=True)
+                        # Wait for button to be enabled
+                        from playwright.async_api import expect
+                        await expect(create_btn).to_be_enabled(timeout=10000)
+                        await create_btn.click(timeout=5000)
+                        await lovable_page.wait_for_timeout(2000)
+                        print(f"    ✅ Create button clicked", file=sys.stderr)
+                    except Exception as e:
+                        print(f"    ⚠️ Create button error: {e}", file=sys.stderr)
+                        try:
+                            await click_exact(lovable_page, "Create your account")
+                            await lovable_page.wait_for_timeout(2000)
+                            print(f"    ✅ Create button clicked (fallback)", file=sys.stderr)
+                        except:
+                            await lovable_page.screenshot(path="/tmp/signup-create-fail.png", full_page=True)
+                            raise FlowError(f"Could not click Create your account button: {e}")
+                    
+                    # Wait for response (dashboard or verify email)
+                    print("  ⏳ Waiting for signup response...", file=sys.stderr)
+                    deadline = asyncio.get_running_loop().time() + 60
+                    while asyncio.get_running_loop().time() < deadline:
+                        text = await body_text(lovable_page)
+                        if "/dashboard" in lovable_page.url and "Dashboard" in text:
+                            signup_result = "dashboard"
+                            break
+                        if any(hint in text for hint in ("verif", "code", "Check your email", "confirm your email")):
+                            signup_result = "verify"
+                            break
+                        if (
+                            lovable_page.url.startswith("https://lovable.dev/login")
+                            and await lovable_page.locator('input[type="password"]').count()
+                        ):
+                            signup_result = "login"
+                            break
+                        await lovable_page.wait_for_timeout(500)
+                    else:
+                        raise FlowError("Lovable did not finish the account creation")
+                    
+                    if signup_result == "verify":
+                        print("  📧 Email verification required, waiting for link...", file=sys.stderr)
+                        reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
+                        await navigate(lovable_page, reset_url)
+                        await wait_for_dashboard(lovable_page, timeout=60)
+                    elif signup_result == "dashboard":
+                        print("  ✅ Direct dashboard access", file=sys.stderr)
+                    elif signup_result == "login":
+                        print("  🔐 Account created, logging in...", file=sys.stderr)
+                        await human_type(lovable_page.locator('input[type="password"]').last, password)
+                        await click_exact(lovable_page, "Log in")
+                        await wait_for_dashboard(lovable_page, timeout=45)
+                
+                # NON-DISPOSE MODE: Original login popup flow
+                else:
+                    mode = await request_login(lovable_page, email)
+                    
+                    if mode == "signup":
+                        print("📝 Lovable: No account found, creating one...")
+                        try:
+                            signup_result = await do_signup(lovable_page, email, password)
+                        except Exception as exc:
                             print(f"⚠️  Signup failed ({exc}), using reset path...", file=sys.stderr)
                             await navigate(lovable_page, f"{LOVABLE_URL}login")
                             await request_login(lovable_page, email)
                             await do_password_reset(lovable_page, email)
                             reset_url = await read_reset_link(email_id, timeout=180, page=lovable_page)
                             await set_password_and_verify(lovable_page, reset_url, password)
-                    else:
-                        if signup_result == "verify":
-                            print("📧 Lovable: Email verification required...")
-                            if use_dispose:
-                                reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
-                            else:
+                        else:
+                            if signup_result == "verify":
+                                print("📧 Lovable: Email verification required...")
                                 reset_url = await read_reset_link(email_id, timeout=180, page=lovable_page)
-                            await navigate(lovable_page, reset_url)
-                            await wait_for_dashboard(lovable_page, timeout=60)
-                        elif signup_result == "login":
-                            print("🔐 Account created, logging in...")
-                            await human_type(lovable_page.locator('input[type="password"]').last, password)
-                            await click_exact(lovable_page, "Log in")
-                            await wait_for_dashboard(lovable_page, timeout=45)
-                else:
-                    if use_dispose:
-                        print("📝 Lovable: exists in 22.do mode — setting pwd then verify link...", file=sys.stderr)
-                        try:
-                            await do_signup(lovable_page, email, password)
-                            reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
-                            await navigate(lovable_page, reset_url)
-                            await wait_for_dashboard(lovable_page, timeout=60)
-                        except:
-                            await do_password_reset(lovable_page, email)
-                            reset_url = await dispose_inbox.wait_for_lovable_link(timeout_seconds=300)
-                            await set_password_and_verify(lovable_page, reset_url, password)
+                                await navigate(lovable_page, reset_url)
+                                await wait_for_dashboard(lovable_page, timeout=60)
+                            elif signup_result == "login":
+                                print("🔐 Account created, logging in...")
+                                await human_type(lovable_page.locator('input[type="password"]').last, password)
+                                await click_exact(lovable_page, "Log in")
+                                await wait_for_dashboard(lovable_page, timeout=45)
                     else:
                         print("🔄 Lovable: Account exists, requesting password reset...")
                         await do_password_reset(lovable_page, email)

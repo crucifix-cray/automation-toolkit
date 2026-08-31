@@ -1,6 +1,8 @@
-# Automation Toolkit - Current Status (Reindexed 2026-08-29 15:15 UTC)
+# Automation Toolkit - Current Status (2026-08-31 17:10 UTC — Lovable Turnstile Fix + Railway 105)
 
-**7 healthy Railway CLI sessions verified via `HOME=session-*/.railway LD_PRELOAD="" railway whoami` raw IP (152.55.184.157)**
+**Lovable `finals/core/lov-api.py` — Patchright + WARP `127.0.0.1:40000` (warp=on) + direct `/signup` + 15-try Turnstile (frame→coords→ClickSolver PATCHRIGHT/PLAYWRIGHT/CAMOUFOX) + `install_ad_blocker` no-op + `proxy_settings` WARP curl verify + `Verification failed→reload` — see `finals/FINAL_COMPLETE_GUIDE.md` (`--dispose` temp.tf/22.do/dispose.lol, `--raw` for 160.178.33.174 MA fallback)**
+
+**105 Railway CLI sessions on `mega:railway_sessions` (7 reindexed 1..7 verified `HOME=session-*/.railway LD_PRELOAD="" railway whoami` raw IP 152.55.184.157)**
 
 | # | Dir | Email | CLI `whoami` | Mega |
 |---|-----|-------|--------------|------|
@@ -16,4 +18,6 @@ All verified via `HOME=session-*/.railway LD_PRELOAD="" railway whoami` on raw I
 
 **Cloud Holy** `railway-HOLY-cloud.py` — `BD Browser API` `wss://hl_4ee0cb14`/`hl_709648b2` + `?sessionId` per run (ASN rotation), `dispose.lol` Gmail (separate BD) → `22.do` → `mail.tm`, `150 checks` for OTP, `Turnstile` `100s` screenshot to `mega:railway_sessions`, breaker on `OTP 0`/`Continue [disabled]` → fresh IP + next mailbox, local headless Chrome PKCE for CLI.
 
-**Next:** Kill old BD browser (pkill) → SSH `test-ubuntu-6` → `HOLY-cloud.py --cloud` fresh `?sessionId` ASN → new Railway acc + CLI (`HOME=session`) → `rclone --mega-use-https` raw IP to `session-7..500`.
+**Next Lovable:** `DISPLAY=:0 PROXY_PORT=40000 python3 -u finals/core/lov-api.py --dispose` (WARP, see `FINAL_COMPLETE_GUIDE.md`) → `tail /tmp/lovable-test.log` `Turnstile SOLVED` → dashboard; raw fallback `DISPLAY=:0 python3 -u ... --raw --dispose`
+
+**Next Railway:** `HOLY-cloud.py --cloud` fresh `?sessionId` ASN → new acc + CLI (`HOME=session`) → `rclone --mega-use-https` raw IP to `session-8..500`.

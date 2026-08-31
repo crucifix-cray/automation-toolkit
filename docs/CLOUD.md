@@ -1,4 +1,6 @@
-# Railway Holy Cloud — Bright Data Browser API (ASN Rotation)
+# Railway Holy Cloud — Bright Data Browser API (ASN Rotation) + Lovable WARP Note 2026-08-31
+
+**Lovable:** `finals/core/lov-api.py` now `Patchright headed` `WARP 40000` `curl --socks5 warp=on` verify + `Verification failed→reload` 15-try (frame→coords→ClickSolver) — see `finals/FINAL_COMPLETE_GUIDE.md`. WARP currently `handshake ok` but `curl timeout 5s` to `lovable.dev` via `socks5 40000` fails in Playwright (`ERR_SOCKS_CONNECTION_FAILED`) — regen `wgcf` if needed; fallback `--raw` `160.178.33.174` pre-rejected ~90% without WARP.
 
 **Cloud version:** `railway-docker/railway-HOLY-cloud.py` — fresh ASN per run.
 
