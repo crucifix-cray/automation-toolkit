@@ -1,6 +1,12 @@
 # Automation Toolkit - Current Status (2026-08-31 17:10 UTC — Lovable Turnstile Fix + Railway 105)
 
-**Lovable `finals/core/lov-api.py` — Patchright + WARP `127.0.0.1:40000` (warp=on) + direct `/signup` + 15-try Turnstile (frame→coords→ClickSolver PATCHRIGHT/PLAYWRIGHT/CAMOUFOX) + `install_ad_blocker` no-op + `proxy_settings` WARP curl verify + `Verification failed→reload` — see `finals/FINAL_COMPLETE_GUIDE.md` (`--dispose` temp.tf/22.do/dispose.lol, `--raw` for 160.178.33.174 MA fallback)**
+**Lovable — SUSPENDED 2026-09-01 20:15 UTC — work paused, docs updated, push pending**
+
+**Effective script `finals/core/lov-api-effective.py` — ZenRows GB `wss://browser.zenrows.com?apikey=a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7&proxy_country=gb` (130.44.200.119 GB) + dispose.lol Gmail (healthiest per `docs/ZENROWS_ADVANCEMENTS_2026-09-01.md` `genev.aochea@gmail.com` verified) + `LD_PRELOAD=""` raw IP script + 15-try Turnstile `token 816-837` auto `Success!` + `input#email` → `Continuer` → `input#password` `GmailK01` → `Check your inbox` → `oobCode` → `getting-started` — `MCP` verified `k.atevaldeexna@gmail.com` `QCjFvN19G6f6osDwC9DloxzNcVE3`**
+
+**ZenRows new key `a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7` (old `3a6a9ee9...` 402 AUTH004 usage exceeded) drafted to `mega:chimera/zenrows` via raw IP `41.92.115.104`, `~/.zenrows/secrets.json` + `opencode.jsonc` `browser-use-zenrows` `LD_PRELOAD=""` + `raw` `browser-use-raw` MCPs added**
+
+**Previous `finals/core/lov-api.py` — Patchright + WARP `127.0.0.1:40002` (warp=on MAD) + direct `/signup` + 15-try Turnstile — see `finals/FINAL_COMPLETE_GUIDE.md` (`--dispose` temp.tf/22.do/dispose.lol, `--raw` for direct) — now superseded by `lov-api-effective.py` + `lov-api-zenrows.py` (ZenRows GB)**
 
 **105 Railway CLI sessions on `mega:railway_sessions` (7 reindexed 1..7 verified `HOME=session-*/.railway LD_PRELOAD="" railway whoami` raw IP 152.55.184.157)**
 
