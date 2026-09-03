@@ -48,25 +48,55 @@ async def run_once():
                 await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(5000)
             body = await page.evaluate("() => document.body.innerText")
-            # User requested temp.tf Gmail with fresh IP each run
-            try:
-                import urllib.request, json as _json
-                for k in list(__import__('os').environ):
-                    if k.lower().endswith('_proxy'):
-                        __import__('os').environ.pop(k,None)
-                with urllib.request.urlopen("https://temp.tf/api/account?dot=1&providers=gmail", timeout=10) as r:
-                    email = _json.loads(r.read())['email']
-                print(f"TEMP.TF Gmail {email}", file=sys.stderr)
-            except Exception as e:
-                print(f"temp.tf fail {e}, fallback to Gmail from dispose", file=sys.stderr)
-                m = re.search(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
-                if not m:
-                    print("No email found", body[:1000], file=sys.stderr)
-                    await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
-                    await browser.close()
-                    cleanup_kernel(session_id)
-                    sys.exit(1)
-                email = m.group(0)
+            # Use dispose.lol custom astroai.eu.cc for ZenRows (Gmail blocked as Invalid)
+            # Try to find existing astroai, else generate new one
+            m2 = re.search(r"[a-z0-9._%+-]+@astroai\.eu\.cc", body, re.I)
+            if m2:
+                email = m2.group(0)
+                print(f"Found existing astroai {email}", file=sys.stderr)
+            else:
+                print("No astroai found, generating new custom via dispose.lol", file=sys.stderr)
+                try:
+                    await page.evaluate('''() => {
+                        const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Change'));
+                        if(b) b.click();
+                    }''')
+                    await page.wait_for_timeout(2000)
+                    await page.evaluate('''() => {
+                        const b=[...document.querySelectorAll('button')].find(x=>x.innerText.trim()==='Custom Domain');
+                        if(b) b.click();
+                    }''')
+                    await page.wait_for_timeout(2000)
+                    # Wait for Turnstile to solve for custom generation
+                    for(let i=0;i<10;i++){
+                        const txt=document.body.innerText;
+                        if(!txt.includes('Complete security check') && !txt.includes('Quick security check')){
+                            break;
+                        }
+                        await new Promise(r=>setTimeout(r,2000));
+                    }
+                    await page.evaluate('''() => {
+                        const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Create Email'));
+                        if(b) b.click();
+                    }''')
+                    await page.wait_for_timeout(4000)
+                    body2 = await page.evaluate("() => document.body.innerText")
+                    m3 = re.search(r"[a-z0-9._%+-]+@astroai\.eu\.cc", body2, re.I)
+                    if m3:
+                        email = m3.group(0)
+                        print(f"Generated new astroai {email}", file=sys.stderr)
+                    else:
+                        raise Exception("no astroai after gen")
+                except Exception as e:
+                    print(f"Custom gen fail {e}, fallback to Gmail", file=sys.stderr)
+                    m = re.search(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
+                    if not m:
+                        print("No email found", body[:1000], file=sys.stderr)
+                        await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
+                        await browser.close()
+                        cleanup_kernel(session_id)
+                        sys.exit(1)
+                    email = m.group(0)
             password = "Test1234!AbcZ2026"
             print(f"EMAIL: {email} | PASS: {password}", file=sys.stderr)
 
