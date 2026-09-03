@@ -106,30 +106,79 @@ async def run_once():
                 await browser.close()
                 cleanup_kernel(session_id)
                 sys.exit(1)
-            print("Registered → email/verify, polling dispose.lol...", file=sys.stderr)
-
-            await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_timeout(4000)
-            found = False
-            for i in range(20):
-                body = await page.evaluate("() => document.body.innerText")
-                if "verify@e.zenrows.com" in body or "Verify your email to activate" in body:
-                    await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')?.includes('Verify your email')); if(b) b.click(); }")
-                    await page.wait_for_timeout(3000)
-                    found = True
-                    break
-                await page.evaluate("() => { const r=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Refresh')); if(r) r.click(); }")
-                await page.wait_for_timeout(3000)
-                print(f"Poll dispose {i} waiting...", file=sys.stderr)
-                if i == 8:
-                    print("No email after 8 polls, trying Resend...", file=sys.stderr)
-                    await page.goto("https://app.zenrows.com/email/verify", wait_until="domcontentloaded", timeout=30000)
-                    await page.wait_for_timeout(3000)
-                    await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Resend')); if(b) b.click(); }")
+            print(f"Registered {email} → email/verify, polling inbox...", file=sys.stderr)
+            # Poll correct inbox: temp.tf for @gmail.com, dispose.lol for custom astroai.eu.cc
+            is_gmail = email.lower().endswith("@gmail.com")
+            if is_gmail:
+                # Poll temp.tf directly (no browser needed)
+                import urllib.request, json as _json2, re as _re, html as _html2, time as _time2
+                link_re2 = _re.compile(r"https?://[^\s"'<>]*zenrows\.com[^\s"'<>]*", _re.I)
+                found = False
+                for i in range(20):
+                    try:
+                        old_env2 = {k: __import__('os').environ.pop(k,None) for k in ("HTTPS_PROXY","HTTP_PROXY","https_proxy","http_proxy","ALL_PROXY","all_proxy")}
+                        try:
+                            data2=_json2.dumps({"email":email}).encode()
+                            req2=urllib.request.Request("https://temp.tf/api/check", data=data2, headers={"Content-Type":"application/json"}, method="POST")
+                            with urllib.request.urlopen(req2, timeout=10) as r2:
+                                j2=_json2.loads(r2.read())
+                                items2=j2.get("data",[])
+                                print(f"Poll temp.tf {i}: {len(items2)} msgs", file=sys.stderr)
+                                for msg2 in items2:
+                                    body2=msg2.get("body","")
+                                    subj2=msg2.get("subject","")
+                                    m2=link_re2.search(subj2+" "+body2)
+                                    if m2:
+                                        # Save link for later use via page
+                                        verify_url2=_html2.unescape(m2.group(0)).replace("&amp;","&")
+                                        print(f"FOUND LINK via temp.tf {verify_url2[:200]}", file=sys.stderr)
+                                        # Store in page for later
+                                        await page.evaluate("(url) => { window.__verifyUrl = url; }", verify_url2)
+                                        found = True
+                                        break
+                                if found:
+                                    break
+                        finally:
+                            for k,v in old_env2.items():
+                                if v is not None:
+                                    __import__('os').environ[k]=v
+                    except Exception as e:
+                        print(f"Poll temp.tf err {e}", file=sys.stderr)
                     await page.wait_for_timeout(5000)
-                    print("Resent, back to dispose", file=sys.stderr)
+                    if i == 8 and not found:
+                        print("No email after 8 polls, trying Resend...", file=sys.stderr)
+                        await page.goto("https://app.zenrows.com/email/verify", wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(3000)
+                        await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Resend')); if(b) b.click(); }")
+                        await page.wait_for_timeout(5000)
+                        print("Resent", file=sys.stderr)
+                # For Gmail, we already have verify_url via window.__verifyUrl, skip dispose polling
+                if found and email.lower().endswith("@gmail.com"):
+                    # Skip dispose polling, use the found link
+                    pass
+                else:
+                    # For custom domain, poll dispose.lol via browser
                     await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
                     await page.wait_for_timeout(4000)
+                    for i in range(20):
+                        body = await page.evaluate("() => document.body.innerText")
+                        if "verify@e.zenrows.com" in body or "Verify your email to activate" in body:
+                            await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')?.includes('Verify your email')); if(b) b.click(); }")
+                            await page.wait_for_timeout(3000)
+                            found = True
+                            break
+                        await page.evaluate("() => { const r=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Refresh')); if(r) r.click(); }")
+                        await page.wait_for_timeout(3000)
+                        print(f"Poll dispose {i} waiting...", file=sys.stderr)
+                        if i == 8 and not found:
+                            print("No email after 8 polls, trying Resend...", file=sys.stderr)
+                            await page.goto("https://app.zenrows.com/email/verify", wait_until="domcontentloaded", timeout=30000)
+                            await page.wait_for_timeout(3000)
+                            await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Resend')); if(b) b.click(); }")
+                            await page.wait_for_timeout(5000)
+                            print("Resent, back to dispose", file=sys.stderr)
+                            await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
+                            await page.wait_for_timeout(4000)
             if not found:
                 print("No verification email after 20 polls", file=sys.stderr)
                 await page.screenshot(path="/tmp/zen_no_email.png", full_page=True)
@@ -137,10 +186,16 @@ async def run_once():
                 cleanup_kernel(session_id)
                 sys.exit(1)
 
-            # Try iframe srcdoc first, then fallback to direct link in dispose UI
-            srcdoc = await page.evaluate("() => document.querySelector('iframe')?.getAttribute('srcdoc') || ''")
-            verify_links = []
-            if srcdoc:
+            # For Gmail via temp.tf, verify_url already in window.__verifyUrl
+            verify_url = await page.evaluate("() => window.__verifyUrl || ''")
+            if verify_url:
+                print(f"Using window.__verifyUrl {verify_url[:80]}", file=sys.stderr)
+                verify_links = []
+            else:
+                # Try iframe srcdoc first, then fallback to direct link in dispose UI
+                srcdoc = await page.evaluate("() => document.querySelector('iframe')?.getAttribute('srcdoc') || ''")
+                verify_links = []
+                if srcdoc:
                 verify_links = await page.evaluate("""(sd) => {
                     const p = new DOMParser();
                     const d = p.parseFromString(sd, "text/html");
@@ -162,7 +217,8 @@ async def run_once():
                 }""")
                 if btn_link and "http" in btn_link:
                     verify_links.append({"href": btn_link, "text": "Verify email"})
-            verify_url = None
+            if not verify_url:
+                verify_url = None
             for link in verify_links:
                 if link["text"] == "Verify email" or "Verify" in link["text"]:
                     if link["href"] and ("url4722" in link["href"] or "zenrows" in link["href"]):
