@@ -73,8 +73,7 @@ async def run_once():
             await page.goto("https://app.zenrows.com/register", wait_until="domcontentloaded", timeout=30000)
             solved = False
             # Let captcha solver take its time: wait 5min total, checking every 5s, refresh every 30s
-            for i in range(60):  # 60 *5s = 300s = 5min
-                await page.wait_for_timeout(5000)
+            for i in range(36):  # 36 *5s = 180s = 3min (faster)
                 title = await page.title()
                 body_snip = await page.evaluate("() => document.body.innerText.substring(0,1200)")
                 if "Sign Up" in title and "Create a ZenRows account" in body_snip:
@@ -109,6 +108,7 @@ async def run_once():
             print(f"Registered {email} → email/verify, polling inbox...", file=sys.stderr)
             # Poll correct inbox: temp.tf for @gmail.com, dispose.lol for custom astroai.eu.cc
             is_gmail = email.lower().endswith("@gmail.com")
+            print(f"Email {email} is_gmail {is_gmail}", file=sys.stderr)
             if is_gmail:
                 # Poll temp.tf directly (no browser needed)
                 import urllib.request, json as _json2, re as _re, html as _html2, time as _time2
@@ -144,8 +144,8 @@ async def run_once():
                                     __import__('os').environ[k]=v
                     except Exception as e:
                         print(f"Poll temp.tf err {e}", file=sys.stderr)
-                    await page.wait_for_timeout(5000)
-                    if i == 8 and not found:
+                    await page.wait_for_timeout(2000)
+                    if i == 4 and not found:
                         print("No email after 8 polls, trying Resend...", file=sys.stderr)
                         await page.goto("https://app.zenrows.com/email/verify", wait_until="domcontentloaded", timeout=30000)
                         await page.wait_for_timeout(3000)
