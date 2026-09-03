@@ -1,0 +1,89 @@
+Build a debug terminal that runs real OS shell commands from the browser via the Vite dev server, plus a virtual fallback kernel. Do not ask questions; implement all parts. Local-only project — the endpoint must be dev-only (apply: "serve") so it never ships in production builds.
+
+
+
+
+Architecture (4 parts):
+
+
+
+
+
+
+
+
+Dev-server bridge — vite.config.ts
+Add a plugin with apply: "serve" that registers middleware for POST /__shell. It reads a JSON body { cmd: string, cwd?: string } and executes it with node:child_process.exec using shell: "/bin/bash", maxBuffer: 50 * 1024 * 1024. To keep cwd stateful across calls, wrap the command:
+
+
+
+const wrapped = `cd ${JSON.stringify(cwd)} && { ${cmd || "true"}
+}; __c=$?; echo "CWD:$(pwd)"; exit $__c`;
+
+
+
+
+Parse the trailing CWD:<path> line out of stdout and respond with JSON { stdout, stderr, code, cwd } so the client can persist the working directory.
+
+
+
+
+
+
+
+
+Console client — src/lib/console-shell.ts
+A runShell(cmd) that POSTs to /__shell, caches the returned cwd, and a connectShell() that probes with "true". installConsoleShell() installs a global window.doc that supports both await doc('cd src && ls') and tagged-template await doc`ls` forms, prints commands/results with colored console.log ($ cmd, stdout, red stderr, exit N · cwd), and exposes doc.connect(), doc.disconnect(), doc.cd(path) (implemented as runShell('cd "<path>"')), doc.pwd(), doc.connected(). Auto-connect silently on boot.
+
+
+
+
+
+
+
+
+Virtual fallback kernel — src/lib/vsh.ts
+For when the bridge is unreachable (e.g. a published build), implement a pure-browser fake shell: in-memory virtual filesystem, process table with PIDs, builtins (ls cd pwd cat echo touch mkdir rm grep head wc env whoami uname sleep ps kill node -e sh -c), pipes |, chaining && || ;, redirection > >>, VAR=value, spawn for background jobs, and real exit codes. exec(cmd) → { stdout, stderr, code }.
+
+
+
+
+
+
+
+
+Command bus + terminal UI
+
+
+
+
+
+src/lib/bug.ts: global window.bug. Registry of client introspection commands (help routes where ua storage perf errors status jobs spawn ? hint clear) always runs locally. Dispatch order: local registry → real shell via /__shell if connected → vsh.exec fallback. Expose bug.con(), bug.off(), bug.hint(), bug.status(), bug.sh(), bug.spawn(), bug.ps(). Call installBug() once in main.tsx.
+
+
+src/pages/term/index.tsx + route /term: a terminal page (scrollable <pre> output, $ prompt input, arrow-key history) that auto-connects on mount by calling connectBridge() in a useEffect, shows a connected/fallback badge, and has Connect/Detach buttons. Every submitted command goes through runBug().
+
+
+
+
+
+
+
+
+
+Key gotchas:
+
+
+
+
+
+The browser cannot spawn processes — the "real shell" only works because the Vite middleware executes on the host machine. Always label it dev-only.
+
+
+cwd persistence is the trick: server echoes CWD:$(pwd) and the client sends it back on the next request.
+
+
+Local registry commands must win over shell commands so you can always introspect the client.
+
+
+Don't use .server.ts file naming; keep node:child_process inside the Vite config / server middleware, never imported by client code.
