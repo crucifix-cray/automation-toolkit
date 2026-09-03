@@ -68,13 +68,11 @@ async def run_once():
                     }''')
                     await page.wait_for_timeout(2000)
                     # Wait for Turnstile to solve for custom generation
-                    for(let i=0;i<10;i++){
-                        const txt=document.body.innerText;
-                        if(!txt.includes('Complete security check') && !txt.includes('Quick security check')){
-                            break;
-                        }
-                        await new Promise(r=>setTimeout(r,2000));
-                    }
+                    for i in range(10):
+                        txt = await page.evaluate("() => document.body.innerText")
+                        if "Complete security check" not in txt and "Quick security check" not in txt:
+                            break
+                        await page.wait_for_timeout(2000)
                     await page.evaluate('''() => {
                         const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Create Email'));
                         if(b) b.click();
