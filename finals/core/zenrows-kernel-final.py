@@ -112,7 +112,7 @@ async def run_once():
             if is_gmail:
                 # Poll temp.tf directly (no browser needed)
                 import urllib.request, json as _json2, re as _re, html as _html2, time as _time2
-                link_re2 = _re.compile(r"https?://[^\s"'<>]*zenrows\.com[^\s"'<>]*", _re.I)
+                link_re2 = _re.compile(r"https://[^\s]+zenrows\.com[^\s]+", _re.I)
                 found = False
                 for i in range(20):
                     try:
@@ -196,7 +196,7 @@ async def run_once():
                 srcdoc = await page.evaluate("() => document.querySelector('iframe')?.getAttribute('srcdoc') || ''")
                 verify_links = []
                 if srcdoc:
-                verify_links = await page.evaluate("""(sd) => {
+                    verify_links = await page.evaluate("""(sd) => {
                     const p = new DOMParser();
                     const d = p.parseFromString(sd, "text/html");
                     return Array.from(d.querySelectorAll("a")).map(a=> ({ href: a.getAttribute("href"), text: (a.innerText||"").trim() }));
