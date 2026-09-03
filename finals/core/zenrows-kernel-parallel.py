@@ -86,17 +86,58 @@ async def run_once():
                     await p.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
                     await p.wait_for_timeout(3000)
                 tabs.append(p)
-            # Run all 5 in parallel
-            results = await asyncio.gather(*[run_one_tab(tabs[i], i) for i in range(5)])
-            # Find first success
-            for email, pw in results:
-                if email:
-                    print(f"SUCCESS {email} / {pw}", file=sys.stderr)
-                    # Close all tabs, keep the successful one's browser for verification
-                    # Poll dispose for verification link
-                    # For simplicity, use the first successful tab's page to poll
-                    success_idx = next(i for i,(e,p) in enumerate(results) if e)
-                    page = tabs[success_idx]
+            # Run all 5 in parallel, cancel others when one succeeds
+            tasks = [asyncio.create_task(run_one_tab(tabs[i], i)) for i in range(5)]
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            # Find first success among done
+            success_email = None
+            success_pw = None
+            success_idx = None
+            for task in done:
+                try:
+                    email, pw = task.result()
+                    if email:
+                        success_email, success_pw = email, pw
+                        # Find which index this task was
+                        for idx, t in enumerate(tasks):
+                            if t == task:
+                                success_idx = idx
+                                break
+                        break
+                except: pass
+            # Cancel pending tabs
+            for p in pending:
+                p.cancel()
+                try:
+                    await p
+                except asyncio.CancelledError:
+                    pass
+            if not success_email:
+                # Check if any other done task succeeded (in case first done was failure)
+                for task in done:
+                    if task == list(done)[0]:
+                        continue
+                    try:
+                        email, pw = task.result()
+                        if email:
+                            success_email, success_pw = email, pw
+                            success_idx = next(i for i, t in enumerate(tasks) if t == task)
+                            break
+                    except: pass
+            if not success_email:
+                print("All 5 tabs failed", file=sys.stderr)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
+            print(f"SUCCESS {success_email} / {success_pw} on tab {success_idx}", file=sys.stderr)
+            # Close other tabs, keep the successful one
+            for i, p in enumerate(tabs):
+                if i != success_idx:
+                    try:
+                        await p.close()
+                    except: pass
+            page = tabs[success_idx]
+            email, password = success_email, success_pw
                     # Poll dispose
                     for i in range(20):
                         body = await page.evaluate("() => document.body.innerText")
