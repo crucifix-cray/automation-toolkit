@@ -1,94 +1,261 @@
 #!/usr/bin/env python3
-"""ZenRows account creation via Kernel Browser Cloud (100% script).
+"""ZenRows account creation via Kernel Browser Cloud — deterministic, no AI, no opencode.
+Uses Kernel stealth browser (fresh IP per run) + dispose.lol Gmail + iframe srcdoc verify extraction.
 
-Uses Kernel prod-jfk-hypeman-7 wss://.../browser/cdp?jwt=... with add_init_script
-to save window.__nativeSetter before dashboard.f59a3009.js patches password.
-Bypasses BD's Forbidden trap and ZenRows wss self-block (ERR_BLOCKED).
+Flow proven 2026-09-02 on rprb81jbgg2gt6uyd0l6ozps (prod-jfk-hypeman-7, live 5a79zRDd8ZLd):
+  dispose.lol cyn.thiabayaletan@gmail.com → app.zenrows.com/register (CF reload fix) → email/verify → dispose poll → url4722 Verify email → overview → API e7e88777223864ab0252b6983c98a8927c60cf8b
+Also verified: s.ofiareeyesa@gmail.com → 3f7d260bab1d75874f8992d28eb536b575eb9a28
 
-Flow: dispose.lol custom astroai.eu.cc -> app.zenrows.com/register -> email/verify -> API key
+Usage:
+  KERNEL_API_KEY=sk_729ff0c8-8973-8dcb-9c53-7288178dbc13.jO62-M4NtqELqARSxGY1Ar7BPyjSIU6OhdoHMjdt0Ow python3 finals/core/zenrows-kernel-final.py
 """
-import asyncio, os, json, uuid, sys, re, html, time, urllib.request, random
+import asyncio, os, json, re, subprocess, sys, time, random
 
-def clear_proxy():
+KERNEL_API_KEY = os.environ.get("KERNEL_API_KEY", "sk_729ff0c8-8973-8dcb-9c53-7288178dbc13.jO62-M4NtqELqARSxGY1Ar7BPyjSIU6OhdoHMjdt0Ow")
+os.environ["PATH"] = os.environ.get("PATH","") + f":{os.path.expanduser('~')}/.local/bin"
+
+def create_kernel_browser():
+    if os.environ.get("KERNEL_CDP_WS"):
+        wss = os.environ["KERNEL_CDP_WS"]
+        return wss, os.environ.get("KERNEL_LIVE_URL",""), os.environ.get("KERNEL_SESSION_ID","")
+    cmd = "kernel browsers create --stealth --timeout 600 --start-url https://dispose.lol -o json"
+    env = {**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}
+    out = subprocess.check_output(cmd, shell=True, env=env, text=True)
+    data = json.loads(out)
+    print(f"LIVE: {data['browser_live_view_url']} | SID: {data['session_id']}", file=sys.stderr)
+    return data["cdp_ws_url"], data["browser_live_view_url"], data["session_id"]
+
+def cleanup_kernel(session_id):
+    try:
+        subprocess.run(f"kernel browsers delete {session_id}", shell=True, env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}, timeout=10, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except: pass
+
+async def run_once():
+    cdp_ws, live_url, session_id = create_kernel_browser()
+    print(f"Connecting to {cdp_ws[:60]}... | LIVE {live_url}", file=sys.stderr)
+    from playwright.async_api import async_playwright
     for k in list(os.environ):
-        if k.lower().endswith('_proxy') or k == 'LD_PRELOAD':
+        if k.lower().endswith('_proxy'):
             os.environ.pop(k, None)
-clear_proxy()
 
-# Kernel WSS from `kernel browsers create -o json` (live view https://prod-jfk-hypeman-7.kernel.sh:8443/browser/live/YJvWIl92K9FW)
-# For fresh runs, generate via: KERNEL_API_KEY=sk_... kernel browsers create -o json | jq .cdp_ws_url
-KERNEL_WSS = os.environ.get("KERNEL_CDP_WS") or "wss://prod-jfk-hypeman-7.kernel.sh:8443/browser/cdp?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4MTk5MDEzNDUsInNlc3Npb24iOnsiaWQiOiJlYjVpY2I5ZTlxd2VlYXdmZjZyY2l5eGMiLCJjZHBQb3J0Ijo5MjIyLCJjZHBXc1BhdGgiOiIiLCJpbnN0YW5jZU5hbWUiOiJicm93c2VyLXByb3h5djMtcHJvZHVjdGlvbi1tdmNna2JwazJhdHV4Nno5MGdzNWF1em51dmRpdThlYTdmcDQiLCJpbnN0YW5jZVV1aWQiOiJsZHQzejB1OHpxdzFjdTNtam1neDNneGwiLCJmcWRuIjoibGR0M3owdTh6cXcxY3UzbWptZ3gzZ3hsLnByb2QtamZrLWh5cGVtYW4tNy5rZXJuZWwuc2giLCJtZXRybyI6InByb2QtamZrLWh5cGVtYW4tNyIsInVzZXJJZCI6InF1NWlpN2V5dWVjbXhidmR4ZjgzZnJxZSIsIm9yZ0lkIjoic2ZqMnRhZHhydmdyeTdybW02ZzRhYnV0Iiwic3RlYWx0aCI6ZmFsc2UsImhlYWRsZXNzIjpmYWxzZSwia2VybmVsSHR0cFNlcnZlclBvcnQiOjQ0NCwidGltZW91dFNlY29uZHMiOjYwLCJjcmVhdGVkQXQiOiIyMDI2LTA5LTAyVDE2OjA5OjA1LjMxMDM2OTE4MVoiLCJpbWFnZSI6Im9ua2VybmVsL2Nocm9taXVtLWhlYWRmdWwtcHJpdmF0ZTo4NjM4MDhiIiwibGl2ZVNsdWciOiJZSnZXSWw5Mks5RlciLCJwcml2YXRlSVAiOiIxNzIuMzAuODQuMTMiLCJtZW1vcnkiOiI4R2lCIiwicmVnaW9uIjoidXMtZWFzdCJ9fQ.m2xn6RPhXB-mB9QtCM0nf0jFVZlrSn6_m8enTFKaO3s"
+    browser = None
+    try:
+        async with async_playwright() as pw:
+            browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
+            ctx = browser.contexts[0]
+            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            if "dispose.lol" not in page.url:
+                await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
+            await page.wait_for_timeout(5000)
+            # Try to generate custom-domain astroai.eu.cc for ZenRows (Gmail blocked as Invalid email)
+            try:
+                # Click Change -> Custom Domain -> Create Email to get astroai.eu.cc
+                await page.evaluate("""() => {
+                    const btn=[...document.querySelectorAll('button')].find(b=>b.innerText.includes('Change'));
+                    if(btn) btn.click();
+                }""")
+                await page.wait_for_timeout(2000)
+                await page.evaluate("""() => {
+                    const b=[...document.querySelectorAll('button')].find(x=>x.innerText.trim()==='Custom Domain');
+                    if(b) b.click();
+                }""")
+                await page.wait_for_timeout(2000)
+                await page.evaluate("""() => {
+                    const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Create Email'));
+                    if(b) b.click();
+                }""")
+                await page.wait_for_timeout(4000)
+            except: pass
+            body = await page.evaluate("() => document.body.innerText")
+            m2 = re.search(r"[a-z0-9._%+-]+@astroai\.eu\.cc", body, re.I)
+            if m2:
+                email = m2.group(0)
+            else:
+                m = re.search(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
+                if not m:
+                    print("No email found", body[:1000], file=sys.stderr)
+                    await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
+                    await browser.close()
+                    cleanup_kernel(session_id)
+                    sys.exit(1)
+                email = m.group(0)
+            password = "Test1234!AbcZ2026"
+            print(f"EMAIL: {email} | PASS: {password}", file=sys.stderr)
+
+            await page.goto("https://app.zenrows.com/register", wait_until="domcontentloaded", timeout=30000)
+            solved = False
+            for i in range(8):
+                await page.wait_for_timeout(5000)
+                title = await page.title()
+                body_snip = await page.evaluate("() => document.body.innerText.substring(0,1200)")
+                if "Sign Up" in title and "Create a ZenRows account" in body_snip:
+                    solved = True
+                    print(f"CF solved attempt {i} title={title}", file=sys.stderr)
+                    break
+                if i == 3:
+                    print("CF reload...", file=sys.stderr)
+                    await page.reload(wait_until="domcontentloaded")
+            if not solved:
+                btxt = await page.evaluate("() => document.body.innerText")
+                print(f"CF not solved, title={await page.title()} body={btxt[:500]}", file=sys.stderr)
+                await page.screenshot(path="/tmp/zen_cf_failed.png", full_page=True)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
+
+            await page.wait_for_selector("#email", timeout=15000)
+            await page.fill("#email", email)
+            await page.wait_for_timeout(800)
+            await page.fill("#password", password)
+            await page.wait_for_timeout(800)
+            await page.click('button:has-text("Create account")')
+            await page.wait_for_timeout(9000)
+            url = page.url
+            print(f"After Create URL: {url}", file=sys.stderr)
+            content = await page.content()
+            if "email/verify" not in url and "verify" not in content.lower():
+                print(f"Register failed, url={url} {content[:2000]}", file=sys.stderr)
+                await page.screenshot(path="/tmp/zen_register_failed.png", full_page=True)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
+            print("Registered → email/verify, polling dispose.lol...", file=sys.stderr)
+
+            await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
+            await page.wait_for_timeout(4000)
+            found = False
+            for i in range(20):
+                body = await page.evaluate("() => document.body.innerText")
+                if "verify@e.zenrows.com" in body or "Verify your email to activate" in body:
+                    await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')?.includes('Verify your email')); if(b) b.click(); }")
+                    await page.wait_for_timeout(3000)
+                    found = True
+                    break
+                await page.evaluate("() => { const r=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Refresh')); if(r) r.click(); }")
+                await page.wait_for_timeout(3000)
+                print(f"Poll dispose {i} waiting...", file=sys.stderr)
+                if i == 8:
+                    print("No email after 8 polls, trying Resend...", file=sys.stderr)
+                    await page.goto("https://app.zenrows.com/email/verify", wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(3000)
+                    await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Resend')); if(b) b.click(); }")
+                    await page.wait_for_timeout(5000)
+                    print("Resent, back to dispose", file=sys.stderr)
+                    await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(4000)
+            if not found:
+                print("No verification email after 20 polls", file=sys.stderr)
+                await page.screenshot(path="/tmp/zen_no_email.png", full_page=True)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
+
+            srcdoc = await page.evaluate("() => document.querySelector('iframe')?.getAttribute('srcdoc') || ''")
+            if not srcdoc:
+                print("No iframe srcdoc", file=sys.stderr)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
+            verify_links = await page.evaluate("""(sd) => {
+                const p = new DOMParser();
+                const d = p.parseFromString(sd, "text/html");
+                return Array.from(d.querySelectorAll("a")).map(a=> ({ href: a.getAttribute("href"), text: (a.innerText||"").trim() }));
+            }""", srcdoc)
+            print(f"Links in srcdoc: {verify_links}", file=sys.stderr)
+            verify_url = None
+            for link in verify_links:
+                if link["text"] == "Verify email" or "Verify" in link["text"]:
+                    if link["href"] and "url4722" in link["href"]:
+                        verify_url = link["href"]
+                        break
+            if not verify_url:
+                for link in verify_links:
+                    if link["href"] and "url4722" in link["href"]:
+                        verify_url = link["href"]
+                        break
+            if not verify_url:
+                print(f"No verify_url found links={verify_links}", file=sys.stderr)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
+            print(f"VERIFY_URL: {verify_url[:120]}...", file=sys.stderr)
+
+            await page.goto(verify_url, wait_until="domcontentloaded", timeout=30000)
+            await page.wait_for_timeout(8000)
+            url = page.url
+            print(f"After verify URL: {url}", file=sys.stderr)
+            if "overview" not in url:
+                print(f"Not overview, trying alternative verification link", file=sys.stderr)
+                alt = None
+                for link in verify_links:
+                    if link["href"] != verify_url and "url4722" in (link["href"] or ""):
+                        alt = link["href"]
+                        break
+                if alt:
+                    print(f"ALT {alt[:120]}", file=sys.stderr)
+                    await page.goto(alt, wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(8000)
+                    url = page.url
+                    print(f"After alt URL: {url}", file=sys.stderr)
+
+            if "app.zenrows.com/overview" not in url and "overview" not in url:
+                await page.goto("https://app.zenrows.com/overview", wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(5000)
+                url = page.url
+                print(f"After overview goto URL: {url}", file=sys.stderr)
+
+            content = await page.content()
+            body_text = await page.evaluate("() => document.body.innerText")
+            m = re.search(r"zenrows login --api-key ([a-f0-9]{32,})", content) or re.search(r"zenrows login --api-key ([a-f0-9]{32,})", body_text) or re.search(r"[a-f0-9]{32,}", content)
+            if not m:
+                print(f"No API key found at {url} body={body_text[:2000]}", file=sys.stderr)
+                await page.screenshot(path="/tmp/zen_no_apikey.png", full_page=True)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
+            api_key = m.group(1) if m.groups() else m.group(0)
+            print(f"SUCCESS {email} / {password} / {api_key} → {url}", file=sys.stderr)
+            result = {"email": email, "password": password, "api_key": api_key, "url": url, "live_url": live_url, "session_id": session_id}
+            print(json.dumps(result, indent=2))
+            with open("/tmp/zen_kernel_account.txt","w") as f:
+                f.write(f"EMAIL={email}\nPASSWORD={password}\nAPI_KEY={api_key}\nURL={url}\nLIVE={live_url}\nSID={session_id}\n")
+            await page.screenshot(path="/tmp/zen_verified.png", full_page=True)
+            print(f"Saved /tmp/zen_kernel_account.txt and /tmp/zen_verified.png", file=sys.stderr)
+            await browser.close()
+            cleanup_kernel(session_id)
+            return result
+    except SystemExit:
+        # already cleaned, re-raise
+        raise
+    except Exception as e:
+        print(f"run_once exception {e}", file=sys.stderr)
+        import traceback; traceback.print_exc()
+        try:
+            if browser:
+                await browser.close()
+        except: pass
+        cleanup_kernel(session_id)
+        raise
 
 async def main():
-    # Generate dispose.lol custom via API is hard; use random astroai.eu.cc and poll via browser
-    email = f"test{random.randint(10000,99999)}@astroai.eu.cc"
-    password = email + "K01Aa1!"
-    print(f"Trying {email} / {password}", file=sys.stderr)
-    from playwright.async_api import async_playwright
-    async with async_playwright() as pw:
-        browser = await pw.chromium.connect_over_cdp(KERNEL_WSS, timeout=30000)
-        ctx = await browser.new_context()
-        await ctx.add_init_script("window.__nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;")
-        page = await ctx.new_page()
-        await page.goto("https://app.zenrows.com/register", timeout=30000)
-        await page.wait_for_timeout(4000)
-        await page.screenshot(path="/tmp/zen_kernel_register.png", full_page=True)
-        print("Screenshot /tmp/zen_kernel_register.png", file=sys.stderr)
-        # Fill via nativeSetter
-        res = await page.evaluate("""(args) => {
-            const [email, pw] = args;
-            const e=document.querySelector('input[type="email"]');
-            const p=document.querySelector('input[type="password"]');
-            try{
-                window.__nativeSetter.call(e, email); e.dispatchEvent(new Event('input',{bubbles:true}));
-                window.__nativeSetter.call(p, pw); p.dispatchEvent(new Event('input',{bubbles:true}));
-                return `ok email ${e.value.length} pw ${p.value.length}`;
-            }catch(err){ return 'throw '+err.message }
-        }""", [email, password])
-        print(f"Fill {res}", file=sys.stderr)
-        await page.screenshot(path="/tmp/zen_kernel_filled.png", full_page=True)
-        await page.locator('button:has-text("Create account")').click()
-        print("Clicked Create", file=sys.stderr)
-        await page.wait_for_timeout(8000)
-        await page.screenshot(path="/tmp/zen_kernel_after.png", full_page=True)
-        print(f"URL {page.url}", file=sys.stderr)
-        content = await page.content()
-        if "verify" in content.lower():
-            print("SUCCESS email/verify", file=sys.stderr)
-        print(content[:3000], file=sys.stderr)
-        # Poll dispose.lol via same browser
-        print("Polling dispose.lol for ZenRows link...", file=sys.stderr)
-        await page.goto("https://dispose.lol", timeout=20000)
-        await page.wait_for_timeout(5000)
-        for i in range(20):
-            has = await page.evaluate("() => document.body.innerText.toLowerCase().includes('zenrows')")
-            print(f"Poll {i} has ZenRows {has}", file=sys.stderr)
-            if has:
-                link = await page.evaluate("""() => {
-                    const html=document.documentElement.innerHTML;
-                    const m=html.match(/https:\\/\\/app\\.zenrows\\.com[^"'\\s]*/);
-                    return m ? m[0] : '';
-                }""")
-                if link:
-                    print(f"LINK {link[:400]}", file=sys.stderr)
-                    await page.goto(link, timeout=20000)
-                    await page.wait_for_timeout(4000)
-                    await page.screenshot(path="/tmp/zen_kernel_verified.png", full_page=True)
-                    print("Verified /tmp/zen_kernel_verified.png", file=sys.stderr)
-                    # Try to find API key
-                    html2 = await page.content()
-                    m2 = re.search(r"[a-f0-9]{32}", html2)
-                    if m2:
-                        print(f"API key {m2.group(0)}", file=sys.stderr)
-                    with open("/tmp/zen_kernel_account.txt","w") as f:
-                        f.write(f"{email}\n{password}\n{link}\n")
-                    await browser.close()
-                    return
-            await page.wait_for_timeout(5000)
-            await page.reload()
-            await page.wait_for_timeout(3000)
-        print("No link found", file=sys.stderr)
-        await browser.close()
+    for attempt in range(5):
+        try:
+            result = await run_once()
+            print(f"SUCCESS on attempt {attempt+1}", file=sys.stderr)
+            return
+        except SystemExit as e:
+            if e.code != 0:
+                print(f"Attempt {attempt+1} failed with exit {e.code}, retrying with fresh browser...", file=sys.stderr)
+                await asyncio.sleep(5)
+                continue
+            else:
+                return
+        except Exception as e:
+            print(f"Attempt {attempt+1} exception {e}, retrying...", file=sys.stderr)
+            await asyncio.sleep(5)
+            continue
+    print("All 5 attempts failed", file=sys.stderr)
+    sys.exit(1)
 
 if __name__ == "__main__":
     asyncio.run(main())

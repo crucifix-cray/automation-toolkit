@@ -1199,7 +1199,8 @@ async def request_login(page: Page, email: str) -> str:
     submitted = False
     for _ in range(10):
         try:
-            btn = page.locator('#email-login-button')
+            # locale-agnostic: BD gives Spanish "Continuar", raw gives "Continue"
+            btn = page.locator('#email-login-button, button:has-text("Continue"), button:has-text("Continuar"), button[type="submit"]:has-text("Continue"), button[type="submit"]:has-text("Continuar")').first
             if await btn.count():
                 try:
                     await btn.click(timeout=5000, force=True)
@@ -1207,13 +1208,16 @@ async def request_login(page: Page, email: str) -> str:
                     await btn.dispatch_event("click")
                 submitted = True
                 break
-            btn2 = page.get_by_role("button", name="Continue", exact=True).last
-            if await btn2.count():
-                try:
-                    await btn2.click(timeout=5000, force=True)
-                except Exception:
-                    await btn2.dispatch_event("click")
-                submitted = True
+            for name in ("Continue", "Continuar"):
+                btn2 = page.get_by_role("button", name=name, exact=True).last
+                if await btn2.count():
+                    try:
+                        await btn2.click(timeout=5000, force=True)
+                    except Exception:
+                        await btn2.dispatch_event("click")
+                    submitted = True
+                    break
+            if submitted:
                 break
         except Exception:
             pass
@@ -1225,11 +1229,17 @@ async def request_login(page: Page, email: str) -> str:
             await page.screenshot(path="/tmp/lov-no-submit.png", full_page=True)
             print("DEBUG screenshot /tmp/lov-no-submit.png", file=sys.stderr)
         except: pass
-        # Last resort: dispatch a raw DOM click on whatever Continue control exists
+        # Last resort: locale-agnostic
         try:
-            await page.get_by_role("button", name="Continue", exact=True).last.dispatch_event("click")
-        except Exception:
-            await click_exact(page, "Continue")
+            for n in ("Continue", "Continuar"):
+                try:
+                    await page.get_by_role("button", name=n, exact=True).last.dispatch_event("click")
+                    break
+                except: continue
+        except:
+            try: await click_exact(page, "Continue")
+            except:
+                await click_exact(page, "Continuar")
     
     deadline = asyncio.get_running_loop().time() + 25
     while asyncio.get_running_loop().time() < deadline:
@@ -1280,10 +1290,44 @@ async def do_password_reset(page: Page, email: str) -> None:
 
 
 async def human_type(locator, text: str) -> None:
-    """Type text with human-like delays (InvisiblePlaywright already humanizes, but add extra realism)."""
-    await locator.click()  # Focus first
-    await asyncio.sleep(0.1)
-    await locator.type(text, delay=random.randint(50, 150))  # 50-150ms between keystrokes
+    """JS fill for BD — bypasses Playwright actionability (type timeout)."""
+    # Try page-level JS (most reliable, no locator actionability)
+    for sel in ['input[type="password"]', 'input#password', 'input[name="password"]']:
+        try:
+            page = getattr(locator, "page", None)
+            if page is None:
+                try: page = locator._page  # fallback
+                except: page = None
+            if page:
+                await page.evaluate("""(args) => {
+                    const [sel, val] = args;
+                    const el = document.querySelector(sel);
+                    if(!el) return;
+                    el.focus();
+                    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    setter.call(el, val);
+                    el.dispatchEvent(new Event('input', {bubbles:true}));
+                    el.dispatchEvent(new Event('change', {bubbles:true}));
+                    el.dispatchEvent(new KeyboardEvent('keyup', {bubbles:true}));
+                    el.dispatchEvent(new KeyboardEvent('keydown', {bubbles:true}));
+                }""", [sel, text])
+                # short wait for React to sync
+                await page.wait_for_timeout(400)
+                # verify quickly via JS, not locator.input_value (which may timeout)
+                cur = await page.evaluate("(sel) => document.querySelector(sel)?.value || ''", sel)
+                if cur == text:
+                    return
+        except: pass
+    # Fallback locator evaluate
+    try:
+        await locator.evaluate("(el, val) => { el.value = val; el.dispatchEvent(new Event('input', {bubbles:true})); }", text)
+        return
+    except: pass
+    try:
+        await locator.fill(text, timeout=4000)
+        return
+    except: pass
+    await locator.type(text, delay=random.randint(40, 120))
 
 
 async def handle_turnstile_for_dispose(page: Page) -> None:
@@ -2058,34 +2102,24 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
         print("💡 To use WARP: ensure wireproxy running on 127.0.0.1:40000", file=sys.stderr)
         print("💡 Then run: PROXY_PORT=40000 python3 -u ... --dispose", file=sys.stderr)
     
-    # Launch browser — Patchright (navigator.webdriver=false natively, Turnstile bypass)
-    _browser_ctx = None
-    _pw_ctx = None
-    if use_dispose:
-        print("🦊 Dispose mode: Patchright Chromium headed (Turnstile native bypass)", file=sys.stderr)
-        from patchright.async_api import async_playwright as _pw
-        _pw_ctx = _pw()
+    # BD Browser Cloud via WSS (for Browser-Use MCP combo) — residential IP, no WARP needed
+    brd_wss = os.getenv("BRD_WSS") or os.getenv("BRD_BROWSER_WSS") or os.getenv("BROWSER_USE_CDP_WS") or os.getenv("BU_CDP_WS") or cdp_url
+    if brd_wss and "brd.superproxy.io" in brd_wss:
+        import uuid as _uuid
+        if "sessionId" not in brd_wss:
+            brd_wss = f"{brd_wss}{'&' if '?' in brd_wss else '?'}sessionId={_uuid.uuid4()}"
+        print(f"🌐 BD Browser Cloud {brd_wss[:90]}... (residential)", file=sys.stderr)
+        from playwright.async_api import async_playwright as _pw_bd
+        _pw_ctx = _pw_bd()
         _pw_enter = await _pw_ctx.__aenter__()
-        browser = await _pw_enter.chromium.launch(
-            channel="chrome",  # Use real Chrome, not chromium
-            headless=False, 
-            proxy=playwright_proxy, 
-            args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-blink-features=AutomationControlled",
-                "--disable-features=IsolateOrigins,site-per-process",
-                "--disable-site-isolation-trials"
-            ]
-        )
+        browser = await _pw_enter.chromium.connect_over_cdp(brd_wss, timeout=60000)
         _browser_ctx = _pw_enter
+        print(f"✅ BD Browser Cloud connected", file=sys.stderr)
     else:
-        if CAMOUFOX_AVAILABLE and os.environ.get("USE_CAMOUFOX") == "1":
-            from camoufox.async_api import AsyncCamoufox
-            _browser_ctx = AsyncCamoufox(headless=False, proxy=playwright_proxy, humanize=True)
-            browser = await _browser_ctx.__aenter__()
-            print("🦊 Camoufox Firefox headed (Turnstile ClickSolver CAMOUFOX)", file=sys.stderr)
-        else:
+        _browser_ctx = None
+        _pw_ctx = None
+        if use_dispose:
+            print("🦊 Dispose mode: Patchright Chromium headed (Turnstile native bypass)", file=sys.stderr)
             from patchright.async_api import async_playwright as _pw
             _pw_ctx = _pw()
             _pw_enter = await _pw_ctx.__aenter__()
@@ -2102,7 +2136,30 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
                 ]
             )
             _browser_ctx = _pw_enter
-            print("🦊 Patchright Chromium headed (Turnstile native bypass)", file=sys.stderr)
+        else:
+            if CAMOUFOX_AVAILABLE and os.environ.get("USE_CAMOUFOX") == "1":
+                from camoufox.async_api import AsyncCamoufox
+                _browser_ctx = AsyncCamoufox(headless=False, proxy=playwright_proxy, humanize=True)
+                browser = await _browser_ctx.__aenter__()
+                print("🦊 Camoufox Firefox headed (Turnstile ClickSolver CAMOUFOX)", file=sys.stderr)
+            else:
+                from patchright.async_api import async_playwright as _pw
+                _pw_ctx = _pw()
+                _pw_enter = await _pw_ctx.__aenter__()
+                browser = await _pw_enter.chromium.launch(
+                    channel="chrome",  # Use real Chrome, not chromium
+                    headless=False, 
+                    proxy=playwright_proxy, 
+                    args=[
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-features=IsolateOrigins,site-per-process",
+                        "--disable-site-isolation-trials"
+                    ]
+                )
+                _browser_ctx = _pw_enter
+                print("🦊 Patchright Chromium headed (Turnstile native bypass)", file=sys.stderr)
     try:
         # Browser launched — context with correct viewport per mode
         print(f"✅ Browser launched ({'Firefox' if use_dispose else 'Chromium'} {'Invisible' if 'Invisible' in type(_browser_ctx).__name__ else 'plain'})", file=sys.stderr)
@@ -2121,20 +2178,22 @@ async def run(cdp_url: str | None, auto_close: bool = False, use_dispose: bool =
                 "locale": "en-US",
                 "timezone_id": "America/New_York",
                 "color_scheme": "light",
-                "extra_http_headers": {
+            }
+            # BD Browser Cloud forbids overriding Sec-Ch-Ua headers (403)
+            if not (brd_wss and "brd.superproxy.io" in brd_wss):
+                ctx_kwargs["extra_http_headers"] = {
                     "Accept-Language": "en-US,en;q=0.9",
                     "Sec-Ch-Ua": '"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"',
                     "Sec-Ch-Ua-Mobile": "?0",
                     "Sec-Ch-Ua-Platform": '"Windows"',
                     "Sec-Ch-Ua-Platform-Version": '"15.0.0"',
                     "Sec-Ch-Ua-Full-Version-List": '"Not;A=Brand";v="99.0.0.0", "Google Chrome";v="139.0.0.0", "Chromium";v="139.0.0.0"',
-                },
-            }
+                }
             if browser.contexts:
                 context = browser.contexts[0]
-                # patch existing context headers
-                try: await context.set_extra_http_headers(ctx_kwargs["extra_http_headers"])
-                except: pass
+                if "extra_http_headers" in ctx_kwargs:
+                    try: await context.set_extra_http_headers(ctx_kwargs["extra_http_headers"])
+                    except: pass
             else:
                 context = await browser.new_context(**ctx_kwargs)
             # NO stealth init_script — Patchright handles navigator.webdriver=false natively
