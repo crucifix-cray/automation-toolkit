@@ -50,12 +50,13 @@ async with async_playwright() as pw:
 
 Same for **Lovable** on `ZenRows` `GB` `wss://browser.zenrows.com?apikey=3a6a9ee...&proxy_country=gb` + `dispose.lol` `genev.aochea@gmail.com`.
 
-## Current Updates
+## Current Updates — 2026-09-03 16:50 UTC
 
 - `2026-09-01 16:40 UTC` **Lovable verified** `genev.aochea@gmail.com` / `GmailK01` on `ZenRows GB` `86.141.244.43` `BT Telford` (healthiest of 5 GF `Orange`/`Mediaserv` + 5 diverse `fr/us/ca/de/gb`).
 - `2026-09-02 12:47 UTC` **ZenRows register via local browser-use** `thomasnhayes@astroai.eu.cc` `astroai.eu.cc` custom `dispose` went to `email/verify` (`bounces@em2457.e.zenrows.com`).
 - `2026-09-03 10:02 UTC` **Kernel Browser** `v91rtfgo817pp3xi479n67in` `prod-jfk-hypeman-10` `us-east` `8GiB` created, `live_view` `https://prod-jfk-hypeman-10.kernel.sh:8443/browser/live/NViODMNSAntU`, `qpt7ne3jajrgfhvtj9g95d5p` `proxy.jfk-peaceful-ramanujan` `stealth` `default` proxy.
-- `2026-09-03 10:05 UTC` **Kernel `Just a moment...` still** on `app.zenrows.com/register` even with `stealth` + `proxy-mode default` (Cloudflare `us-east` flagged) — need `eu-west` (requires Start-Up plan) or `local browser-use` fallback for `ZenRows` self-signup.
+- `2026-09-03 10:05 UTC` **Kernel `Just a moment...` still** on `app.zenrows.com/register` even with `stealth` + `proxy-mode default` (Cloudflare `us-east` flagged) — need `eu-west` (requires Start-Up plan) or `local browser-use` fallback.
+- `2026-09-03 16:50 UTC` **5 tabs parallel + 3min CF wait** `zenrows-kernel-parallel.py` `f94a2c2` → `65a9abb` `FIRST_COMPLETED` (was `84*7min`, now `36*3min` + `5` `refresh` on `Just a moment`/`ERROR_CAPTCHA_UNSOLVABLE`/`Performing security verification` as in your screenshot), `thomasnhayes@astroai.eu.cc` `email/verify` screenshot you sent (`Verify your email to activate your ZenRows Free plan` `marieste.valaka@gmail.com` `Sep 3, 03:52 PM` + `Let's verify your email yorhu.n277@gmail.com` on `app.zenrows.com/email/verify`) stuck on `dispose` poll — fixed to use `temp.tf` Gmail `y.orhu.n.2.77@gmail.com` + `yorhu.n277@gmail.comK01` with fresh `IP` each run (as you asked `fresh IP + new mail` on `422`), and `mail.tm` `emalupe.com` fallback when `dispose` `Quick security check` blocks `astroai` generation.
 
 ## My Part
 
