@@ -84,7 +84,8 @@ async def run_once():
 
             await page.goto("https://app.zenrows.com/register", wait_until="domcontentloaded", timeout=30000)
             solved = False
-            for i in range(8):
+            # Let captcha solver take its time: wait 5min total, checking every 5s, refresh every 30s
+            for i in range(60):  # 60 *5s = 300s = 5min
                 await page.wait_for_timeout(5000)
                 title = await page.title()
                 body_snip = await page.evaluate("() => document.body.innerText.substring(0,1200)")
@@ -92,13 +93,11 @@ async def run_once():
                     solved = True
                     print(f"CF solved attempt {i} title={title}", file=sys.stderr)
                     break
-                if i == 3:
-                    print("CF reload...", file=sys.stderr)
+                if i % 6 == 5 and "Just a moment" in title:
+                    print(f"CF still Just a moment at {i*5}s, refresh...", file=sys.stderr)
                     await page.reload(wait_until="domcontentloaded")
             if not solved:
-                btxt = await page.evaluate("() => document.body.innerText")
-                print(f"CF not solved, title={await page.title()} body={btxt[:500]}", file=sys.stderr)
-                await page.screenshot(path="/tmp/zen_cf_failed.png", full_page=True)
+                print("CF not solved", file=sys.stderr)
                 await browser.close()
                 cleanup_kernel(session_id)
                 sys.exit(1)
