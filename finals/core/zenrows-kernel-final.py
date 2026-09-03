@@ -49,13 +49,24 @@ async def run_once():
             await page.wait_for_timeout(5000)
             body = await page.evaluate("() => document.body.innerText")
             m = re.search(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
-            if not m:
-                print("No email found", body[:1000], file=sys.stderr)
-                await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
-                await browser.close()
-                cleanup_kernel(session_id)
-                sys.exit(1)
-            email = m.group(0)
+            if m:
+                email = m.group(0)
+            else:
+                # Fallback to temp.tf when dispose.lol stuck (as user said)
+                print("No gmail found, falling back to temp.tf", file=sys.stderr)
+                import urllib.request, json
+                for k in list(__import__('os').environ):
+                    if k.lower().endswith('_proxy'):
+                        __import__('os').environ.pop(k,None)
+                with urllib.request.urlopen("https://temp.tf/api/account?dot=1&providers=gmail", timeout=10) as r:
+                    email = json.loads(r.read())['email']
+                print(f"TEMP.TF fallback {email}", file=sys.stderr)
+                if not email:
+                    print("No email found", body[:1000], file=sys.stderr)
+                    await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
+                    await browser.close()
+                    cleanup_kernel(session_id)
+                    sys.exit(1)
             password = "Test1234!AbcZ2026"
             print(f"EMAIL: {email} | PASS: {password}", file=sys.stderr)
 
@@ -126,34 +137,63 @@ async def run_once():
                 cleanup_kernel(session_id)
                 sys.exit(1)
 
+            # Try iframe srcdoc first, then fallback to direct link in dispose UI
             srcdoc = await page.evaluate("() => document.querySelector('iframe')?.getAttribute('srcdoc') || ''")
-            if not srcdoc:
-                print("No iframe srcdoc", file=sys.stderr)
-                await browser.close()
-                cleanup_kernel(session_id)
-                sys.exit(1)
-            verify_links = await page.evaluate("""(sd) => {
-                const p = new DOMParser();
-                const d = p.parseFromString(sd, "text/html");
-                return Array.from(d.querySelectorAll("a")).map(a=> ({ href: a.getAttribute("href"), text: (a.innerText||"").trim() }));
-            }""", srcdoc)
-            print(f"Links in srcdoc: {verify_links}", file=sys.stderr)
+            verify_links = []
+            if srcdoc:
+                verify_links = await page.evaluate("""(sd) => {
+                    const p = new DOMParser();
+                    const d = p.parseFromString(sd, "text/html");
+                    return Array.from(d.querySelectorAll("a")).map(a=> ({ href: a.getAttribute("href"), text: (a.innerText||"").trim() }));
+                }""", srcdoc)
+                print(f"Links in srcdoc: {verify_links}", file=sys.stderr)
+            if not verify_links:
+                # Fallback: look for Verification link directly in dispose UI
+                verify_links = await page.evaluate("""() => {
+                    return Array.from(document.querySelectorAll('a')).map(a=> ({ href: a.getAttribute('href') || a.href, text: (a.innerText||"").trim() })).filter(x=>x.href && (x.href.includes('zenrows') || x.href.includes('url4722') || x.text.includes('Verification')));
+                }""")
+                print(f"Links in dispose UI: {verify_links}", file=sys.stderr)
+                # Also try to find the Verify email button's link
+                btn_link = await page.evaluate("""() => {
+                    const btn=[...document.querySelectorAll('a','button')].find(b=>b.innerText && b.innerText.includes('Verify email'));
+                    if(btn && btn.href) return btn.href;
+                    const a=[...document.querySelectorAll('a')].find(x=>x.innerText.includes('Verification link'));
+                    return a ? (a.href || a.getAttribute('href')) : '';
+                }""")
+                if btn_link and "http" in btn_link:
+                    verify_links.append({"href": btn_link, "text": "Verify email"})
             verify_url = None
             for link in verify_links:
                 if link["text"] == "Verify email" or "Verify" in link["text"]:
-                    if link["href"] and "url4722" in link["href"]:
+                    if link["href"] and ("url4722" in link["href"] or "zenrows" in link["href"]):
                         verify_url = link["href"]
                         break
             if not verify_url:
                 for link in verify_links:
-                    if link["href"] and "url4722" in link["href"]:
+                    if link["href"] and ("url4722" in link["href"] or "zenrows" in link["href"]):
                         verify_url = link["href"]
                         break
             if not verify_url:
-                print(f"No verify_url found links={verify_links}", file=sys.stderr)
-                await browser.close()
-                cleanup_kernel(session_id)
-                sys.exit(1)
+                # Last resort: click the Verify email button directly
+                print(f"No verify_url found, trying to click Verify email button", file=sys.stderr)
+                clicked = await page.evaluate("""() => {
+                    const btn=[...document.querySelectorAll('button')].find(b=>b.innerText.includes('Verify email'));
+                    if(btn){ btn.click(); return 'clicked button'; }
+                    const a=[...document.querySelectorAll('a')].find(x=>x.innerText.includes('Verify email'));
+                    if(a){ a.click(); return 'clicked a '+a.href.slice(0,80); }
+                    return 'not found';
+                }""")
+                print(f"Click result {clicked}", file=sys.stderr)
+                await page.wait_for_timeout(4000)
+                # Check if navigated to verification
+                if "zenrows" in page.url and "verify" in page.url:
+                    verify_url = page.url
+                    print(f"Got verify_url via click: {verify_url[:120]}", file=sys.stderr)
+                else:
+                    print(f"No verify_url found links={verify_links}", file=sys.stderr)
+                    await browser.close()
+                    cleanup_kernel(session_id)
+                    sys.exit(1)
             print(f"VERIFY_URL: {verify_url[:120]}...", file=sys.stderr)
 
             await page.goto(verify_url, wait_until="domcontentloaded", timeout=30000)
