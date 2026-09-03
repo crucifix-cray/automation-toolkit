@@ -47,38 +47,15 @@ async def run_once():
             if "dispose.lol" not in page.url:
                 await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(5000)
-            # Try to generate custom-domain astroai.eu.cc for ZenRows (Gmail blocked as Invalid email)
-            try:
-                # Click Change -> Custom Domain -> Create Email to get astroai.eu.cc
-                await page.evaluate("""() => {
-                    const btn=[...document.querySelectorAll('button')].find(b=>b.innerText.includes('Change'));
-                    if(btn) btn.click();
-                }""")
-                await page.wait_for_timeout(2000)
-                await page.evaluate("""() => {
-                    const b=[...document.querySelectorAll('button')].find(x=>x.innerText.trim()==='Custom Domain');
-                    if(b) b.click();
-                }""")
-                await page.wait_for_timeout(2000)
-                await page.evaluate("""() => {
-                    const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Create Email'));
-                    if(b) b.click();
-                }""")
-                await page.wait_for_timeout(4000)
-            except: pass
             body = await page.evaluate("() => document.body.innerText")
-            m2 = re.search(r"[a-z0-9._%+-]+@astroai\.eu\.cc", body, re.I)
-            if m2:
-                email = m2.group(0)
-            else:
-                m = re.search(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
-                if not m:
-                    print("No email found", body[:1000], file=sys.stderr)
-                    await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
-                    await browser.close()
-                    cleanup_kernel(session_id)
-                    sys.exit(1)
-                email = m.group(0)
+            m = re.search(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
+            if not m:
+                print("No email found", body[:1000], file=sys.stderr)
+                await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
+            email = m.group(0)
             password = "Test1234!AbcZ2026"
             print(f"EMAIL: {email} | PASS: {password}", file=sys.stderr)
 
