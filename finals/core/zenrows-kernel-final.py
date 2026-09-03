@@ -86,15 +86,31 @@ async def run_once():
                     else:
                         raise Exception("no astroai after gen")
                 except Exception as e:
-                    print(f"Custom gen fail {e}, fallback to Gmail", file=sys.stderr)
-                    m = re.search(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
-                    if not m:
-                        print("No email found", body[:1000], file=sys.stderr)
-                        await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
-                        await browser.close()
-                        cleanup_kernel(session_id)
-                        sys.exit(1)
-                    email = m.group(0)
+                    print(f"Custom gen fail {e}, fallback to mail.tm emalupe.com", file=sys.stderr)
+                    try:
+                        import urllib.request, json as _json3
+                        for k in list(__import__('os').environ):
+                            if k.lower().endswith('_proxy'):
+                                __import__('os').environ.pop(k,None)
+                        import random, string
+                        prefix=''.join(random.choices(string.ascii_lowercase, k=8))
+                        addr=f"{prefix}@emalupe.com"
+                        data=_json3.dumps({"address":addr,"password":"Test123!@#"}).encode()
+                        req=urllib.request.Request("https://api.mail.tm/accounts", data=data, headers={"Content-Type":"application/json"}, method="POST")
+                        with urllib.request.urlopen(req, timeout=10) as r:
+                            j=_json3.loads(r.read())
+                            email=j.get('address') or addr
+                        print(f"Generated mail.tm {email}", file=sys.stderr)
+                    except Exception as e2:
+                        print(f"mail.tm fail {e2}, fallback to Gmail", file=sys.stderr)
+                        m = re.search(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
+                        if not m:
+                            print("No email found", body[:1000], file=sys.stderr)
+                            await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
+                            await browser.close()
+                            cleanup_kernel(session_id)
+                            sys.exit(1)
+                        email = m.group(0)
             password = "Test1234!AbcZ2026"
             print(f"EMAIL: {email} | PASS: {password}", file=sys.stderr)
 
