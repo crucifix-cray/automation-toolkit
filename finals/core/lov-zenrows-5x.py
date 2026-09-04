@@ -213,6 +213,7 @@ async def create_22do_email(ctx, handler):
             await pg.evaluate("() => document.querySelector('#mail-random')?.click()")
         await pg.wait_for_timeout(1200)
         if handler_domain=="@gmail.com":
+            # ponytail: for @gmail on 22.do make it short with only one dot (helps Lovable disposable check)
             for _ in range(3):
                 v=(await pg.locator("#mail-input").input_value()).strip()
                 if v.lower().endswith(("@gmail.com","@googlemail.com")): break
@@ -222,6 +223,17 @@ async def create_22do_email(ctx, handler):
             email=(await pg.locator("#mail-input").input_value()).strip()
             if "@" not in email:
                 email=f"{email}{handler_domain}"
+            # normalize: short + only one dot in local part
+            if "@gmail.com" in email.lower():
+                local, dom = email.split("@", 1)
+                # keep only alnum, remove dots, make short (8-10 chars), insert one dot in middle
+                clean = re.sub(r"[^a-z0-9]", "", local.lower())[:10]
+                if len(clean) < 6:
+                    clean = (clean + "test123")[:8]
+                mid = len(clean)//2
+                short_local = clean[:mid] + "." + clean[mid:]
+                email = f"{short_local}@gmail.com"
+                print(f"  → normalized Gmail to short one-dot {email}", flush=True)
         else:
             # read local and dom after random — tolerant to domain mismatch due to GB rotation
             raw_input=(await pg.locator("#mail-input").input_value(timeout=5000)).strip()
