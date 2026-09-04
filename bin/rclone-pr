@@ -1,0 +1,26 @@
+#!/bin/bash
+# rclone-pr — proton ovpn isolated rclone wrapper
+# Ensures vpnns ovpn is up (149.40.62.31) with warp disabled, then runs rclone inside vpnns
+set -e
+TUNNEL_DIR="/home/alae/.vpn-tunnel"
+NS="vpnns"
+# Check if ovpn tun1 is up inside vpnns
+if ! sudo ip netns exec "$NS" ip link show tun1 >/dev/null 2>&1; then
+  echo "[rclone-pr] ovpn down, starting --no-warp..." >&2
+  sudo bash "$TUNNEL_DIR/start-tunnel.sh" --no-warp >/tmp/rclone-pr-ovpn.log 2>&1 &
+  # Wait for tun1
+  for i in $(seq 1 30); do
+    if sudo ip netns exec "$NS" ip link show tun1 >/dev/null 2>&1; then
+      echo "[rclone-pr] ovpn up after ${i}s" >&2
+      break
+    fi
+    sleep 1
+  done
+  if ! sudo ip netns exec "$NS" ip link show tun1 >/dev/null 2>&1; then
+    echo "[rclone-pr] ovpn failed to start, see /tmp/ovpn-ns.log" >&2
+    exit 1
+  fi
+  sleep 2
+fi
+# Run rclone inside vpnns as alae, with GODEBUG for MEGA TLS_RSA fix and LD_PRELOAD bypass for tor wrapper
+exec sudo ip netns exec "$NS" sudo -u alae env GODEBUG=tlsrsakex=1 LD_PRELOAD='' rclone "$@"
