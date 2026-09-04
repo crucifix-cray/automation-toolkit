@@ -1,11 +1,7 @@
-# WARP Proxy Setup
+# WARP Proxy Setup — [DEPRECATED 2026-09-04] Railway-Only Uses Remote CDP
 
-> ⚠️ **OUTDATED BELOW (pre-2026-08-24).** The "SOCKS4 for API" note is wrong: the
-> TempMailHub API host (`api.tempmailhub.org`) is **IPv6-only** and is reachable **only via
-> Tor** (`127.0.0.1:9050` / `9251`), not via WARP at all. The current architecture is a
-> `warp-1` netns with microsocks at `10.200.1.2:40001` (see "Current reality" at the bottom).
-> Also: WARP egress IPs are **Cloudflare-flagged** → Lovable signup button stays disabled; use
-> ProtonVPN egress (netns `default dev tun0`) instead. See `opencode backups/SESSION.md`.
+> ⚠️ **DEPRECATED 2026-09-04 — DO NOT USE.** This doc preserved for history. New farm is **Railway-only** with **remote browsers** `ZenRows GB/GF + OnKernel + BrightData` (`wss://browser.zenrows.com` / `kernel browsers create` / `wss://brd.superproxy.io:9222`) + `LD_PRELOAD=""` raw IP. WARP netns `warp-1 10.200.1.2:40001`, `warp-cli mode proxy 40000`, and Tor `9251` are **removed**. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) and [`SCALING-PLAN.md`](./SCALING-PLAN.md).
+> Previous outdated note (pre-2026-08-24): `api.tempmailhub.org` IPv6-only via Tor `9050` — now replaced by `dispose.lol` Gmail via ZenRows CDP.
 
 The browser automation routes its traffic through Cloudflare WARP as a SOCKS proxy so requests egress from a Cloudflare WARP IP **without affecting your system's network**.
 
