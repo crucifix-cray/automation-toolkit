@@ -184,14 +184,45 @@ async def run_once():
             await page.wait_for_timeout(random.randint(250, 600))
             await page.mouse.wheel(0, random.randint(40, 120))
             await page.wait_for_timeout(random.randint(250, 500))
-            await page.click("#email", timeout=5000)
-            await page.wait_for_timeout(random.randint(200, 450))
-            await page.type("#email", email, delay=random.randint(45, 120))
+            async def _human_fill(sel, val):
+                for _att in range(3):
+                    try:
+                        await page.click(sel, timeout=5000)
+                    except Exception:
+                        pass
+                    await page.wait_for_timeout(random.randint(200, 450))
+                    try:
+                        await page.fill(sel, "")
+                    except Exception:
+                        pass
+                    await page.type(sel, val, delay=random.randint(45, 120))
+                    await page.wait_for_timeout(400)
+                    try:
+                        cur = await page.input_value(sel, timeout=3000)
+                    except Exception:
+                        cur = ""
+                    if cur == val:
+                        return True
+                    print(f"fill {sel} mismatch (try {_att+1}): got {cur[:30]!r}", file=sys.stderr)
+                try:
+                    await page.fill(sel, val)
+                    await page.wait_for_timeout(400)
+                    return (await page.input_value(sel, timeout=3000)) == val
+                except Exception as _fe:
+                    print(f"fill {sel} fallback err {_fe}", file=sys.stderr)
+                    return False
+            if not await _human_fill("#email", email):
+                print("EMAIL fill failed -> fresh run", file=sys.stderr)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
             await page.wait_for_timeout(random.randint(500, 1100))
             await page.mouse.move(random.randint(300, 700), random.randint(350, 550))
-            await page.click("#password", timeout=5000)
-            await page.wait_for_timeout(random.randint(200, 450))
-            await page.type("#password", password, delay=random.randint(45, 120))
+            if not await _human_fill("#password", password):
+                print("PASSWORD fill failed -> fresh run", file=sys.stderr)
+                await browser.close()
+                cleanup_kernel(session_id)
+                sys.exit(1)
             await page.wait_for_timeout(random.randint(600, 1300))
             _btn = page.locator('button:has-text("Create account")').first
             try:
