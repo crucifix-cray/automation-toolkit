@@ -49,10 +49,11 @@ def _gh_repo_slug() -> str:
         capture_output=True, text=True, cwd=str(REPO_ROOT),
     ).stdout.strip()
     out = out.split("@")[-1]  # drop user:token@ if present
-    if out.startswith("http"):
-        out = out.split("github.com/")[-1]
-    elif out.startswith("git@github.com:"):
-        out = out.split("git@github.com:")[-1]
+    for prefix in ("https://github.com/", "http://github.com/",
+                   "github.com/", "git@github.com:"):
+        if out.startswith(prefix):
+            out = out[len(prefix):]
+            break
     return out[:-4] if out.endswith(".git") else out
 
 
