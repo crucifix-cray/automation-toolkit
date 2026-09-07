@@ -456,26 +456,22 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
     print("🤖 Turnstile: waiting/checking (max 15 tries, token>20, button enabled)…", file=sys.stderr)
 
     # Quick path: wait up to 12s for auto-Success! (GB does 2-4s). Check token each second.
+    # Batched single evaluate per tick: cloud CDP round-trips are slow (88s observed
+    # for 12 ticks with 3-4 calls each) and sessions die ~3min after creation.
     for sec in range(12):
-        tok = await page.evaluate("""() => document.querySelector('input[name="cf-turnstile-response"]')?.value?.length || 0""")  # type: ignore
-        txt = await body_text(page)
+        try:
+            state = await page.evaluate("""() => { const i=document.querySelector('input[name="cf-turnstile-response"]');
+                const b=document.querySelector('[data-testid="auth-submit-button"]');
+                return {tok: i?.value?.length||0, en: b ? !b.disabled : false,
+                        txt: document.body ? document.body.innerText.slice(0,2000) : ''}; }""")  # type: ignore
+        except Exception as e:
+            print(f"  ⚠️ quick-path evaluate failed (sec {sec}): {str(e)[:100]}", file=sys.stderr)
+            await page.wait_for_timeout(1000)
+            continue
+        tok, txt = state["tok"], state["txt"]
+        is_enabled = state["en"]
         # Success! green text appears alongside token; button enables
         btn = page.locator('[data-testid="auth-submit-button"]').last
-        is_enabled = False
-        try:
-            if await btn.count():
-                # Both locales: Créez votre compte / Create your account — same testid
-                is_enabled = not await btn.is_disabled()  # type: ignore
-            else:
-                fb = page.get_by_role("button", name="Create your account", exact=True)
-                if await fb.count():
-                    is_enabled = not await fb.is_disabled()  # type: ignore
-                else:
-                    fb2 = page.get_by_role("button", name="Créez votre compte", exact=True)
-                    if await fb2.count():
-                        is_enabled = not await fb2.is_disabled()  # type: ignore
-        except Exception:
-            pass
         # Token 837-858 on GB; spec says >20
         if tok and tok > 20 and is_enabled:
             print(f"  ✅ Turnstile auto-Success! token={tok} button=enabled (after {sec}s, no click needed)", file=sys.stderr)
