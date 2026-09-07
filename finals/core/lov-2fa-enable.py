@@ -200,12 +200,23 @@ async def main():
     results, owned_sids, _lock = [], [], _aio.Lock()
 
     async def _worker(wid, pw):
+        import random as _rnd
+        await _aio.sleep(wid * 8)  # stagger creates; org cap is 5 concurrent
         cdp_ws, sid = None, None
         try:
             if os.environ.get("KERNEL_CDP_WS"):
                 cdp_ws = os.environ["KERNEL_CDP_WS"]
             else:
-                cdp_ws, sid = await _aio.to_thread(_new_browser)
+                for _try in range(6):  # slot may be full; wait and retry
+                    try:
+                        cdp_ws, sid = await _aio.to_thread(_new_browser)
+                        break
+                    except Exception as e:
+                        print(f"[w{wid}] browser create try {_try}: {str(e)[:120]}", flush=True)
+                        await _aio.sleep(20 + _rnd.randint(0, 10))
+                else:
+                    results.append({"worker": wid, "success": False, "reason": "no browser slot after retries"})
+                    return
                 async with _lock:
                     owned_sids.append(sid)
             browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
@@ -259,6 +270,15 @@ async def main():
                 pass
         finally:
             pass
+
+    try:  # pre-cleanup stale browsers so 5 workers fit under org cap
+        _ls = subprocess.check_output(["kernel", "browsers", "list", "-o", "json"],
+            env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}, text=True, timeout=30)
+        for _b in json.loads(_ls):
+            _del_browser(_b.get("session_id"))
+            print(f"cleaned stale {_b.get('session_id')}", flush=True)
+    except Exception as e:
+        print(f"pre-cleanup warn {e}", flush=True)
 
     from playwright.async_api import async_playwright
     try:
