@@ -269,7 +269,12 @@ async def run_once():
                 cleanup_kernel(session_id)
                 sys.exit(1)
             if "email/verify" not in url and "verify" not in content.lower():
-                print(f"Register failed, url={url} {content[:2000]}", file=sys.stderr)
+                try:
+                    _bt = (await page.evaluate("() => document.body.innerText")).replace("\n", " ")
+                    print(f"Register failed body: {_bt[:500]}", file=sys.stderr)
+                except Exception:
+                    pass
+                print(f"Register failed, url={url}", file=sys.stderr)
                 await page.screenshot(path="/tmp/zen_register_failed.png", full_page=True)
                 await browser.close()
                 cleanup_kernel(session_id)
@@ -278,7 +283,9 @@ async def run_once():
             # Poll correct inbox: 22.do for 22do mails, temp.tf for dispose @gmail.com, dispose.lol for custom
             is_gmail = email.lower().endswith("@gmail.com")
             print(f"Email {email} is_gmail {is_gmail} src {email_source}", file=sys.stderr)
-            found = False
+            found22 = False
+            found_tf = False
+            found_dispose = False
             if email_source == "22do":
                 # Poll 22.do inbox in-browser (same kernel session, second tab)
                 import re as _re22, html as _html22
@@ -379,11 +386,11 @@ async def run_once():
                                     verify_url2 = _uniq22[0]
                                     print(f"FOUND LINK via 22.do {verify_url2[:200]}", file=sys.stderr)
                                     await page.evaluate("(urls) => { window.__verifyUrl = urls[0]; window.__verifyUrls = urls; }", _uniq22)
-                                    found = True
+                                    found22 = True
                                     break
-                        if found:
+                        if found22:
                             break
-                    if i == 8 and not found:
+                    if i == 8 and not found22:
                         print("No 22.do mail after 8 polls, Resend...", file=sys.stderr)
                         try:
                             await page.goto("https://app.zenrows.com/email/verify", wait_until="domcontentloaded", timeout=30000)
@@ -446,9 +453,11 @@ async def run_once():
                         await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Resend')); if(b) b.click(); }")
                         await page.wait_for_timeout(5000)
                         print("Resent", file=sys.stderr)
-                # For Gmail, we already have verify_url via window.__verifyUrl, skip dispose polling
-                if found_tf and email.lower().endswith("@gmail.com"):
+                # Skip dispose polling when 22.do already found the link (found22)
+                # or temp.tf found it for a Gmail (found_tf). Otherwise poll dispose.
+                if (found22 or found_tf) and email.lower().endswith("@gmail.com"):
                     # Skip dispose polling, use the found link
+                    print(f"Skip dispose poll (found22={found22} found_tf={found_tf})", file=sys.stderr)
                     pass
                 else:
                     # Poll dispose.lol in SECOND TAB (page stays parked on email/verify)
@@ -479,14 +488,14 @@ async def run_once():
                                 verify_url2 = _htmld.unescape(mD.group(0)).replace("&amp;", "&")
                                 print(f"FOUND LINK via dispose {verify_url2[:200]}", file=sys.stderr)
                                 await page.evaluate("(url) => { window.__verifyUrl = url; }", verify_url2)
-                                found = True
+                                found_dispose = True
                                 break
                         try:
                             await pgD.evaluate("() => { const r=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Refresh')); if(r) r.click(); }")
                         except Exception:
                             pass
                         await pgD.wait_for_timeout(3000)
-                        if i == 8 and not found:
+                        if i == 8 and not found_dispose:
                             print("No email after 8 polls, Resend via verify tab...", file=sys.stderr)
                             try:
                                 await page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Resend')); if(b) b.click(); }")
@@ -503,7 +512,7 @@ async def run_once():
                         await pgD.close()
                     except Exception:
                         pass
-            if not found:
+            if not (found22 or found_tf or found_dispose):
                 print("No verification email after 20 polls", file=sys.stderr)
                 await page.screenshot(path="/tmp/zen_no_email.png", full_page=True)
                 await browser.close()
@@ -664,9 +673,9 @@ async def run_once():
                 f.write(f"EMAIL={email}\nPASSWORD={password}\nAPI_KEY={api_key}\nURL={url}\nLIVE={live_url}\nSID={session_id}\n")
             await page.screenshot(path="/tmp/zen_verified.png", full_page=True)
             print(f"Saved /tmp/zen_kernel_account.txt and /tmp/zen_verified.png", file=sys.stderr)
-            print(f"Browser kept open for manual inspection: {live_url} (session {session_id}) — sleeping 10min", file=sys.stderr)
-            # Keep browser open as requested
-            await asyncio.sleep(600)
+            if os.environ.get("ZEN_KEEP_OPEN", "0") == "1":
+                print(f"Browser kept open for manual inspection: {live_url} (session {session_id}) — sleeping 10min", file=sys.stderr)
+                await asyncio.sleep(600)
             await browser.close()
             cleanup_kernel(session_id)
             return result
