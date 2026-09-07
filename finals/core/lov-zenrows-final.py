@@ -299,7 +299,9 @@ async def run_signup(args, run_attempt=1):
         "5afd422125c5fd5c75efe3da015689da3c7a3a80"
     ]
     countries = ["gb", "gf"]
-    key = zenrows_keys[(run_attempt - 1) % len(zenrows_keys)]
+    import os as _oskey
+    _envkey = _oskey.environ.get("ZENROWS_KEY", "").strip()
+    key = _envkey or zenrows_keys[(run_attempt - 1) % len(zenrows_keys)]
     proxy_country = countries[(run_attempt - 1) % len(countries)]
     zenrows_wss_url = f"wss://browser.zenrows.com?apikey={key}&proxy_country={proxy_country}"
 
