@@ -340,9 +340,20 @@ async def run_once():
                                         except Exception as _ce:
                                             print(f"22.do content url err {_ce}", file=sys.stderr)
                                 if m22:
-                                    verify_url2 = _html22.unescape(m22.group(0)).replace("&amp;", "&")
+                                    # mail holds TWO distinct tracking URLs (button +
+                                    # Verification link) — keep them all, deduped
+                                    _all22 = _re22.findall(r"https?://[^\s'\"<>]+(?:zenrows\.com|url4722)[^\s'\"<>]*", html22)
+                                    _uniq22 = []
+                                    for _u in _all22:
+                                        _u = _html22.unescape(_u).replace("&amp;", "&")
+                                        if _u not in _uniq22:
+                                            _uniq22.append(_u)
+                                    print(f"FOUND {len(_uniq22)} LINK(s) via 22.do", file=sys.stderr)
+                                    for _u in _uniq22:
+                                        print(f"  LINK {_u[:160]}", file=sys.stderr)
+                                    verify_url2 = _uniq22[0]
                                     print(f"FOUND LINK via 22.do {verify_url2[:200]}", file=sys.stderr)
-                                    await page.evaluate("(url) => { window.__verifyUrl = url; }", verify_url2)
+                                    await page.evaluate("(urls) => { window.__verifyUrl = urls[0]; window.__verifyUrls = urls; }", _uniq22)
                                     found = True
                                     break
                         if found:
@@ -479,6 +490,14 @@ async def run_once():
             if verify_url:
                 print(f"Using window.__verifyUrl {verify_url[:80]}", file=sys.stderr)
                 verify_links = []
+                try:
+                    _extra = await page.evaluate("() => window.__verifyUrls || []")
+                    for _u in _extra[1:]:
+                        verify_links.append({"href": _u, "text": "Verification link"})
+                    if _extra[1:]:
+                        print(f"Extra candidates from mail: {len(_extra)-1}", file=sys.stderr)
+                except Exception:
+                    pass
             else:
                 # Try iframe srcdoc first, then fallback to direct link in dispose UI
                 srcdoc = await page.evaluate("() => document.querySelector('iframe')?.getAttribute('srcdoc') || ''")
@@ -543,9 +562,11 @@ async def run_once():
             # The mail carries TWO distinct tracking URLs (Verify email button
             # href != Verification link href). Try every url4722 candidate in
             # order until one lands on overview (not the www homepage).
+            # Candidates must be url4722 tracking links ONLY — never mailto:,
+            # logout, or www homepage links scraped from the inbox UI.
             _cands = []
             for _l in [verify_url] + [l.get("href") for l in verify_links if l.get("href")]:
-                if _l and _l not in _cands:
+                if _l and "url4722" in _l and _l not in _cands:
                     _cands.append(_l)
             url = page.url
             for _cand in _cands:
