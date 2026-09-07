@@ -19,7 +19,7 @@ def create_kernel_browser():
         wss = os.environ["KERNEL_CDP_WS"]
         return wss, os.environ.get("KERNEL_LIVE_URL",""), os.environ.get("KERNEL_SESSION_ID","")
     import shlex as _sh
-    _proxy = os.environ.get("KERNEL_PROXY_NAME", "farm-res-us")
+    _proxy = os.environ.get("KERNEL_PROXY_NAME", "")
     _px = f" --proxy-name {_sh.quote(_proxy)}" if _proxy else ""
     cmd = f"kernel browsers create --stealth --timeout 2400{_px} --start-url https://dispose.lol -o json"
     env = {**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}
