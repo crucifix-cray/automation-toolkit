@@ -176,15 +176,27 @@ async def main():
         raise SystemExit("pass --session N or --all")
 
     KERNEL_API_KEY = os.environ.get("KERNEL_API_KEY", "sk_3c47ea14-fd9b-811e-baee-f825da6c787e.tSkgaBckY9M1Qv0bMz620378Ys4NlpXn2b-CutDLnGM")
-    cdp_ws, sid, new_browser = os.environ.get("KERNEL_CDP_WS"), None, False
-    if not cdp_ws:
+
+    def _new_browser():
         out = subprocess.check_output(["kernel", "browsers", "create", "--stealth",
             "--timeout", "2400", "--start-url", "https://lovable.dev/dashboard", "-o", "json"],
             env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}, text=True, timeout=120)
         d = json.loads(out)
-        cdp_ws, sid = d["cdp_ws_url"], d["session_id"]
+        print(f"LIVE: {d.get('browser_live_view_url')} | SID: {d['session_id']}", file=sys.stderr)
+        return d["cdp_ws_url"], d["session_id"]
+
+    def _del_browser(sid):
+        if sid:
+            subprocess.run(["kernel", "browsers", "delete", sid],
+                env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY},
+                timeout=15, capture_output=True)
+
+    cdp_ws, sid, new_browser = os.environ.get("KERNEL_CDP_WS"), None, False
+    owned_sids = []
+    if not cdp_ws:
+        cdp_ws, sid = _new_browser()
+        owned_sids.append(sid)
         new_browser = True
-        print(f"LIVE: {d.get('browser_live_view_url')} | SID: {sid}", file=sys.stderr)
 
     from playwright.async_api import async_playwright
     results = []
@@ -192,7 +204,16 @@ async def main():
         async with async_playwright() as pw:
             browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
             for num in targets:  # fresh context per session = cookie isolation, one browser
-                ctx = await browser.new_context()
+                try:
+                    ctx = await browser.new_context()
+                except Exception as e:
+                    # browser died (cap/timeout) -> fresh browser, retry once
+                    print(f"browser dead ({e}), recreating", flush=True)
+                    _del_browser(sid)
+                    cdp_ws, sid = _new_browser()
+                    owned_sids.append(sid)
+                    browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
+                    ctx = await browser.new_context()
                 try:
                     res = await enable_one(pw, ctx, num, live_id=a.live_id, totp_secret=a.totp_secret)
                 finally:
@@ -221,10 +242,9 @@ async def main():
                     print(f"❌ session-{num} {res.get('reason', res.get('skipped', '?'))}", flush=True)
             await browser.close()
     finally:
-        if new_browser and sid:
-            subprocess.run(["kernel", "browsers", "delete", sid],
-                env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY},
-                timeout=15, capture_output=True)
+        if new_browser:
+            for _sid in owned_sids:
+                _del_browser(_sid)
     ok = sum(1 for r in results if r.get("success"))
     print(f"\n{ok}/{len(results)} enabled", flush=True)
 
