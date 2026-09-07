@@ -506,14 +506,31 @@ async def run_signup(args, run_attempt=1):
             _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="token0")
             raise Exception("SUSPICIOUS_BLOCK_DETECTED: Cloudflare Turnstile token missing")
 
-        # Click Create
+        # Click Create — HUMAN HESITATION: bots click the instant the button
+        # enables; humans stare at Success!, scroll, move the mouse, then click.
+        # Instant-click post-token is a prime abuse-detection signal.
         btn = page.locator('[data-testid="auth-submit-button"]')
         disabled = await btn.is_disabled()
         print(f"Create disabled {disabled}")
         await page.screenshot(path="/tmp/zen_final_before.png", full_page=True)
 
         if not disabled:
-            await btn.click()
+            try:
+                box = await btn.bounding_box()
+                if box:
+                    cx, cy = int(box["x"] + box["width"] / 2), int(box["y"] + box["height"] / 2)
+                    await page.mouse.move(random.randint(300, 700), random.randint(200, 500))
+                    await page.wait_for_timeout(random.randint(2500, 4500))
+                    await page.mouse.wheel(0, random.randint(-120, -40))
+                    await page.wait_for_timeout(random.randint(2000, 4000))
+                    await page.mouse.move(cx + random.randint(-40, 40), cy + random.randint(-30, 30))
+                    await page.wait_for_timeout(random.randint(1500, 3500))
+                    print(f"  🖱️ human hesitation done, clicking Create at ({cx},{cy})")
+                    await page.mouse.click(cx, cy, delay=random.randint(90, 180))
+                else:
+                    await btn.click()
+            except Exception:
+                await btn.click()
             await page.wait_for_timeout(8000)
             await page.screenshot(path="/tmp/zen_final_after.png", full_page=True)
             content = await page.content()
