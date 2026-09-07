@@ -288,17 +288,23 @@ async def run_once():
                 await pg22.wait_for_timeout(4000)
                 for i in range(30):
                     try:
-                        n22 = await pg22.locator("#email-list-wrap .tr").count()
+                        # Check Subject/From rows directly (tr count is flaky, shows 0 while mails visible)
+                        rows22 = await pg22.evaluate("""() => {
+                            const rows=[...document.querySelectorAll("#email-list-wrap .tr")];
+                            return rows.map(r=>r.innerText.slice(0,150)).join(" | ").slice(0,500);
+                        }""")
+                        n22 = len(rows22.split(" | ")) if rows22 else 0
                     except Exception:
                         n22 = 0
+                        rows22 = ""
                     if i % 5 == 0:
                         try:
                             _t22 = await pg22.title()
                             _b22 = (await pg22.evaluate("() => document.body.innerText.substring(0,150)")).replace("\n", " ")
                         except Exception:
                             _t22, _b22 = "?", "?"
-                        print(f"Poll 22.do {i}: {n22} msgs title={_t22[:50]} body={_b22[:120]}", file=sys.stderr)
-                    if n22:
+                        print(f"Poll 22.do {i}: {n22} msgs title={_t22[:50]} body={_b22[:120]} rows={rows22[:200]}", file=sys.stderr)
+                    if n22 or "zenrows" in rows22.lower() or "verify" in rows22.lower():
                         for k in range(n22):
                             try:
                                 tr22 = pg22.locator("#email-list-wrap .tr").nth(k)
