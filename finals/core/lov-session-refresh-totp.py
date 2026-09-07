@@ -5,7 +5,7 @@ Usage: KERNEL_API_KEY=sk_... python3 finals/core/lov-session-refresh-totp.py 38
 import sys as _sys
 num = _sys.argv[1] if len(_sys.argv) > 1 else "38"
 import asyncio, json, subprocess, os, sys
-K = "sk_f0a9980a-d5e6-fc2e-869e-ce2143c00595.HZD7XmkCxPGjvbgur-zL2qIa8sEQfXmdDgolE-XXAOk"
+K = os.environ.get("KERNEL_API_KEY", "sk_f0a9980a-d5e6-fc2e-869e-ce2143c00595.HZD7XmkCxPGjvbgur-zL2qIa8sEQfXmdDgolE-XXAOk")
 out = subprocess.check_output(["kernel","browsers","create","--stealth","--timeout","600","-o","json"], env={**os.environ,"KERNEL_API_KEY":K}, text=True)
 cdp = json.loads(out)["cdp_ws_url"]
 print("CDP ok")
