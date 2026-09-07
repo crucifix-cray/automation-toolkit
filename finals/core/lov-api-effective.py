@@ -582,6 +582,35 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
                 pass
             continue
 
+        # Checkbox-ready wait: widget shell often exists before the clickable
+        # checkbox renders. ClickSolver on a loading widget finds nothing and
+        # hammers a re-rendering iframe until the target dies (observed cascade).
+        checkbox_ready = False
+        for _ in range(10):
+            try:
+                fl = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')  # type: ignore
+                for _sel in ['input[type="checkbox"]', '[role="checkbox"]', 'label']:
+                    try:
+                        if await fl.locator(_sel).first.count():  # type: ignore
+                            checkbox_ready = True
+                            break
+                    except Exception:
+                        continue
+                if checkbox_ready:
+                    break
+            except Exception:
+                pass
+            await page.wait_for_timeout(1000)
+        print(f"  checkbox_ready={checkbox_ready}", file=sys.stderr)
+        if not checkbox_ready:
+            # No interactive checkbox: widget is in auto (non-interactive) mode —
+            # trigger verification via API instead of clicking blindly.
+            try:
+                await page.evaluate("() => { try { window.turnstile && window.turnstile.execute && window.turnstile.execute(); } catch(e) {} }")  # type: ignore
+                print("  ▶️ turnstile.execute() called (no checkbox mode)", file=sys.stderr)
+            except Exception as e:
+                print(f"  ⚠️ turnstile.execute() failed: {e}", file=sys.stderr)
+
         # Human scroll/jitter before click
         try:
             await page.mouse.move(400, 300)
@@ -594,8 +623,9 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
         clicked = False
         last_err: Optional[str] = None
 
-        # Strategy A: ClickSolver (if available) — but guard "success element does not exist"
-        if CAPTCHA_SOLVER_AVAILABLE and not clicked:
+        # Strategy A: ClickSolver (if available) — ONLY if checkbox actually rendered,
+        # and guard "success element does not exist"
+        if CAPTCHA_SOLVER_AVAILABLE and not clicked and checkbox_ready:
             print("  🎯 Strategy ClickSolver…", file=sys.stderr)
             for fw in (FrameworkType.PATCHRIGHT, FrameworkType.PLAYWRIGHT) if 'FrameworkType' in globals() else []:  # type: ignore
                 try:
