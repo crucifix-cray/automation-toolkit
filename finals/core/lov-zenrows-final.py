@@ -523,7 +523,12 @@ class ZenvexInbox:
 
 import argparse
 
-async def run_signup(args, run_attempt=1):
+PROVIDER_ORDER = ["tempmailhub", "22do", "temptf", "zenvex", "dispose"]
+
+
+async def run_signup(args, run_attempt=1, force_src=None):
+    """One full signup. force_src limits mail to a single provider (fresh
+    browser+IP per call either way). Returns True on verified save."""
     pw = None
     browser = None
     ctx = None
@@ -557,28 +562,31 @@ async def run_signup(args, run_attempt=1):
     # tempmailhub (real clean gmail) → 22.do (1-dot gmail) → temp.tf (dot gmail).
     # Browser-tab providers (zenvex → dispose.lol) come after connect.
     pre_email, pre_src, pre_id = None, None, None
-    _th_em, _th_id = create_tempmailhub_email()
-    if _th_em and lovable_email_available(_th_em):
-        pre_email, pre_src, pre_id = _th_em, "tempmailhub", _th_id
-        print(f"tempmailhub Gmail {pre_email} (pre-connect, available)")
-    else:
-        if _th_em:
-            print(f"tempmailhub {_th_em} already registered — next provider")
-        pre_email = create_22do_gmail()
-        if pre_email and not lovable_email_available(pre_email):
-            print(f"22.do {pre_email} already registered — next provider")
-            pre_email = None
-        if pre_email:
-            pre_src = "22do"
-            print(f"22.do Gmail {pre_email} (pre-connect, available)")
-        else:
-            pre_email = create_temptf_email()
-            if pre_email and not lovable_email_available(pre_email):
-                print(f"temp.tf {pre_email} already registered — browser-tab chain")
-                pre_email = None
-            if pre_email:
-                pre_src = "temptf"
-                print(f"temp.tf Gmail {pre_email} (pre-connect, available)")
+    only = [force_src] if force_src else ["tempmailhub", "22do", "temptf"]
+
+    def _avail(_em, _tag):
+        if _em and lovable_email_available(_em):
+            print(f"{_tag} {_em} (pre-connect, available)")
+            return True
+        if _em:
+            print(f"{_tag} {_em} already registered — next provider")
+        return False
+
+    if "tempmailhub" in only:
+        _th_em, _th_id = create_tempmailhub_email()
+        if _avail(_th_em, "tempmailhub Gmail"):
+            pre_email, pre_src, pre_id = _th_em, "tempmailhub", _th_id
+    if not pre_email and "22do" in only:
+        _em22 = create_22do_gmail()
+        if _avail(_em22, "22.do Gmail"):
+            pre_email, pre_src = _em22, "22do"
+    if not pre_email and "temptf" in only:
+        _emtf = create_temptf_email()
+        if _avail(_emtf, "temp.tf Gmail"):
+            pre_email, pre_src = _emtf, "temptf"
+    if force_src in ("tempmailhub", "22do", "temptf") and not pre_email:
+        print(f"forced provider {force_src} missed — aborting run (next provider gets own run)")
+        return False
 
     if args.local:
         print(f"🦊 [Attempt {run_attempt}] Launching local Camoufox Stealth browser...")
@@ -620,27 +628,50 @@ async def run_signup(args, run_attempt=1):
 
     try:
         # Use pre-connect API mail if we got one — else browser-tab chain:
-        # zenvex first, dispose.lol last.
+        # zenvex first, dispose.lol last (force_src limits to one tab provider).
         inbox = None
         zxinbox = None
         email_source = "dispose"
         email, email_id = pre_email, pre_id
+        tab_order = [force_src] if force_src in ("zenvex", "dispose") else ["zenvex", "dispose"]
         if email:
             email_source = pre_src
             print(f"{pre_src} mail {email} (skip browser-tab inboxes)")
         else:
-            try:
-                zxinbox = ZenvexInbox(ctx)
-                email = await zxinbox.init_mailbox()
-                email_source = "zenvex"
-            except Exception as _zxe:
-                print(f"zenvex miss ({str(_zxe)[:100]}), fallback to dispose.lol tab")
-                zxinbox = None
-            if not email or email_source != "zenvex":
+            if "zenvex" in tab_order:
+                try:
+                    zxinbox = ZenvexInbox(ctx)
+                    email = await zxinbox.init_mailbox()
+                    email_source = "zenvex"
+                except Exception as _zxe:
+                    print(f"zenvex miss ({str(_zxe)[:100]}), fallback to dispose.lol tab")
+                    zxinbox = None
+            if (not email or email_source != "zenvex") and "dispose" in tab_order:
                 print("API + zenvex miss, fallback to dispose.lol Gmail tab")
                 inbox = DisposeLolInbox(ctx)
                 email = await inbox.init_mailbox()
                 email_source = "dispose"
+            if not email:
+                print(f"forced provider {force_src} missed — aborting run")
+                return False
+            if email_source in ("zenvex", "dispose") and not lovable_email_available(email):
+                print(f"{email_source} {email} already registered — ", end="")
+                if email_source == "zenvex" and "dispose" in tab_order:
+                    print("falling to dispose tab")
+                    try:
+                        await zxinbox.close()
+                    except Exception:
+                        pass
+                    zxinbox = None
+                    inbox = DisposeLolInbox(ctx)
+                    email = await inbox.init_mailbox()
+                    email_source = "dispose"
+                    if not lovable_email_available(email):
+                        print(f"dispose {email} also registered — aborting run")
+                        return False
+                else:
+                    print("aborting run")
+                    return False
         password = email + "K01"  # 8+ chars
         print(f"EMAIL {email} PW {password} SRC {email_source}")
 
@@ -1009,33 +1040,43 @@ async def main():
     parser.add_argument("--max-retries", type=int, default=10, help="Max retries on suspicious block")
     parser.add_argument("--loop", type=int, default=1, help="Farm loop: full fresh runs (default 1)")
     parser.add_argument("--pace-mins", type=float, default=0, help="Sleep minutes between loop runs (quota pacing)")
+    parser.add_argument("--providers", default="chain",
+                        help="'chain' (default first-available) or 'all' (each provider gets own fresh browser+IP run)")
     args = parser.parse_args()
 
     for loop_i in range(1, args.loop + 1):
         if loop_i > 1 and args.pace_mins > 0:
-            print(f"⏳ Pacing {args.pace_mins} min before loop run {loop_i}/{args.loop}...")
+            print(f"⏳ Pacing {args.pace_mins} min before loop run {loop_i}/{args.loop}...", flush=True)
             await asyncio.sleep(args.pace_mins * 60)
-        print(f"\n########## LOOP RUN {loop_i}/{args.loop} ##########")
-        for attempt in range(1, args.max_retries + 1):
-            try:
-                print(f"\n==========================================")
-                print(f"🚀 SIGNUP ATTEMPT {attempt}/{args.max_retries}")
-                print(f"==========================================")
-                success = await run_signup(args, run_attempt=(loop_i - 1) * args.max_retries + attempt)
-                if success:
-                    print(f"🎉 Signup completed successfully on attempt {attempt}!")
-                    break
-            except Exception as e:
-                if "SUSPICIOUS_BLOCK_DETECTED" in str(e) or "ASN_GATE_BLOCKED" in str(e):
-                    print(f"⛔ [Attempt {attempt}] Suspicious error encountered! Browser process killed.")
-                    if not args.local:
-                        print(f"🔄 ZenRows mode: Changing IP / Proxy Country & Session ID for attempt {attempt + 1}...")
+        print(f"\n########## LOOP RUN {loop_i}/{args.loop} ##########", flush=True)
+        prov_list = PROVIDER_ORDER if args.providers == "all" else [None]
+        for prov in prov_list:
+            if prov:
+                print(f"\n===== PROVIDER {prov} (fresh browser+IP) =====", flush=True)
+            for attempt in range(1, args.max_retries + 1):
+                try:
+                    print(f"\n==========================================", flush=True)
+                    print(f"🚀 SIGNUP ATTEMPT {attempt}/{args.max_retries}" + (f" [{prov}]" if prov else ""), flush=True)
+                    print(f"==========================================", flush=True)
+                    success = await run_signup(args, run_attempt=(loop_i - 1) * args.max_retries + attempt,
+                                               force_src=prov)
+                    if success:
+                        print(f"🎉 Signup completed successfully on attempt {attempt}!" + (f" [{prov}]" if prov else ""), flush=True)
+                        break
+                except Exception as e:
+                    if "SUSPICIOUS_BLOCK_DETECTED" in str(e) or "ASN_GATE_BLOCKED" in str(e):
+                        print(f"⛔ [Attempt {attempt}] Suspicious error encountered! Browser process killed.", flush=True)
+                        if not args.local:
+                            print(f"🔄 ZenRows mode: Changing IP / Proxy Country & Session ID for attempt {attempt + 1}...", flush=True)
+                        else:
+                            print(f"🔄 Local mode: Restarting fresh browser instance for attempt {attempt + 1}...", flush=True)
+                        await asyncio.sleep(3)
                     else:
-                        print(f"🔄 Local mode: Restarting fresh browser instance for attempt {attempt + 1}...")
-                    await asyncio.sleep(3)
-                else:
-                    print(f"⚠️ Error on attempt {attempt}: {e}")
-                    await asyncio.sleep(2)
+                        print(f"⚠️ Error on attempt {attempt}: {e}", flush=True)
+                        await asyncio.sleep(2)
+            else:
+                continue
+            break
 
 if __name__ == "__main__":
     import asyncio
