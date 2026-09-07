@@ -259,11 +259,11 @@ async def run_once():
             # Poll correct inbox: 22.do for 22do mails, temp.tf for dispose @gmail.com, dispose.lol for custom
             is_gmail = email.lower().endswith("@gmail.com")
             print(f"Email {email} is_gmail {is_gmail} src {email_source}", file=sys.stderr)
+            found = False
             if email_source == "22do":
                 # Poll 22.do inbox in-browser (same kernel session, second tab)
                 import re as _re22, html as _html22
                 link_re22 = _re22.compile(r"https?://[^\s'\"<>]+(?:zenrows\.com|url4722)[^\s'\"<>]*", _re22.I)
-                found = False
                 pg22 = await ctx.new_page()
                 await pg22.goto(f"https://22.do/inbox/#/{email}", wait_until="domcontentloaded", timeout=60000)
                 await pg22.wait_for_timeout(4000)
@@ -294,6 +294,22 @@ async def run_once():
                                 except Exception:
                                     pass
                                 await pg22.wait_for_timeout(2500)
+                                # mail body sits in a scrollable pane below the fold:
+                                # scroll every scrollable container to bottom + bring
+                                # Verify email / Verification link into view before scanning
+                                try:
+                                    await pg22.evaluate("""() => {
+                                        const scrollables = [...document.querySelectorAll('*')].filter(e => {
+                                            try { return e.scrollHeight > e.clientHeight + 50; } catch { return false; }
+                                        });
+                                        for (const e of scrollables) { try { e.scrollTop = e.scrollHeight; } catch {} }
+                                        const t = [...document.querySelectorAll('a,button')].find(x => /verif/i.test(x.innerText||'') && /email|link/i.test(x.innerText||''));
+                                        if (t) { try { t.scrollIntoView({block:'center'}); } catch {} }
+                                        window.scrollTo(0, document.body.scrollHeight);
+                                    }""")
+                                except Exception:
+                                    pass
+                                await pg22.wait_for_timeout(1500)
                                 try:
                                     html22 = await pg22.content()
                                 except Exception:
@@ -351,7 +367,6 @@ async def run_once():
                     await pg22.close()
                 except Exception:
                     pass
-            found = False
             if is_gmail and email_source not in ("22do", "dispose"):
                 # Poll temp.tf directly (no browser needed; NOTE: API 404s as of 2026-09-06)
                 import urllib.request, json as _json2, re as _re, html as _html2, time as _time2
@@ -525,23 +540,26 @@ async def run_once():
                     sys.exit(1)
             print(f"VERIFY_URL: {verify_url[:120]}...", file=sys.stderr)
 
-            await page.goto(verify_url, wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_timeout(8000)
+            # The mail carries TWO distinct tracking URLs (Verify email button
+            # href != Verification link href). Try every url4722 candidate in
+            # order until one lands on overview (not the www homepage).
+            _cands = []
+            for _l in [verify_url] + [l.get("href") for l in verify_links if l.get("href")]:
+                if _l and _l not in _cands:
+                    _cands.append(_l)
             url = page.url
-            print(f"After verify URL: {url}", file=sys.stderr)
-            if "overview" not in url:
-                print(f"Not overview, trying alternative verification link", file=sys.stderr)
-                alt = None
-                for link in verify_links:
-                    if link["href"] != verify_url and "url4722" in (link["href"] or ""):
-                        alt = link["href"]
-                        break
-                if alt:
-                    print(f"ALT {alt[:120]}", file=sys.stderr)
-                    await page.goto(alt, wait_until="domcontentloaded", timeout=30000)
-                    await page.wait_for_timeout(8000)
-                    url = page.url
-                    print(f"After alt URL: {url}", file=sys.stderr)
+            for _cand in _cands:
+                print(f"TRY {str(_cand)[:120]}", file=sys.stderr)
+                try:
+                    await page.goto(_cand, wait_until="domcontentloaded", timeout=30000)
+                except Exception as _nerr:
+                    print(f"goto err {_nerr}", file=sys.stderr)
+                    continue
+                await page.wait_for_timeout(8000)
+                url = page.url
+                print(f"After verify URL: {url}", file=sys.stderr)
+                if "overview" in url:
+                    break
 
             if "app.zenrows.com/overview" not in url and "overview" not in url:
                 await page.goto("https://app.zenrows.com/overview", wait_until="domcontentloaded", timeout=30000)
@@ -551,7 +569,12 @@ async def run_once():
 
             content = await page.content()
             body_text = await page.evaluate("() => document.body.innerText")
-            m = re.search(r"zenrows login --api-key ([a-f0-9]{32,})", content) or re.search(r"zenrows login --api-key ([a-f0-9]{32,})", body_text) or re.search(r"[a-f0-9]{32,}", content)
+            # Real ZenRows keys are 40-hex. Bare 32-hex matches the Sentry DSN
+            # public key in page HTML — only accept bare 40-hex on overview.
+            _clean = re.sub(r"sentry\.io|ingest|dsn", "", content, flags=re.I)
+            m = re.search(r"zenrows login --api-key ([a-f0-9]{40})", content) or re.search(r"zenrows login --api-key ([a-f0-9]{40})", body_text)
+            if not m and "overview" in url:
+                m = re.search(r"\b([a-f0-9]{40})\b", _clean)
             if not m:
                 print(f"No API key found at {url} body={body_text[:2000]}", file=sys.stderr)
                 await page.screenshot(path="/tmp/zen_no_apikey.png", full_page=True)
