@@ -236,7 +236,26 @@ async def run_once():
             await page.wait_for_timeout(9000)
             url = page.url
             print(f"After Create URL: {url}", file=sys.stderr)
-            content = await page.content()
+            # page may still be navigating (email/verify auto-redirects) —
+            # retry content() until navigation settles instead of crashing
+            content = ""
+            for _cr in range(6):
+                try:
+                    content = await page.content()
+                    break
+                except Exception as _cerr:
+                    print(f"content() race ({_cr+1}/6): {_cerr}", file=sys.stderr)
+                    await page.wait_for_timeout(2000)
+            if not content:
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=15000)
+                    content = await page.content()
+                except Exception as _cerr2:
+                    print(f"content() still failing: {_cerr2}", file=sys.stderr)
+                    try:
+                        content = await page.evaluate("() => document.documentElement.outerHTML")
+                    except Exception:
+                        content = ""
             if "Too many accounts detected from your IP" in content:
                 print("IP FLAGGED (too many accounts) -> kill browser, fresh IP next run", file=sys.stderr)
                 await page.screenshot(path="/tmp/zen_ip_flagged.png", full_page=True)
