@@ -26,7 +26,9 @@ class DisposeLolInbox:
         await self.page.goto(self.BASE_URL, wait_until="domcontentloaded", timeout=60000)
         await self.page.wait_for_timeout(4000)
 
-        for attempt in range(1, 6):
+        # 10 attempts: dispose.lol is slow/CF-gated on fresh IPs; reload-spam
+        # resets their clearance, so every 3rd miss waits long WITHOUT reload.
+        for attempt in range(1, 11):
             email_text = await self.page.evaluate("""() => {
                 const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null);
                 let n; while(n=w.nextNode()){
@@ -40,17 +42,26 @@ class DisposeLolInbox:
                 self.address = email_text.strip()
                 print(f"✅ Mailbox ready: {self.address} (via dispose.lol tab)")
                 return self.address
-            print(f"  ⏳ Waiting for dispose.lol email to render (attempt {attempt}/5)...")
-            await self.page.wait_for_timeout(2000)
-            await self.page.reload(wait_until="domcontentloaded")
-            await self.page.wait_for_timeout(3000)
-        raise Exception("Could not find dispose.lol Gmail after 5 attempts")
+            print(f"  ⏳ Waiting for dispose.lol email to render (attempt {attempt}/10)...")
+            if attempt % 3 == 0:
+                await self.page.wait_for_timeout(8000)  # let CF settle, no reload
+            else:
+                await self.page.wait_for_timeout(2000)
+                try:
+                    await self.page.reload(wait_until="domcontentloaded")
+                except Exception:
+                    pass
+                await self.page.wait_for_timeout(3000)
+        raise Exception("Could not find dispose.lol Gmail after 10 attempts")
 
     async def wait_for_lovable_link(self, timeout_seconds: int = 180) -> str:
         print(f"📥 Waiting for Lovable verify link on dispose.lol ({self.address})...")
         deadline = time.time() + timeout_seconds
         check = 0
 
+        # Batched poll: ONE evaluate per check returns all message labels —
+        # the old locator.all() + per-button get_attribute() was N+1 CDP calls
+        # per tick on a session that dies ~3min after creation.
         while time.time() < deadline:
             check += 1
             try:
@@ -59,23 +70,24 @@ class DisposeLolInbox:
             await self.page.wait_for_timeout(2200)
 
             try:
-                buttons = await self.page.locator('button[aria-label^="View "]').all()
+                labels = await self.page.evaluate("""() => [...document.querySelectorAll('button[aria-label^="View "]')]
+                    .map(b => b.getAttribute('aria-label') || '')""")
             except Exception:
-                buttons = []
+                labels = []
 
             if check % 3 == 1:
-                print(f"  Check #{check}: {len(buttons)} message(s) found")
+                print(f"  Check #{check}: {len(labels)} message(s) found")
 
-            for btn in buttons:
+            hit_idx = -1
+            for _i, _aria in enumerate(labels):
+                _al = (_aria or "").lower()
+                if "lovable" in _al or "verify" in _al or "verification" in _al:
+                    hit_idx = _i
+                    print(f"  ✅ Found Lovable email: {_aria[:100]}")
+                    break
+            if hit_idx >= 0:
                 try:
-                    aria = (await btn.get_attribute("aria-label") or "")
-                except Exception: aria = ""
-
-                if "lovable" not in aria.lower() and "verify" not in aria.lower() and "verification" not in aria.lower():
-                    continue
-
-                print(f"  ✅ Found Lovable email: {aria[:100]}")
-                try:
+                    btn = self.page.locator('button[aria-label^="View "]').nth(hit_idx)
                     await btn.click(timeout=5000, force=True)
                     await self.page.wait_for_timeout(3000)
 
@@ -106,6 +118,169 @@ class DisposeLolInbox:
             try: await self.page.close()
             except: pass
 
+
+RUNS_LOG = Path(__file__).resolve().parents[1] / "runs.log"
+
+
+def _log_run(**fields):
+    """Append one JSON line per run (farm ops: flagged-ASN tracking, pacing)."""
+    try:
+        rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ"), **fields}
+        with open(RUNS_LOG, "a") as f:
+            f.write(json.dumps(rec) + "\n")
+    except Exception:
+        pass
+
+
+def _asn_gate(ip, limit=2):
+    """Kill early if this ISP was flagged `limit` times in a row (fresh IP is
+    free — burning 3 min to rediscover a flagged ASN is not). Raises to rotate."""
+    isp = (ip or "").split(" ", 1)[1].strip() if " " in (ip or "") else ""
+    if not isp or isp == "fail":
+        return
+    try:
+        lines = open(RUNS_LOG).read().strip().split("\n")[-20:]
+    except Exception:
+        return
+    streak = 0
+    for ln in reversed(lines):
+        try:
+            r = json.loads(ln)
+        except Exception:
+            continue
+        if (r.get("isp") or "") != isp:
+            break
+        if r.get("outcome") in ("suspicious", "asn_gate"):
+            streak += 1
+        else:
+            break
+    if streak >= limit:
+        print(f"⛔ ASN GATE: {isp} flagged {streak}x in a row — rotating without burning 3 min")
+        raise Exception(f"ASN_GATE_BLOCKED: {isp} {streak}x streak")
+
+
+def create_22do_gmail(tries=40):
+    """22.do fake-gmail API (pure HTTP, no browser). Returns @gmail.com or None.
+    Same approach as zenrows-kernel-final.py: @gmail.com + exactly 1 dot, no plus."""
+    import urllib.request as _u, json as _j
+    for _k in list(os.environ):
+        if _k.lower().endswith('_proxy'):
+            os.environ.pop(_k, None)
+    for _t in range(tries):
+        try:
+            _d = _j.dumps({"type": "random"}).encode()
+            _rq = _u.Request("https://22.do/action/mailbox/gmail", data=_d,
+                headers={"Content-Type": "application/json",
+                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"},
+                method="POST")
+            with _u.urlopen(_rq, timeout=15) as _r:
+                _res = _j.loads(_r.read())
+            _em = ((_res.get("data") or {}).get("email") or "").strip()
+            _local = _em.split("@")[0] if "@" in _em else ""
+            if _em.lower().endswith("@gmail.com") and _local.count(".") == 1 and "+" not in _em:
+                return _em
+            print(f"22.do skip {_em} (need @gmail.com + exactly 1 dot, no plus), retry {_t+1}/{tries}")
+        except Exception as _e:
+            print(f"22.do API try {_t+1} err {str(_e)[:120]}")
+    return None
+
+
+async def poll_22do_lovable_link(ctx, email, timeout_seconds=180):
+    """Poll 22.do inbox for the Lovable verify mail, return oobCode link or None.
+    Same approach as zenrows-kernel-final.py: #email-list-wrap .tr rows,
+    Subject/From match, /content/{id} fallback."""
+    print(f"📥 Waiting for Lovable verify link on 22.do ({email})...")
+    link_re = re.compile(r"https?://lovable\.dev/auth/action\?[^\"'\s<>]*oobCode=[^\"'\s<>]+", re.I)
+    pg22 = await ctx.new_page()
+    try:
+        await pg22.goto(f"https://22.do/inbox/#/{email}", wait_until="domcontentloaded", timeout=60000)
+    except Exception as e:
+        print(f"  22.do inbox load fail: {str(e)[:100]}")
+        return None
+    await pg22.wait_for_timeout(4000)
+    deadline = time.time() + timeout_seconds
+    check = 0
+    while time.time() < deadline:
+        check += 1
+        try:
+            await pg22.reload(wait_until="domcontentloaded")
+        except Exception:
+            pass
+        await pg22.wait_for_timeout(2200)
+        try:
+            labels = await pg22.evaluate("""() => [...document.querySelectorAll('#email-list-wrap .tr')]
+                .map(r => r.innerText.slice(0,150)).join(' | ').slice(0,600)""")
+        except Exception:
+            labels = ""
+        n22 = len(labels.split(" | ")) if labels else 0
+        if check % 3 == 1:
+            print(f"  Check #{check}: {n22} message(s) rows={labels[:200]}")
+        low = (labels or "").lower()
+        if n22 and ("lovable" in low or "verify" in low):
+            for k in range(n22):
+                try:
+                    tr22 = pg22.locator("#email-list-wrap .tr").nth(k)
+                    subj22 = await tr22.locator(".item.subject").inner_text(timeout=2000)
+                    from22 = await tr22.locator(".item.from").inner_text(timeout=2000)
+                except Exception:
+                    continue
+                if "lovable" in (subj22 + from22).lower() or "verify" in subj22.lower():
+                    print(f"  ✅ Found Lovable mail: {subj22} / {from22}")
+                    try:
+                        await tr22.locator(".item.subject").click(timeout=3000)
+                    except Exception:
+                        pass
+                    await pg22.wait_for_timeout(2500)
+                    try:
+                        await pg22.evaluate("""() => {
+                            const sc=[...document.querySelectorAll('*')].filter(e=>{try{return e.scrollHeight>e.clientHeight+50;}catch{return false;}});
+                            for(const e of sc){try{e.scrollTop=e.scrollHeight;}catch{}}
+                            window.scrollTo(0,document.body.scrollHeight); }""")
+                    except Exception:
+                        pass
+                    await pg22.wait_for_timeout(1500)
+                    try:
+                        html22 = await pg22.content()
+                    except Exception:
+                        html22 = ""
+                    try:
+                        for _fr in pg22.frames:
+                            try:
+                                html22 += "\n" + await _fr.content()
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    m22 = link_re.search(html22 or "")
+                    if not m22:
+                        try:
+                            _mid = await tr22.evaluate("(el) => el.getAttribute('onclick') || el.innerHTML.slice(0,300)")
+                        except Exception:
+                            _mid = ""
+                        _mnum = re.search(r"viewEml\(['\"]?(\w+)['\"]?\)", _mid or "")
+                        if _mnum:
+                            try:
+                                await pg22.goto(f"https://22.do/content/{_mnum.group(1)}", wait_until="domcontentloaded", timeout=20000)
+                                await pg22.wait_for_timeout(2500)
+                                html22 = await pg22.content()
+                                m22 = link_re.search(html22 or "")
+                            except Exception as _ce:
+                                print(f"  22.do content url err {_ce}")
+                    if m22:
+                        link = html.unescape(m22.group(0)).replace("&amp;", "&")
+                        print(f"  🎯 FOUND VERIFY LINK via 22.do: {link[:120]}...")
+                        try:
+                            await pg22.close()
+                        except Exception:
+                            pass
+                        return link
+        await asyncio.sleep(3)
+    try:
+        await pg22.close()
+    except Exception:
+        pass
+    return None
+
 import argparse
 
 async def run_signup(args, run_attempt=1):
@@ -116,8 +291,9 @@ async def run_signup(args, run_attempt=1):
     inbox = None
 
     # ZenRows CDP URL pool (rotates key & proxy country for clean residential IP)
+    # NOTE: a71406 AUTH004 exhausted; 1a5d93 (2026-09-07, GB residential) is current live key
     zenrows_keys = [
-        "a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7",
+        "1a5d93cda0d10ac0bd9ab3da3fa93019f126397a",
         "3a6a9ee9aee5e3fa9a76b934eafd8dd1cf6dd39f",
         "b71908b722a88c56ee0ed960730465ab8e4bdfa3",
         "5afd422125c5fd5c75efe3da015689da3c7a3a80"
@@ -147,20 +323,37 @@ async def run_signup(args, run_attempt=1):
         browser = await pw.chromium.connect_over_cdp(zenrows_wss_url, timeout=30000)
         ctx = browser.contexts[0] if browser.contexts else await browser.new_context()
 
-    # Stealth Init Scripts
-    await ctx.add_init_script("""() => {
+    # Stealth Init Scripts — JITTERED per run (identical fingerprints across
+    # fresh-IP signups minutes apart is a trivial farm signal for the backend).
+    _cores = random.choice([4, 8, 12, 16])
+    _mem = random.choice([4, 8, 16])
+    _plat = random.choice(["Win32", "Linux x86_64"])
+    _nplug = random.randint(2, 5)
+    await ctx.add_init_script("""(cfg) => {
         try { Object.defineProperty(navigator, 'webdriver', {get: () => undefined}); } catch(e){}
-        try { Object.defineProperty(navigator, 'plugins', {get: () => [{name: 'PDF Viewer'}]}); } catch(e){}
+        try { Object.defineProperty(navigator, 'plugins', {get: () => Array.from({length: cfg.nplug}, (_, i) => ({name: 'Plugin ' + i}))}); } catch(e){}
+        try { Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => cfg.cores}); } catch(e){}
+        try { Object.defineProperty(navigator, 'deviceMemory', {get: () => cfg.mem}); } catch(e){}
+        try { Object.defineProperty(navigator, 'platform', {get: () => cfg.plat}); } catch(e){}
         try { if(!window.chrome) window.chrome = {runtime: {}}; } catch(e){}
         try { window.__nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; } catch(e){}
-    }""")
+    }""", {"cores": _cores, "mem": _mem, "plat": _plat, "nplug": _nplug})
+    print(f"🎭 Fingerprint jitter: cores={_cores} mem={_mem} plat={_plat} plugins={_nplug}")
 
     try:
-        # Create dispose.lol inbox in separate tab
-        inbox = DisposeLolInbox(ctx)
-        email = await inbox.init_mailbox()
+        # 0) 22.do fake-gmail FIRST (pure HTTP, instant) — fallback dispose.lol tab
+        inbox = None
+        email_source = "dispose"
+        email = create_22do_gmail()
+        if email:
+            email_source = "22do"
+            print(f"22.do Gmail {email} (skip dispose tab)")
+        else:
+            print("22.do miss, fallback to dispose.lol Gmail tab")
+            inbox = DisposeLolInbox(ctx)
+            email = await inbox.init_mailbox()
         password = email + "K01"  # 8+ chars
-        print(f"EMAIL {email} PW {password}")
+        print(f"EMAIL {email} PW {password} SRC {email_source}")
 
         # Open Lovable page in second tab
         page = await ctx.new_page()
@@ -173,35 +366,130 @@ async def run_signup(args, run_attempt=1):
                 await asyncio.sleep(2)
         await page.wait_for_timeout(5000)
 
-        # IP check (for log)
+        # Skeleton guard (effective-script lesson): /signup sometimes renders
+        # a skeleton without hydration — fallback via / then /signup once.
         try:
-            ip = await page.evaluate("async () => { try{ const r=await fetch('https://wtfismyip.com/json'); const j=await r.json(); return j.YourFuckingIPAddress+' '+j.YourFuckingISP }catch(e){ return 'fail' } }")
-            print(f"IP {ip}")
-        except: pass
+            _txt = await page.evaluate("() => document.body ? document.body.innerText.slice(0,500) : ''")
+        except Exception:
+            _txt = ""
+        if len((_txt or "").strip()) < 50 or ("Create your account" not in (_txt or "") and "Créez votre compte" not in (_txt or "")):
+            print("  ⚠️ /signup skeleton/white — fallback via / then /signup")
+            try:
+                await page.goto("https://lovable.dev/", timeout=60000, wait_until="domcontentloaded")
+                await page.wait_for_timeout(1500)
+                await page.goto("https://lovable.dev/signup", timeout=60000, wait_until="domcontentloaded")
+                await page.wait_for_timeout(1500)
+            except Exception as e:
+                print(f"  skeleton fallback nav fail: {str(e)[:100]}")
 
-        # Fill email
-        await page.locator('input#email').wait_for(timeout=10000)
-        await page.locator('input#email').fill(email)
-        await page.locator('[data-testid="auth-submit-button"]').click()
+        # IP check (for log)
+        ip = "fail"
+        for _eg in range(3):
+            try:
+                ip = await page.evaluate("async () => { try{ const r=await fetch('https://wtfismyip.com/json'); const j=await r.json(); return j.YourFuckingIPAddress+' '+j.YourFuckingISP }catch(e){ return 'fail' } }")
+                if ip and ip != "fail":
+                    break
+            except: pass
+            await page.wait_for_timeout(2000)
+        print(f"IP {ip}")
+        _isp = ip.split(" ", 1)[1].strip() if " " in (ip or "") else ""
+        _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="started")
+        _asn_gate(ip)  # raises ASN_GATE_BLOCKED on flagged-ASN streak → rotate
+
+        # Dismiss cookie banner: ONE batched evaluate (reject-first). The popup
+        # overlaps the form and its buttons cost CDP calls one-by-one.
+        try:
+            await page.evaluate("""() => {
+                const labels=['reject all','rejeter tout','continuer sans accepter','accept all','accepter tout','got it'];
+                for(const b of document.querySelectorAll('button')){ const t=(b.innerText||'').trim().toLowerCase();
+                    if(labels.includes(t)){ b.click(); return t; } }
+                const c=document.querySelector('button[aria-label*="Close" i],button[aria-label*="Fermer" i]');
+                if(c){ c.click(); return 'close'; } return null; }""")
+        except Exception:
+            pass
+
+        # Fill email + VERIFY it stuck (effective-script lesson: silent empty
+        # field burns the run). Fallback keyboard.type on mismatch.
+        email_loc = page.locator('input#email')
+        await email_loc.wait_for(timeout=10000)
+        await email_loc.fill(email)
+        try:
+            _eval = await email_loc.input_value(timeout=2000)
+            if (_eval or "").strip().lower() != email.lower():
+                print(f"  ⚠️ email mismatch {_eval!r} — retry keyboard.type")
+                await page.keyboard.type(email, delay=40)
+        except Exception:
+            pass
+
+        # Continuer with fallbacks: testid → role text (fr/en) → evaluate click
+        _clicked = False
+        try:
+            await page.locator('[data-testid="auth-submit-button"]').click(timeout=7000)
+            _clicked = True
+        except Exception:
+            for _name in ("Continuer", "Continue"):
+                try:
+                    _b = page.get_by_role("button", name=_name, exact=True).first
+                    if await _b.count():
+                        await _b.click(timeout=5000)
+                        _clicked = True
+                        break
+                except Exception:
+                    continue
+        if not _clicked:
+            try:
+                await page.evaluate("""() => { const b=document.querySelector('[data-testid="auth-submit-button"]'); if(b) b.click(); }""")
+                _clicked = True
+            except Exception:
+                pass
+        if not _clicked:
+            raise Exception("CONTINUER_CLICK_FAILED")
         await page.wait_for_timeout(4000)
 
-        # Fill password using nativeSetter or fill fallback
+        # Fill password: fill() FIRST (proven len 8 sticky on ZenRows GB),
+        # nativeSetter+input-event only as fallback. Hard-fail if len wrong —
+        # a silent empty field submits as 'Password is required' and burns the run.
         pw_input = page.locator('input#password')
         await pw_input.wait_for(timeout=10000)
         try:
-            await page.evaluate("(pw) => window.__nativeSetter ? window.__nativeSetter.call(document.querySelector('#password'), pw) : (document.querySelector('#password').value = pw)", password)
-            await page.evaluate("el => el.dispatchEvent(new Event('input', {bubbles: true}))", await pw_input.element_handle())
+            await pw_input.fill(password, timeout=8000)
         except Exception:
-            await pw_input.fill(password)
+            try:
+                await page.evaluate("(pw) => window.__nativeSetter ? window.__nativeSetter.call(document.querySelector('#password'), pw) : (document.querySelector('#password').value = pw)", password)
+                await page.evaluate("el => el.dispatchEvent(new Event('input', {bubbles: true}))", await pw_input.element_handle())
+            except Exception:
+                await pw_input.fill(password)
 
         val = await page.evaluate("() => document.querySelector('#password')?.value?.length || 0")
-        print(f"PW len {val}")
+        print(f"PW len {val} (want {len(password)})")
+        if val != len(password):
+            # One keyboard.type retry before giving up
+            try:
+                await pw_input.click(timeout=3000, force=True)
+            except Exception:
+                pass
+            await page.keyboard.type(password, delay=40)
+            val = await page.evaluate("() => document.querySelector('#password')?.value?.length || 0")
+            print(f"PW len retry {val}")
+        if val != len(password):
+            raise Exception(f"PASSWORD_FILL_FAILED: len {val} != {len(password)} — abort before Turnstile burn")
         await page.screenshot(path="/tmp/zen_final_pw.png", full_page=True)
 
-        # Wait Turnstile Success
+        # Wait Turnstile Success — single batched evaluate per tick (1 CDP call):
+        # token len + widget iframe presence + Create-button state. Tells apart
+        # "no challenge served" (iframes 0) from "challenge stuck" (iframes 1, tok 0).
         for i in range(15):
-            token = await page.evaluate("() => document.querySelector('input[name=\"cf-turnstile-response\"]')?.value?.length || 0")
-            print(f"Token {token} i {i}")
+            try:
+                st = await page.evaluate("""() => { const t=document.querySelector('input[name="cf-turnstile-response"]')?.value?.length||0;
+                    const f=[...document.querySelectorAll('iframe')].filter(x=>(x.src||'').includes('challenges.cloudflare.com')).length;
+                    const b=document.querySelector('[data-testid="auth-submit-button"]');
+                    return {tok:t, ifr:f, dis:b?b.disabled:'nobtn'}; }""")
+            except Exception as e:
+                print(f"Token ? i {i} (eval fail {str(e)[:60]})")
+                await page.wait_for_timeout(2000)
+                continue
+            token = st["tok"]
+            print(f"Token {token} ifr {st['ifr']} dis {st['dis']} i {i}")
             if token > 100:
                 break
             try:
@@ -214,6 +502,7 @@ async def run_signup(args, run_attempt=1):
 
         if len(token) == 0:
             print("⛔ Turnstile challenge failed/blocked (token 0). Killing browser...")
+            _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="token0")
             raise Exception("SUSPICIOUS_BLOCK_DETECTED: Cloudflare Turnstile token missing")
 
         # Click Create
@@ -254,6 +543,7 @@ async def run_signup(args, run_attempt=1):
 
             if detected_err:
                 print(f"⛔ BLOCKED / SUSPICIOUS ERROR DETECTED: '{detected_err}'! Killing browser to rotate IP...")
+                _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="suspicious", detail=detected_err)
                 raise Exception(f"SUSPICIOUS_BLOCK_DETECTED: {detected_err}")
 
             if "Check your inbox" in content:
@@ -261,8 +551,12 @@ async def run_signup(args, run_attempt=1):
             else:
                 print(f"Page response snippet: {content[:500]}")
 
-            # Wait for Lovable verify link from dispose.lol tab
-            link = await inbox.wait_for_lovable_link()
+            # Wait for Lovable verify link: 22.do inbox for 22do mails,
+            # dispose.lol tab otherwise
+            if email_source == "22do":
+                link = await poll_22do_lovable_link(ctx, email)
+            else:
+                link = await inbox.wait_for_lovable_link()
             if link:
                 print(f"🎯 Navigating to verify link: {link}")
                 await page.goto(link, timeout=30000)
@@ -337,11 +631,14 @@ async def run_signup(args, run_attempt=1):
                                 break
                         except Exception: pass
 
-                # Final Dashboard Wait
-                await page.wait_for_timeout(4000)
-                final_url = page.url
-                await page.screenshot(path="/tmp/zen_final_dashboard.png", full_page=True)
-
+                # SAVE FIRST — session often dies ~3min in, right after dashboard.
+                # Any wait/screenshot before the save risks losing the account.
+                # Everything here is death-proof: even with a dead browser we
+                # persist email/password/verify-link for a later cookie refresh.
+                try:
+                    final_url = page.url
+                except Exception:
+                    final_url = "https://lovable.dev/dashboard (unconfirmed, session died)"
                 # ── SAVE COOKIES & CONFIG TO SESSIONS DIR ──────────────────────────
                 sessions_dir = Path(__file__).resolve().parents[2] / "scripts" / "sessions"
                 sessions_dir.mkdir(parents=True, exist_ok=True)
@@ -349,7 +646,11 @@ async def run_signup(args, run_attempt=1):
                 session_path = sessions_dir / session_id_dir
                 session_path.mkdir(parents=True, exist_ok=True)
 
-                cookies = await ctx.cookies()
+                try:
+                    cookies = await ctx.cookies()
+                except Exception as e:
+                    print(f"  ⚠️ cookies() failed (dead session): {str(e)[:80]} — saving creds only")
+                    cookies = []
                 (session_path / "cookies.json").write_text(json.dumps(cookies, indent=2))
                 config_data = {
                     "email": email,
@@ -357,8 +658,9 @@ async def run_signup(args, run_attempt=1):
                     "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
                     "dashboard_url": final_url,
                     "verified": True,
-                    "provider": "dispose.lol",
-                    "verify_link": link
+                    "provider": "22do" if email_source == "22do" else "dispose.lol",
+                    "verify_link": link,
+                    "cookies_saved": len(cookies) > 0,
                 }
                 (session_path / "config.json").write_text(json.dumps(config_data, indent=2))
 
@@ -367,6 +669,7 @@ async def run_signup(args, run_attempt=1):
 
                 print(f"✅ SAVED SESSION {session_id_dir} to {session_path}")
                 print(f"✅ Saved {len(cookies)} cookies & config.json for {email}")
+                _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="success", session=session_id_dir)
                 return True
     finally:
         if inbox:
@@ -397,7 +700,7 @@ async def main():
                 print(f"🎉 Signup completed successfully on attempt {attempt}!")
                 break
         except Exception as e:
-            if "SUSPICIOUS_BLOCK_DETECTED" in str(e):
+            if "SUSPICIOUS_BLOCK_DETECTED" in str(e) or "ASN_GATE_BLOCKED" in str(e):
                 print(f"⛔ [Attempt {attempt}] Suspicious error encountered! Browser process killed.")
                 if not args.local:
                     print(f"🔄 ZenRows mode: Changing IP / Proxy Country & Session ID for attempt {attempt + 1}...")
