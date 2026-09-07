@@ -133,6 +133,28 @@ async def main():
     import glob
     if a.all:
         skip = {s.strip() for s in a.skip.split(",") if s.strip()}
+        # backfill: copy known secrets to same-email dirs lacking them
+        import glob as _gg
+        _email_secret = {}
+        for _f in _gg.glob(os.path.join(SESSIONS, "session-*", "config.json")):
+            try:
+                _d = json.load(open(_f))
+            except Exception:
+                continue
+            if _d.get("email") and _d.get("totp_secret"):
+                _email_secret.setdefault(_d["email"], (_d["totp_secret"], _d.get("2fa_live_id")))
+        for _f in _gg.glob(os.path.join(SESSIONS, "session-*", "config.json")):
+            try:
+                _d = json.load(open(_f))
+            except Exception:
+                continue
+            if _d.get("email") in _email_secret and not _d.get("totp_secret"):
+                _s, _lid = _email_secret[_d["email"]]
+                _d["totp_secret"] = _s
+                if _lid:
+                    _d.setdefault("2fa_live_id", _lid)
+                json.dump(_d, open(_f, "w"), indent=2)
+                print(f"backfilled secret to {os.path.basename(os.path.dirname(_f))}", flush=True)
         targets = []
         seen_emails = set()
         for f in sorted(glob.glob(os.path.join(SESSIONS, "session-*", "config.json")),
