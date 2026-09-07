@@ -607,6 +607,26 @@ async def run_once():
                 url = page.url
                 print(f"After overview goto URL: {url}", file=sys.stderr)
 
+            # Overview shows masked API key b71908b••••••••••••dfa3 — click eye to reveal
+            try:
+                await page.wait_for_selector('input[aria-label="API key"]', timeout=10000)
+                await page.wait_for_timeout(1000)
+                # Check if masked
+                _masked = await page.evaluate("() => document.querySelector('input[aria-label=\"API key\"]')?.value || ''")
+                if _masked and "•" in _masked:
+                    print(f"API key masked {_masked[:12]}... clicking Show", file=sys.stderr)
+                    try:
+                        await page.click('button[aria-label="Show API key"]', timeout=5000)
+                    except Exception:
+                        await page.evaluate("""() => {
+                            const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')==='Show API key');
+                            if(b) b.click();
+                        }""")
+                    await page.wait_for_timeout(2000)
+                # Keep browser open for manual inspection as requested
+                print(f"Browser kept open for manual: {live_url} (session {session_id})", file=sys.stderr)
+            except Exception as _eye_err:
+                print(f"Eye click err {_eye_err}", file=sys.stderr)
             content = await page.content()
             body_text = await page.evaluate("() => document.body.innerText")
             # Real ZenRows keys are 40-hex. Bare 32-hex matches the Sentry DSN
@@ -614,7 +634,16 @@ async def run_once():
             _clean = re.sub(r"sentry\.io|ingest|dsn", "", content, flags=re.I)
             m = re.search(r"zenrows login --api-key ([a-f0-9]{40})", content) or re.search(r"zenrows login --api-key ([a-f0-9]{40})", body_text)
             if not m and "overview" in url:
-                m = re.search(r"\b([a-f0-9]{40})\b", _clean)
+                # Try to read unmasked input value directly
+                try:
+                    _val = await page.evaluate("() => document.querySelector('input[aria-label=\"API key\"]')?.value || ''")
+                    if _val and len(_val) == 40 and re.match(r'^[a-f0-9]{40}$', _val):
+                        print(f"Found unmasked input value {_val[:8]}...", file=sys.stderr)
+                        m = re.search(r"\b([a-f0-9]{40})\b", _val)
+                    else:
+                        m = re.search(r"\b([a-f0-9]{40})\b", _clean)
+                except Exception:
+                    m = re.search(r"\b([a-f0-9]{40})\b", _clean)
             if not m:
                 print(f"No API key found at {url} body={body_text[:2000]}", file=sys.stderr)
                 await page.screenshot(path="/tmp/zen_no_apikey.png", full_page=True)
@@ -629,6 +658,9 @@ async def run_once():
                 f.write(f"EMAIL={email}\nPASSWORD={password}\nAPI_KEY={api_key}\nURL={url}\nLIVE={live_url}\nSID={session_id}\n")
             await page.screenshot(path="/tmp/zen_verified.png", full_page=True)
             print(f"Saved /tmp/zen_kernel_account.txt and /tmp/zen_verified.png", file=sys.stderr)
+            print(f"Browser kept open for manual inspection: {live_url} (session {session_id}) — sleeping 10min", file=sys.stderr)
+            # Keep browser open as requested
+            await asyncio.sleep(600)
             await browser.close()
             cleanup_kernel(session_id)
             return result
