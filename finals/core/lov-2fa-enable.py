@@ -26,8 +26,8 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
     cfg_path = os.path.join(SESSIONS, f"session-{num}", "config.json")
     ck_path = os.path.join(SESSIONS, f"session-{num}", "cookies.json")
     cfg = json.load(open(cfg_path))
-    if cfg.get("totp_secret"):
-        return {"session": num, "email": cfg.get("email"), "skipped": "already has totp_secret"}
+    if cfg.get("totp_secret") or cfg.get("2fa_done"):
+        return {"session": num, "email": cfg.get("email"), "skipped": "already has 2FA"}
     email, password = cfg["email"], cfg["password"]
     page = await ctx.new_page()
     try:
@@ -124,6 +124,7 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--session", default=None, help="session number, e.g. 2")
     ap.add_argument("--all", action="store_true", help="all sessions lacking totp_secret, deduped by email")
+    ap.add_argument("--skip", default="", help="comma-separated session numbers to skip, e.g. 1,2")
     ap.add_argument("--totp-secret", default=None)
     ap.add_argument("--id", default=None, dest="live_id", help="2fa.live label id to store alongside secret")
     a = ap.parse_args()
@@ -131,17 +132,21 @@ async def main():
 
     import glob
     if a.all:
+        skip = {s.strip() for s in a.skip.split(",") if s.strip()}
         targets = []
         seen_emails = set()
         for f in sorted(glob.glob(os.path.join(SESSIONS, "session-*", "config.json")),
                         key=lambda p: int(os.path.basename(os.path.dirname(p)).split("-")[1])):
+            num = os.path.basename(os.path.dirname(f)).split("-")[1]
+            if num in skip:
+                continue
             d = json.load(open(f))
-            if d.get("totp_secret"):
+            if d.get("totp_secret") or d.get("2fa_done"):
                 continue
             if d.get("email") in seen_emails:
                 continue  # same account already queued; secrets are per-account
             seen_emails.add(d.get("email"))
-            targets.append(os.path.basename(os.path.dirname(f)).split("-")[1])
+            targets.append(num)
         print(f"sessions lacking 2FA: {len(targets)} ({len(seen_emails)} unique emails)", flush=True)
     elif a.session:
         targets = [a.session]
