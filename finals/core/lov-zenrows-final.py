@@ -542,9 +542,16 @@ async def run_signup(args, run_attempt=1):
     countries = ["gb", "gf"]
     import os as _oskey
     _envkey = _oskey.environ.get("ZENROWS_KEY", "").strip()
-    key = _envkey or zenrows_keys[(run_attempt - 1) % len(zenrows_keys)]
+    # ZENROWS_KEYS (comma-separated) rotates per farm-loop iteration; else pool
+    _keypool = [k.strip() for k in _oskey.environ.get("ZENROWS_KEYS", "").split(",") if k.strip()]
+    if _keypool:
+        import hashlib as _hl
+        key = _keypool[int(_hl.md5(f"{run_attempt}".encode()).hexdigest(), 16) % len(_keypool)]
+    else:
+        key = _envkey or zenrows_keys[(run_attempt - 1) % len(zenrows_keys)]
     proxy_country = countries[(run_attempt - 1) % len(countries)]
     zenrows_wss_url = f"wss://browser.zenrows.com?apikey={key}&proxy_country={proxy_country}"
+    _run_t0 = time.time()
 
     # 0) PROVIDER CHAIN, all pure-HTTP pre-connect (no session burn):
     # tempmailhub (real clean gmail) → 22.do (1-dot gmail) → temp.tf (dot gmail).
@@ -781,6 +788,8 @@ async def run_signup(args, run_attempt=1):
 
         token = await page.evaluate("() => document.querySelector('input[name=\"cf-turnstile-response\"]')?.value || ''")
         print(f"Final token {len(token)}")
+        _token_len = len(token)
+        _age_create = round(time.time() - _run_t0)
 
         if len(token) == 0:
             print("⛔ Turnstile challenge failed/blocked (token 0). Killing browser...")
@@ -842,7 +851,7 @@ async def run_signup(args, run_attempt=1):
 
             if detected_err:
                 print(f"⛔ BLOCKED / SUSPICIOUS ERROR DETECTED: '{detected_err}'! Killing browser to rotate IP...")
-                _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="suspicious", detail=detected_err)
+                _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="suspicious", detail=detected_err, token_len=_token_len, age_create_s=_age_create)
                 raise Exception(f"SUSPICIOUS_BLOCK_DETECTED: {detected_err}")
 
             if "Check your inbox" in content:
@@ -974,7 +983,7 @@ async def run_signup(args, run_attempt=1):
 
                 print(f"✅ SAVED SESSION {session_id_dir} to {session_path}")
                 print(f"✅ Saved {len(cookies)} cookies & config.json for {email}")
-                _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="success", session=session_id_dir)
+                _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="success", session=session_id_dir, token_len=_token_len, age_create_s=_age_create)
                 return True
     finally:
         if inbox:
@@ -998,28 +1007,35 @@ async def main():
     parser.add_argument("--local", action="store_true", help="Use local Camoufox browser with stealth bypass")
     parser.add_argument("--headless", action="store_true", help="Run local browser in headless mode")
     parser.add_argument("--max-retries", type=int, default=10, help="Max retries on suspicious block")
+    parser.add_argument("--loop", type=int, default=1, help="Farm loop: full fresh runs (default 1)")
+    parser.add_argument("--pace-mins", type=float, default=0, help="Sleep minutes between loop runs (quota pacing)")
     args = parser.parse_args()
 
-    for attempt in range(1, args.max_retries + 1):
-        try:
-            print(f"\n==========================================")
-            print(f"🚀 SIGNUP ATTEMPT {attempt}/{args.max_retries}")
-            print(f"==========================================")
-            success = await run_signup(args, run_attempt=attempt)
-            if success:
-                print(f"🎉 Signup completed successfully on attempt {attempt}!")
-                break
-        except Exception as e:
-            if "SUSPICIOUS_BLOCK_DETECTED" in str(e) or "ASN_GATE_BLOCKED" in str(e):
-                print(f"⛔ [Attempt {attempt}] Suspicious error encountered! Browser process killed.")
-                if not args.local:
-                    print(f"🔄 ZenRows mode: Changing IP / Proxy Country & Session ID for attempt {attempt + 1}...")
+    for loop_i in range(1, args.loop + 1):
+        if loop_i > 1 and args.pace_mins > 0:
+            print(f"⏳ Pacing {args.pace_mins} min before loop run {loop_i}/{args.loop}...")
+            await asyncio.sleep(args.pace_mins * 60)
+        print(f"\n########## LOOP RUN {loop_i}/{args.loop} ##########")
+        for attempt in range(1, args.max_retries + 1):
+            try:
+                print(f"\n==========================================")
+                print(f"🚀 SIGNUP ATTEMPT {attempt}/{args.max_retries}")
+                print(f"==========================================")
+                success = await run_signup(args, run_attempt=(loop_i - 1) * args.max_retries + attempt)
+                if success:
+                    print(f"🎉 Signup completed successfully on attempt {attempt}!")
+                    break
+            except Exception as e:
+                if "SUSPICIOUS_BLOCK_DETECTED" in str(e) or "ASN_GATE_BLOCKED" in str(e):
+                    print(f"⛔ [Attempt {attempt}] Suspicious error encountered! Browser process killed.")
+                    if not args.local:
+                        print(f"🔄 ZenRows mode: Changing IP / Proxy Country & Session ID for attempt {attempt + 1}...")
+                    else:
+                        print(f"🔄 Local mode: Restarting fresh browser instance for attempt {attempt + 1}...")
+                    await asyncio.sleep(3)
                 else:
-                    print(f"🔄 Local mode: Restarting fresh browser instance for attempt {attempt + 1}...")
-                await asyncio.sleep(3)
-            else:
-                print(f"⚠️ Error on attempt {attempt}: {e}")
-                await asyncio.sleep(2)
+                    print(f"⚠️ Error on attempt {attempt}: {e}")
+                    await asyncio.sleep(2)
 
 if __name__ == "__main__":
     import asyncio
