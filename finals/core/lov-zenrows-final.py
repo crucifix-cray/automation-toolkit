@@ -303,6 +303,13 @@ async def run_signup(args, run_attempt=1):
     proxy_country = countries[(run_attempt - 1) % len(countries)]
     zenrows_wss_url = f"wss://browser.zenrows.com?apikey={key}&proxy_country={proxy_country}"
 
+    # 0) 22.do fake-gmail FIRST, BEFORE browser connect (pure local HTTP).
+    # The 40-try loop burns minutes — doing it after connect eats the ~3min
+    # ZenRows session lifetime while the browser sits idle.
+    pre_email = create_22do_gmail()
+    if pre_email:
+        print(f"22.do Gmail {pre_email} (pre-connect, skip dispose tab)")
+
     if args.local:
         print(f"🦊 [Attempt {run_attempt}] Launching local Camoufox Stealth browser...")
         try:
@@ -342,10 +349,10 @@ async def run_signup(args, run_attempt=1):
     print(f"🎭 Fingerprint jitter: cores={_cores} mem={_mem} plat={_plat} plugins={_nplug}")
 
     try:
-        # 0) 22.do fake-gmail FIRST (pure HTTP, instant) — fallback dispose.lol tab
+        # Use pre-connect 22.do mail if we got one — fallback dispose.lol tab
         inbox = None
         email_source = "dispose"
-        email = create_22do_gmail()
+        email = pre_email
         if email:
             email_source = "22do"
             print(f"22.do Gmail {email} (skip dispose tab)")
