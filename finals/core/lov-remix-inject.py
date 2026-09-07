@@ -151,7 +151,8 @@ async def remix_one(pw, ctx, num):
         if "suspicious activity" in body.lower() or "RED" in body[:500]:
             return {"session": num, "email": email, "success": False, "reason": "RED flagged"}
         project_id = page.url.split("/projects/")[-1].split("?")[0] if "/projects/" in page.url else ""
-        log(f"session-{num} remixed project {project_id}")
+        project_link = page.url.split("?")[0] if "/projects/" in page.url else ""
+        log(f"session-{num} remixed project {project_id} {project_link}")
 
         # --- inject bridge via chat ---
         chat_input = None
@@ -165,7 +166,8 @@ async def remix_one(pw, ctx, num):
             except Exception:
                 continue
         if not chat_input:
-            return {"session": num, "email": email, "success": False, "reason": "no chat input", "project_id": project_id}
+            return {"session": num, "email": email, "success": False, "reason": "no chat input",
+                    "project_id": project_id, "project_link": project_link}
         await chat_input.click()
         await chat_input.fill(SUBPROCESS_PROMPT)
         await wait(1000)
@@ -177,7 +179,8 @@ async def remix_one(pw, ctx, num):
                 break
             await asyncio.sleep(5)
         else:
-            return {"session": num, "email": email, "success": False, "reason": "AI no response", "project_id": project_id}
+            return {"session": num, "email": email, "success": False, "reason": "AI no response",
+                    "project_id": project_id, "project_link": project_link}
 
         # --- verify bridge in preview ---
         try:
@@ -226,9 +229,13 @@ async def remix_one(pw, ctx, num):
         cfg["last_remix_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         if project_id:
             cfg["project_id"] = project_id
+        if project_link:
+            cfg["project_link"] = project_link
+        if invite_link:
+            cfg["invite_link"] = invite_link
         json.dump(cfg, open(cfg_path, "w"), indent=2)
         return {"session": num, "email": email, "success": True, "project_id": project_id,
-                "invite_link": invite_link, "bridge": bool(has_doc)}
+                "project_link": project_link, "invite_link": invite_link, "bridge": bool(has_doc)}
     except Exception as e:
         return {"session": num, "email": cfg.get("email"), "success": False, "reason": str(e)[:200]}
     finally:
@@ -365,13 +372,21 @@ async def main():
         try:
             cur = json.loads(open(INVITES).read()) if os.path.exists(INVITES) else []
             seen_links = {i.get("invite_link") for i in cur}
-            new = [{"invite_link": l, "session": r["session"], "email": r["email"],
-                    "project_id": r.get("project_id"), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+            new = [{"invite_link": l, "project_link": r.get("project_link"), "session": r["session"],
+                    "email": r["email"], "project_id": r.get("project_id"),
+                    "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
                    for r in results if r.get("invite_link") for l in [r["invite_link"]] if l not in seen_links]
             if new:
                 json.dump(new + cur, open(INVITES, "w"), indent=2)
                 subprocess.run(["git", "add", "finals/lovable_invites.json"], cwd=REPO, capture_output=True)
-                subprocess.run(["git", "commit", "-m", f"feat: {len(new)} remix invites", "--allow-empty"],
+                # session configs carry project_link+invite_link too (gitignored -> force)
+                for r in results:
+                    if r.get("project_link") or r.get("invite_link"):
+                        subprocess.run(["git", "add", "-f",
+                            f"scripts/sessions/session-{r['session']}/config.json",
+                            f"scripts/sessions/session-{r['session']}/cookies.json"],
+                            cwd=REPO, capture_output=True)
+                subprocess.run(["git", "commit", "-m", f"feat: {len(new)} remix invites + project links", "--allow-empty"],
                                cwd=REPO, capture_output=True)
                 subprocess.run(["git", "push"], cwd=REPO, capture_output=True, timeout=60)
         except Exception as e:
