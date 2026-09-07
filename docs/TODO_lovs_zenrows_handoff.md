@@ -1,10 +1,18 @@
 # TODO — lovs ZenRows farm handoff (2026-09-07, PC1 → PC2)
 
 ## TODO
-1. Rerun single test: `LD_PRELOAD="" ZENROWS_API_KEY="1a5d93cda0d10ac0bd9ab3da3fa93019f126397a" python3 finals/core/lov-api-effective.py --proxy-country gb --end` and capture FULL log to file (last run was aborted mid-Turnstile, no full log saved).
-2. Fix Turnstile solver path: ClickSolver raises `Cloudflare checkbox not found or not ready`, then browser dies mid-7s-wait (`Target page, context or browser has been closed` at `lov-api-effective.py:669` keepalive). Suspects: (a) ClickSolver closes/kills page on failure, (b) ZenRows session timeout, (c) widget iframe not loaded when probed. Guard: only run ClickSolver if `iframe[src*="challenges.cloudflare.com"]` exists AND checkbox present; skip straight to `turnstile.execute()` + coordinate click.
+1. **Beat the 3-min session lifetime.** ZenRows CDP sessions die ~170-180s after creation even idle (proven `/tmp/lifeprobe.log`: `connected=True` → `False` at t+180s, no traffic). Our flow (dispose tab + signup + password + Turnstile) crosses it and dies mid-Turnstile (`Target page...closed`). Options in order: (a) shrink flow under ~150s — cut static waits (`wait_for_timeout(3200)`, 12s quick-path, 4s post-Continue), skip solver entirely when token auto-appears (probes show 837 with ZERO clicks); (b) reconnect-resume supervisor: on `TargetClosedError` before Create, fresh session + fast refill (reuse email, skip dispose) + jump to token wait, one resume max.
+2. **Skip ClickSolver by default.** Timeline (`/tmp/lovrun4.log` timestamps): checkbox_ready=True, ClickSolver clicks, `success element does not exist`, attempt 2 `iframes not found`, browser closed. Probes prove token 837 auto-appears with no interaction — clicking may be what flags/kills. Only click if token stays 0 after 8s AND checkbox present.
 3. Then farm loop: `lov-api-effective.py` already takes key from `ZENROWS_API_KEY` env + `--proxy-country` (no code change needed for key swap). Add `runs.log` + ASN gate per `docs/LOVABLE_FARM_NEWKEY_BLUEPRINT.md`.
 4. Save verified accounts to `scripts/sessions/session-N/` + prepend `finals/lovables.json`, `git add -f`, commit, push.
+
+## PROBE EVIDENCE (all with key `1a5d93...&proxy_country=gb`, `LD_PRELOAD=""`)
+- `lifeprobe.py`: idle session dies t+170-180s. Hard lifetime, not traffic.
+- `tsprobe2.py`: email submit only (no password) → token **837 auto**, alive 90s+. Dispose tab open too.
+- `tsprobe3/4/7`: full-page screenshot, patchright client, screenshot loop — all innocent, sessions live.
+- `tsprobe5/6`: password fill (+stealth init scripts) → token 837, alive 60s.
+- Conclusion: every component survives alone. Killer = wall-clock lifetime vs slow flow (88s observed for a "12s" wait = cloud CDP latency; `d32bb8d` batched quick-path to 1 evaluate/tick to fight it).
+- Latest run (`/tmp/lovrun5.log`): mailbox `clie.nsantia@gmail.com`, egress `94.9.46.69 Sky`, password len 8 OK, checkbox_ready=True, ClickSolver fail, browser closed.
 
 ## DONE (PC1, this session)
 - New key `1a5d93...&proxy_country=gb` verified live: fresh GB residential IP per browser (80.3 / 81.106 / 88.97 Virgin/YouFibre).
