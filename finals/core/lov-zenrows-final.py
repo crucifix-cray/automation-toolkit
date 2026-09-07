@@ -329,15 +329,16 @@ async def run_signup(args, run_attempt=1):
     _mem = random.choice([4, 8, 16])
     _plat = random.choice(["Win32", "Linux x86_64"])
     _nplug = random.randint(2, 5)
-    await ctx.add_init_script("""(cfg) => {
-        try { Object.defineProperty(navigator, 'webdriver', {get: () => undefined}); } catch(e){}
-        try { Object.defineProperty(navigator, 'plugins', {get: () => Array.from({length: cfg.nplug}, (_, i) => ({name: 'Plugin ' + i}))}); } catch(e){}
-        try { Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => cfg.cores}); } catch(e){}
-        try { Object.defineProperty(navigator, 'deviceMemory', {get: () => cfg.mem}); } catch(e){}
-        try { Object.defineProperty(navigator, 'platform', {get: () => cfg.plat}); } catch(e){}
-        try { if(!window.chrome) window.chrome = {runtime: {}}; } catch(e){}
-        try { window.__nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; } catch(e){}
-    }""", {"cores": _cores, "mem": _mem, "plat": _plat, "nplug": _nplug})
+    await ctx.add_init_script(f"""() => {{
+        const cfg = {{cores: {_cores}, mem: {_mem}, plat: '{_plat}', nplug: {_nplug}}};
+        try {{ Object.defineProperty(navigator, 'webdriver', {{get: () => undefined}}); }} catch(e){{}}
+        try {{ Object.defineProperty(navigator, 'plugins', {{get: () => Array.from({{length: cfg.nplug}}, (_, i) => ({{name: 'Plugin ' + i}}))}}); }} catch(e){{}}
+        try {{ Object.defineProperty(navigator, 'hardwareConcurrency', {{get: () => cfg.cores}}); }} catch(e){{}}
+        try {{ Object.defineProperty(navigator, 'deviceMemory', {{get: () => cfg.mem}}); }} catch(e){{}}
+        try {{ Object.defineProperty(navigator, 'platform', {{get: () => cfg.plat}}); }} catch(e){{}}
+        try {{ if(!window.chrome) window.chrome = {{runtime: {{}}}}; }} catch(e){{}}
+        try {{ window.__nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; }} catch(e){{}}
+    }}""")
     print(f"🎭 Fingerprint jitter: cores={_cores} mem={_mem} plat={_plat} plugins={_nplug}")
 
     try:
