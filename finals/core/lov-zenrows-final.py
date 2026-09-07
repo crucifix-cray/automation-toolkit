@@ -159,6 +159,131 @@ def _asn_gate(ip, limit=2):
         raise Exception(f"ASN_GATE_BLOCKED: {isp} {streak}x streak")
 
 
+TEMPMAILHUB_API = "https://api.tempmailhub.org"
+TEMP_TF_API = "https://temp.tf/api"
+RESET_LINK_RE = re.compile(r"https?://lovable\.dev/auth/action\?[^\"'\s<>]*oobCode=[^\"'\s<>]+", re.I)
+
+
+def _clear_proxy_env():
+    for _k in list(os.environ):
+        if _k.lower().endswith('_proxy'):
+            os.environ.pop(_k, None)
+
+
+def create_tempmailhub_email(tries=10):
+    """TempMailHub API: real @gmail.com (no dots/plus), validated mailbox.
+    Pure HTTP, pre-connect. Returns (email, email_id) or (None, None)."""
+    import urllib.request as _u, urllib.error as _ue, json as _j
+    _clear_proxy_env()
+    for _t in range(tries):
+        try:
+            _d = _j.dumps({"domain": "gmail.com"}).encode()
+            _rq = _u.Request(f"{TEMPMAILHUB_API}/emails", data=_d,
+                headers={"Content-Type": "application/json", "Origin": "https://tempmailhub.org"}, method="POST")
+            with _u.urlopen(_rq, timeout=20) as _r:
+                if _r.status != 201:
+                    continue
+                _acct = _j.loads(_r.read())
+            _em, _eid = _acct.get("email", ""), str(_acct.get("email_id", ""))
+            _local = _em.split("@")[0] if "@" in _em else ""
+            if not (_em.lower().endswith("@gmail.com") and "." not in _local and "+" not in _local):
+                print(f"tempmailhub skip {_em} (need clean gmail), retry {_t+1}/{tries}")
+                continue
+            _mr = _u.Request(f"{TEMPMAILHUB_API}/emails/messages?email_id={_eid}",
+                headers={"Origin": "https://tempmailhub.org"})
+            with _u.urlopen(_mr, timeout=20) as _r2:
+                _body = _r2.read().decode()
+            if "norecentemails" in _body.lower() or '"emails":[' in _body:
+                print(f"tempmailhub Gmail {_em} (id {_eid})")
+                return _em, _eid
+            print(f"tempmailhub mailbox not ready for {_em}, retry {_t+1}/{tries}")
+        except Exception as _e:
+            print(f"tempmailhub try {_t+1} err {str(_e)[:100]}")
+    return None, None
+
+
+def poll_tempmailhub_link(email_id, timeout_seconds=180):
+    """Poll TempMailHub API for the Lovable verify link. Pure HTTP (no session burn)."""
+    import urllib.request as _u, json as _j, html as _h
+    _clear_proxy_env()
+    deadline = time.time() + timeout_seconds
+    check = 0
+    while time.time() < deadline:
+        check += 1
+        try:
+            _rq = _u.Request(f"{TEMPMAILHUB_API}/emails/messages?email_id={email_id}",
+                headers={"Origin": "https://tempmailhub.org"})
+            with _u.urlopen(_rq, timeout=20) as _r:
+                _data = _j.loads(_r.read())
+            _items = _data if isinstance(_data, list) else _data.get("emails", _data.get("messages", []))
+            if check % 5 == 1:
+                print(f"  tempmailhub poll #{check}: {len(_items)} msgs")
+            for _m in _items:
+                _txt = str(_m.get("subject", "")) + " " + str(_m.get("body", _m.get("html", "")))
+                _mt = RESET_LINK_RE.search(_txt)
+                if _mt:
+                    link = _h.unescape(_mt.group(0)).replace("&amp;", "&")
+                    print(f"  🎯 FOUND VERIFY LINK via tempmailhub: {link[:120]}...")
+                    return link
+        except Exception as _e:
+            if check % 5 == 1:
+                print(f"  tempmailhub poll err {str(_e)[:100]}")
+        time.sleep(5)
+    return None
+
+
+def _temptf_get(path, data=None):
+    import urllib.request as _u, json as _j
+    _clear_proxy_env()
+    url = f"{TEMP_TF_API}{path}"
+    if data is not None:
+        _rq = _u.Request(url, data=_j.dumps(data).encode(), headers={"Content-Type": "application/json"}, method="POST")
+    else:
+        _rq = _u.Request(url)
+    with _u.urlopen(_rq, timeout=15) as _r:
+        return _j.loads(_r.read())
+
+
+def create_temptf_email(tries=10):
+    """temp.tf API: dot-trick @gmail.com. Pure HTTP, pre-connect. Returns email or None."""
+    import urllib.error as _ue
+    for _t in range(tries):
+        try:
+            _acct = _temptf_get("/account?dot=1&providers=gmail")
+            _em = _acct.get("email", "")
+            _temptf_get("/check", {"email": _em})
+            print(f"temp.tf Gmail {_em}")
+            return _em
+        except Exception as _e:
+            print(f"temp.tf try {_t+1} err {str(_e)[:100]}")
+    return None
+
+
+def poll_temptf_link(email, timeout_seconds=180):
+    """Poll temp.tf API for the Lovable verify link. Pure HTTP (no session burn)."""
+    import html as _h
+    deadline = time.time() + timeout_seconds
+    check = 0
+    while time.time() < deadline:
+        check += 1
+        try:
+            _resp = _temptf_get("/check", {"email": email})
+            _items = _resp.get("data", [])
+            if check % 5 == 1:
+                print(f"  temp.tf poll #{check}: {len(_items)} msgs")
+            for _m in _items:
+                _mt = RESET_LINK_RE.search(str(_m.get("subject", "")) + " " + str(_m.get("body", "")))
+                if _mt:
+                    link = _h.unescape(_mt.group(0)).replace("&amp;", "&")
+                    print(f"  🎯 FOUND VERIFY LINK via temp.tf: {link[:120]}...")
+                    return link
+        except Exception as _e:
+            if check % 5 == 1:
+                print(f"  temp.tf poll err {str(_e)[:100]}")
+        time.sleep(5)
+    return None
+
+
 def create_22do_gmail(tries=40):
     """22.do fake-gmail API (pure HTTP, no browser). Returns @gmail.com or None.
     Same approach as zenrows-kernel-final.py: @gmail.com + exactly 1 dot, no plus."""
@@ -281,6 +406,102 @@ async def poll_22do_lovable_link(ctx, email, timeout_seconds=180):
         pass
     return None
 
+class ZenvexInbox:
+    """zenvex.dev inbox via browser tab (Vue SPA, LIVE auto-refresh).
+    Recon: prefix input + domain btn (default souss.dev) + Open Inbox → /inbox,
+    address in .inbox-email-display. Domains: souss.dev znvx.me zenvex.edu.pl
+    encg.edu.pl ensam.edu.pl ofppt.edu.pl (NO gmail — 4th in chain)."""
+    BASE_URL = "https://zenvex.dev"
+    DOMAIN = "souss.dev"
+
+    def __init__(self, context):
+        self.context = context
+        self.page = None
+        self.address = None
+
+    async def init_mailbox(self, prefix=None):
+        import random as _rnd, string as _str
+        self.page = await self.context.new_page()
+        await self.page.goto(self.BASE_URL, wait_until="domcontentloaded", timeout=60000)
+        await self.page.wait_for_timeout(3000)
+        if not prefix:
+            prefix = "lov" + "".join(_rnd.choices(_str.ascii_lowercase + _str.digits, k=10))
+        try:
+            _inp = self.page.locator('input[placeholder*="prefix"]').first
+            await _inp.wait_for(state="visible", timeout=10000)
+            await _inp.fill(prefix)
+        except Exception as e:
+            raise Exception(f"zenvex prefix fill failed: {e}")
+        try:
+            _open = self.page.get_by_role("button", name="Open Inbox").first
+            await _open.click(timeout=8000)
+        except Exception as e:
+            raise Exception(f"zenvex Open Inbox click failed: {e}")
+        await self.page.wait_for_timeout(4000)
+        try:
+            _disp = self.page.locator('.inbox-email-display').first
+            await _disp.wait_for(state="visible", timeout=10000)
+            self.address = (await _disp.inner_text(timeout=3000)).strip()
+        except Exception:
+            self.address = f"{prefix}@{self.DOMAIN}"
+        print(f"✅ Mailbox ready: {self.address} (via zenvex tab)")
+        return self.address
+
+    async def wait_for_lovable_link(self, timeout_seconds=180):
+        print(f"📥 Waiting for Lovable verify link on zenvex ({self.address})...")
+        deadline = time.time() + timeout_seconds
+        check = 0
+        while time.time() < deadline:
+            check += 1
+            try:
+                await self.page.reload(wait_until="domcontentloaded")
+            except Exception:
+                pass
+            await self.page.wait_for_timeout(2500)
+            try:
+                rows = await self.page.evaluate("""() => [...document.querySelectorAll('button,li,[role="option"],tr')]
+                    .map(e => (e.innerText||'').slice(0,150)).filter(t=>t.length>3).join(' || ').slice(0,800)""")
+            except Exception:
+                rows = ""
+            if check % 3 == 1:
+                print(f"  Check #{check}: rows={rows[:200]}")
+            low = (rows or "").lower()
+            if "lovable" in low or "verify" in low:
+                try:
+                    cand = self.page.locator('button,li').filter(has_text=re.compile("lovable|verify", re.I)).first
+                    if await cand.count():
+                        await cand.click(timeout=5000, force=True)
+                        await self.page.wait_for_timeout(3000)
+                except Exception:
+                    pass
+                try:
+                    htmlzx = await self.page.content()
+                except Exception:
+                    htmlzx = ""
+                try:
+                    for _fr in self.page.frames:
+                        try:
+                            htmlzx += "\n" + await _fr.content()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                mz = RESET_LINK_RE.search(htmlzx or "")
+                if mz:
+                    link = html.unescape(mz.group(0)).replace("&amp;", "&")
+                    print(f"  🎯 FOUND VERIFY LINK via zenvex: {link[:120]}...")
+                    return link
+            await asyncio.sleep(3)
+        raise Exception("Lovable verify link not received on zenvex (timeout)")
+
+    async def close(self):
+        if self.page:
+            try:
+                await self.page.close()
+            except Exception:
+                pass
+
+
 import argparse
 
 async def run_signup(args, run_attempt=1):
@@ -289,6 +510,7 @@ async def run_signup(args, run_attempt=1):
     ctx = None
     page = None
     inbox = None
+    zxinbox = None
 
     # ZenRows CDP URL pool (rotates key & proxy country for clean residential IP)
     # NOTE: a71406 AUTH004 exhausted; 1a5d93 (2026-09-07, GB residential) is current live key
@@ -305,12 +527,24 @@ async def run_signup(args, run_attempt=1):
     proxy_country = countries[(run_attempt - 1) % len(countries)]
     zenrows_wss_url = f"wss://browser.zenrows.com?apikey={key}&proxy_country={proxy_country}"
 
-    # 0) 22.do fake-gmail FIRST, BEFORE browser connect (pure local HTTP).
-    # The 40-try loop burns minutes — doing it after connect eats the ~3min
-    # ZenRows session lifetime while the browser sits idle.
-    pre_email = create_22do_gmail()
-    if pre_email:
-        print(f"22.do Gmail {pre_email} (pre-connect, skip dispose tab)")
+    # 0) PROVIDER CHAIN, all pure-HTTP pre-connect (no session burn):
+    # tempmailhub (real clean gmail) → 22.do (1-dot gmail) → temp.tf (dot gmail).
+    # Browser-tab providers (zenvex → dispose.lol) come after connect.
+    pre_email, pre_src, pre_id = None, None, None
+    _th_em, _th_id = create_tempmailhub_email()
+    if _th_em:
+        pre_email, pre_src, pre_id = _th_em, "tempmailhub", _th_id
+        print(f"tempmailhub Gmail {pre_email} (pre-connect)")
+    else:
+        pre_email = create_22do_gmail()
+        if pre_email:
+            pre_src = "22do"
+            print(f"22.do Gmail {pre_email} (pre-connect, skip dispose tab)")
+        else:
+            pre_email = create_temptf_email()
+            if pre_email:
+                pre_src = "temptf"
+                print(f"temp.tf Gmail {pre_email} (pre-connect)")
 
     if args.local:
         print(f"🦊 [Attempt {run_attempt}] Launching local Camoufox Stealth browser...")
@@ -351,17 +585,28 @@ async def run_signup(args, run_attempt=1):
     print(f"🎭 Fingerprint jitter: cores={_cores} mem={_mem} plat={_plat} plugins={_nplug}")
 
     try:
-        # Use pre-connect 22.do mail if we got one — fallback dispose.lol tab
+        # Use pre-connect API mail if we got one — else browser-tab chain:
+        # zenvex first, dispose.lol last.
         inbox = None
+        zxinbox = None
         email_source = "dispose"
-        email = pre_email
+        email, email_id = pre_email, pre_id
         if email:
-            email_source = "22do"
-            print(f"22.do Gmail {email} (skip dispose tab)")
+            email_source = pre_src
+            print(f"{pre_src} mail {email} (skip browser-tab inboxes)")
         else:
-            print("22.do miss, fallback to dispose.lol Gmail tab")
-            inbox = DisposeLolInbox(ctx)
-            email = await inbox.init_mailbox()
+            try:
+                zxinbox = ZenvexInbox(ctx)
+                email = await zxinbox.init_mailbox()
+                email_source = "zenvex"
+            except Exception as _zxe:
+                print(f"zenvex miss ({str(_zxe)[:100]}), fallback to dispose.lol tab")
+                zxinbox = None
+            if not email or email_source != "zenvex":
+                print("API + zenvex miss, fallback to dispose.lol Gmail tab")
+                inbox = DisposeLolInbox(ctx)
+                email = await inbox.init_mailbox()
+                email_source = "dispose"
         password = email + "K01"  # 8+ chars
         print(f"EMAIL {email} PW {password} SRC {email_source}")
 
@@ -578,10 +823,16 @@ async def run_signup(args, run_attempt=1):
             else:
                 print(f"Page response snippet: {content[:500]}")
 
-            # Wait for Lovable verify link: 22.do inbox for 22do mails,
-            # dispose.lol tab otherwise
-            if email_source == "22do":
+            # Wait for Lovable verify link from the matching inbox.
+            # Pure-HTTP polls (tempmailhub/temp.tf) burn zero session budget.
+            if email_source == "tempmailhub":
+                link = await asyncio.to_thread(poll_tempmailhub_link, email_id)
+            elif email_source == "22do":
                 link = await poll_22do_lovable_link(ctx, email)
+            elif email_source == "temptf":
+                link = await poll_temptf_link(email)
+            elif email_source == "zenvex":
+                link = await zxinbox.wait_for_lovable_link()
             else:
                 link = await inbox.wait_for_lovable_link()
             if link:
@@ -685,7 +936,7 @@ async def run_signup(args, run_attempt=1):
                     "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
                     "dashboard_url": final_url,
                     "verified": True,
-                    "provider": "22do" if email_source == "22do" else "dispose.lol",
+                    "provider": email_source,
                     "verify_link": link,
                     "cookies_saved": len(cookies) > 0,
                 }
@@ -702,6 +953,11 @@ async def run_signup(args, run_attempt=1):
         if inbox:
             try: await inbox.close()
             except: pass
+        try:
+            if zxinbox:
+                await zxinbox.close()
+        except Exception:
+            pass
         if browser:
             try: await browser.close()
             except: pass
