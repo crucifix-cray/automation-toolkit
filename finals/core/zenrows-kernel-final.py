@@ -96,6 +96,18 @@ async def run_once():
                 print(f"dispose Gmail {email}", file=sys.stderr)
             password = "Test1234!AbcZ2026"
             print(f"EMAIL: {email} | PASS: {password} | SRC: {email_source}", file=sys.stderr)
+            try:
+                _fj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "zenrows_onkernel_farmed.json")
+                _known = {a.get("email", "").lower() for a in json.load(open(os.path.normpath(_fj)))}
+                if email.lower() in _known:
+                    print(f"DUP email {email} already farmed -> fresh run", file=sys.stderr)
+                    await browser.close()
+                    cleanup_kernel(session_id)
+                    sys.exit(1)
+            except SystemExit:
+                raise
+            except Exception as _de:
+                print(f"dup-check err {_de}", file=sys.stderr)
 
             # Human path: land on homepage first, follow real signup href (keeps _gl params)
             try:
