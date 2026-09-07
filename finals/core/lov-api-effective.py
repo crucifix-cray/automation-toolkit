@@ -846,19 +846,18 @@ async def wait_for_getting_started(page: Page, timeout: float = 90) -> None:
     raise FlowError(f"Did not reach /getting-started or dashboard after verify: {page.url}")
 
 # ── Egress check (optional, never blocks) ────────────────────────────────────
-async def verify_egress_ip(context: BrowserContext) -> str:
-    pg = await context.new_page()
+async def verify_egress_ip(page) -> str:
+    # Zero-navigation probe: page.goto counts against ZenRows navigate_domains_limit
+    # (dispose tab + signup already use the budget; a 3rd goto gets the session killed
+    # right at the Turnstile step). fetch() does not count as navigation.
     try:
-        await pg.goto("https://cloudflare.com/cdn-cgi/trace", timeout=15_000)
-        txt = await pg.locator("body").inner_text()  # type: ignore
-        return txt.strip()
+        return await page.evaluate("""async () => { try {
+            const r = await fetch('https://wtfismyip.com/json');
+            const j = await r.json();
+            return j.YourFuckingIPAddress + ' ' + j.YourFuckingISP;
+        } catch(e) { return 'egress probe failed (' + e + ')'; } }""")  # type: ignore
     except Exception as e:
         return f"egress probe failed ({e})"
-    finally:
-        try:
-            await pg.close()
-        except Exception:
-            pass
 
 # ── Browser connect (ZenRows GB primary, AUTH004 → raw IP fallback) ─────────
 async def _connect_zenrows(playwright_obj, cdp_url: str):
@@ -1016,12 +1015,8 @@ async def run(
         except Exception:
             pass
 
-        # 3) Egress check (best-effort)
-        try:
-            egress = await asyncio.wait_for(verify_egress_ip(context), timeout=12)  # type: ignore
-            print(f"🌐 Egress check: {egress[:300]}", file=sys.stderr)
-        except asyncio.TimeoutError:
-            print("⚠️ Egress probe timeout — continuing (ZenRows GB should be 86.141.x BT)", file=sys.stderr)
+        # 3) Egress check moved AFTER signup navigation (see below) — it must not
+        # spend a page.goto here; ZenRows kills the session past ~3 navigations.
 
         # 4) dispose.lol Gmail tab (separate page, same context so egress is GB)
         dispose_inbox = DisposeLolInbox(context)
@@ -1053,6 +1048,11 @@ async def run(
         print(f"🌐 Navigating to {LOVABLE_SIGNUP_URL} (direct /signup, no /login popup)…", file=sys.stderr)
         await navigate(lovable_page, LOVABLE_SIGNUP_URL)
         await lovable_page.wait_for_timeout(3200)
+        try:
+            egress = await asyncio.wait_for(verify_egress_ip(lovable_page), timeout=12)  # type: ignore
+            print(f"🌐 Egress check: {egress[:300]}", file=sys.stderr)
+        except asyncio.TimeoutError:
+            print("⚠️ Egress probe timeout — continuing (ZenRows GB should be 86.141.x BT)", file=sys.stderr)
         # White-screen/skeleton guard (/signup sometimes renders skeleton without hydration)
         txt = await body_text(lovable_page)
         if len(txt.strip()) < 50 or ("Create your account" not in txt and "Créez votre compte" not in txt and "Create" not in txt):
