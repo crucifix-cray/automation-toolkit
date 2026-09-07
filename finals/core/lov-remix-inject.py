@@ -41,12 +41,10 @@ async def js_click(page, locator, description=""):
         await locator.click(timeout=5000, force=True)
 
 def _load_subprocess_prompt():
-    # ponytail: parse source instead of importing (lovable-full-automation.py has
-    # import-time side effect opening hardcoded /home/alan/... path)
-    src = open(os.path.join(CORE, "lovable-full-automation.py")).read()
-    m = _re.search(r'SUBPROCESS_PROMPT\s*=\s*"""(.*?)"""', src, _re.S)
-    assert m, "SUBPROCESS_PROMPT not found"
-    return m.group(1)
+    # ponytail: single source of truth is prompts/Build a debug terminal.txt
+    # (lovable-full-automation.py SUBPROCESS_PROMPT unused; its import crashes
+    # on hardcoded /home/alan/... path anyway)
+    return open(os.path.join(REPO, "prompts", "Build a debug terminal.txt")).read().strip()
 SUBPROCESS_PROMPT = _load_subprocess_prompt()
 
 KERNEL_API_KEY = os.environ.get("KERNEL_API_KEY", "sk_3c47ea14-fd9b-811e-baee-f825da6c787e.tSkgaBckY9M1Qv0bMz620378Ys4NlpXn2b-CutDLnGM")
@@ -187,10 +185,10 @@ async def remix_one(pw, ctx, num):
                 await page.locator('a:has-text("Preview"), button:has-text("Preview")').first.click(timeout=8000)
             preview = await pop.value
             await preview.wait_for_timeout(8000)
-            has_doc = await preview.evaluate("typeof window.doc !== 'undefined'")
+            has_doc = await preview.evaluate("typeof window.doc !== 'undefined' || typeof window.bug !== 'undefined'")
             if has_doc:
-                pwd_out = await preview.evaluate("window.doc('pwd')")
-                log(f"session-{num} window.doc pwd: {str(pwd_out)[:120]}")
+                pwd_out = await preview.evaluate("typeof window.doc !== 'undefined' ? window.doc('pwd') : window.bug.sh('pwd')")
+                log(f"session-{num} bridge pwd: {str(pwd_out)[:120]}")
             await preview.close()
         except Exception as e:
             log(f"session-{num} preview check warn: {e}")
