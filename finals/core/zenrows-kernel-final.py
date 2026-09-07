@@ -57,6 +57,23 @@ def create_22do_gmail(tries=40):
             print(f"22.do API try {_t+1} err {str(_e)[:120]}", file=sys.stderr)
     return None
 
+EGRESS_IPS_FILE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "zenrows_egress_ips.json"))
+
+def _load_ips():
+    try:
+        return json.load(open(EGRESS_IPS_FILE))
+    except Exception:
+        return []
+
+def _save_ip(ip):
+    try:
+        ips = _load_ips()
+        if ip not in ips:
+            ips.append(ip)
+            json.dump(ips, open(EGRESS_IPS_FILE, "w"), indent=1)
+    except Exception as e:
+        print(f"ip-save err {e}", file=sys.stderr)
+
 async def run_once():
     cdp_ws, live_url, session_id = create_kernel_browser()
     print(f"Connecting to {cdp_ws[:60]}... | LIVE {live_url}", file=sys.stderr)
@@ -66,11 +83,43 @@ async def run_once():
             os.environ.pop(k, None)
 
     browser = None
+    egress_ip = None
     try:
         async with async_playwright() as pw:
             browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
             ctx = browser.contexts[0]
             page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            # Fresh-IP gate: check egress via cloudflare trace, compare to used set.
+            # Residential exits can repeat -> kill + fresh browser (max 3 tries).
+            for _iptry in range(3):
+                try:
+                    await page.goto("https://cloudflare.com/cdn-cgi/trace", wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(2500)
+                    _trace = await page.evaluate("() => document.body.innerText")
+                    _m = re.search(r"ip=([0-9a-fA-F.:]+)", _trace or "")
+                    egress_ip = _m.group(1) if _m else "unknown"
+                except Exception as _ie:
+                    print(f"egress check err {_ie}, assuming fresh", file=sys.stderr)
+                    egress_ip = "unknown"
+                    break
+                _used = _load_ips()
+                if egress_ip not in _used and egress_ip != "unknown":
+                    print(f"EGRESS fresh {egress_ip}", file=sys.stderr)
+                    break
+                print(f"EGRESS DUP {egress_ip} (used {len(_used)}) -> fresh browser try {_iptry+1}/3", file=sys.stderr)
+                try:
+                    await browser.close()
+                except Exception:
+                    pass
+                cleanup_kernel(session_id)
+                cdp_ws, live_url, session_id = create_kernel_browser()
+                print(f"Re-connecting {cdp_ws[:60]}...", file=sys.stderr)
+                browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
+                ctx = browser.contexts[0]
+                page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            else:
+                print("EGRESS still dup after 3 — proceeding anyway", file=sys.stderr)
+            _save_ip(egress_ip or "unknown")
             if "dispose.lol" not in page.url:
                 await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(5000)
@@ -679,7 +728,7 @@ async def run_once():
                 sys.exit(1)
             api_key = m.group(1) if m.groups() else m.group(0)
             print(f"SUCCESS {email} / {password} / {api_key} → {url}", file=sys.stderr)
-            result = {"email": email, "password": password, "api_key": api_key, "url": url, "live_url": live_url, "session_id": session_id}
+            result = {"email": email, "password": password, "api_key": api_key, "url": url, "live_url": live_url, "session_id": session_id, "egress_ip": egress_ip}
             print(json.dumps(result, indent=2))
             with open("/tmp/zen_kernel_account.txt","w") as f:
                 f.write(f"EMAIL={email}\nPASSWORD={password}\nAPI_KEY={api_key}\nURL={url}\nLIVE={live_url}\nSID={session_id}\n")
