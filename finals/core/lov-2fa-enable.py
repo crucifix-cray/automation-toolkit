@@ -191,60 +191,82 @@ async def main():
                 env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY},
                 timeout=15, capture_output=True)
 
-    cdp_ws, sid, new_browser = os.environ.get("KERNEL_CDP_WS"), None, False
     owned_sids = []
-    if not cdp_ws:
-        cdp_ws, sid = _new_browser()
-        owned_sids.append(sid)
-        new_browser = True
+    import asyncio as _aio
+    NWORKERS = 1 if a.session else 5  # ponytail: 5 parallel kernel browsers max
+    queue: _aio.Queue = _aio.Queue()
+    for _num in targets:
+        queue.put_nowait(_num)
+    results, owned_sids, _lock = [], [], _aio.Lock()
+
+    async def _worker(wid, pw):
+        cdp_ws, sid = None, None
+        try:
+            if os.environ.get("KERNEL_CDP_WS"):
+                cdp_ws = os.environ["KERNEL_CDP_WS"]
+            else:
+                cdp_ws, sid = await _aio.to_thread(_new_browser)
+                async with _lock:
+                    owned_sids.append(sid)
+            browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
+            while True:
+                try:
+                    num = queue.get_nowait()
+                except _aio.QueueEmpty:
+                    break
+                try:
+                    try:
+                        ctx = await browser.new_context()
+                    except Exception:
+                        _del_browser(sid)  # dead browser -> fresh one, same worker
+                        cdp_ws, sid = await _aio.to_thread(_new_browser)
+                        async with _lock:
+                            owned_sids.append(sid)
+                        browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
+                        ctx = await browser.new_context()
+                    try:
+                        res = await enable_one(pw, ctx, num, live_id=a.live_id, totp_secret=a.totp_secret)
+                    finally:
+                        try:
+                            await ctx.close()
+                        except Exception:
+                            pass
+                except Exception as e:
+                    res = {"session": num, "success": False, "reason": f"worker: {e}"[:200]}
+                async with _lock:
+                    results.append(res)
+                    print(json.dumps(res), flush=True)
+                    if res.get("success"):
+                        print(f"✅ [w{wid}] session-{num} 2FA on", flush=True)
+                        import glob as _g
+                        for _f in _g.glob(os.path.join(SESSIONS, "session-*", "config.json")):
+                            try:
+                                _d = json.load(open(_f))
+                            except Exception:
+                                continue
+                            if _d.get("email") == res.get("email") and not _d.get("totp_secret"):
+                                _d["totp_secret"] = res["secret"]
+                                if a.live_id:
+                                    _d["2fa_live_id"] = a.live_id
+                                json.dump(_d, open(_f, "w"), indent=2)
+                                print(f"  ↳ secret copied to {os.path.basename(os.path.dirname(_f))}", flush=True)
+                    else:
+                        print(f"❌ [w{wid}] session-{num} {res.get('reason', res.get('skipped', '?'))}", flush=True)
+                queue.task_done()
+            try:
+                await browser.close()
+            except Exception:
+                pass
+        finally:
+            pass
 
     from playwright.async_api import async_playwright
-    results = []
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
-            for num in targets:  # fresh context per session = cookie isolation, one browser
-                try:
-                    ctx = await browser.new_context()
-                except Exception as e:
-                    # browser died (cap/timeout) -> fresh browser, retry once
-                    print(f"browser dead ({e}), recreating", flush=True)
-                    _del_browser(sid)
-                    cdp_ws, sid = _new_browser()
-                    owned_sids.append(sid)
-                    browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
-                    ctx = await browser.new_context()
-                try:
-                    res = await enable_one(pw, ctx, num, live_id=a.live_id, totp_secret=a.totp_secret)
-                finally:
-                    try:
-                        await ctx.close()
-                    except Exception:
-                        pass
-                results.append(res)
-                print(json.dumps(res), flush=True)
-                if res.get("success"):
-                    print(f"✅ session-{num} 2FA on", flush=True)
-                    # propagate secret to dup-email session dirs (same account)
-                    import glob as _g
-                    for _f in _g.glob(os.path.join(SESSIONS, "session-*", "config.json")):
-                        try:
-                            _d = json.load(open(_f))
-                        except Exception:
-                            continue
-                        if _d.get("email") == res.get("email") and not _d.get("totp_secret"):
-                            _d["totp_secret"] = res["secret"]
-                            if a.live_id:
-                                _d["2fa_live_id"] = a.live_id
-                            json.dump(_d, open(_f, "w"), indent=2)
-                            print(f"  ↳ secret copied to {os.path.basename(os.path.dirname(_f))}", flush=True)
-                else:
-                    print(f"❌ session-{num} {res.get('reason', res.get('skipped', '?'))}", flush=True)
-            await browser.close()
+            await _aio.gather(*[_worker(i, pw) for i in range(NWORKERS)])
     finally:
-        if new_browser:
-            for _sid in owned_sids:
-                _del_browser(_sid)
+        for _sid in owned_sids:  # workers own their browsers (new_browser flag unused in pool mode)
+            _del_browser(_sid)
     ok = sum(1 for r in results if r.get("success"))
     print(f"\n{ok}/{len(results)} enabled", flush=True)
 
