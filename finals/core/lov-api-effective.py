@@ -1144,15 +1144,25 @@ async def run(
             except:
                 await pw_loc.evaluate("el => el.focus()")  # type: ignore
             await asyncio.sleep(0.12)
-            # Use keyboard.type with delay 50 as verified doc (trap-free on ZenRows)
-            try:
-                await pw_loc.fill("")  # type: ignore
-            except:
-                await pw_loc.evaluate("el => el.value=''")  # type: ignore
-            await lovable_page.keyboard.type(password, delay=50)  # type: ignore
-            # Verify masked ••••• and requirements
+            # fill() first: keyboard.type loses focus mid-typing (observed len=2),
+            # leaving the form invalid so Turnstile never renders. fill() verified
+            # working on ZenRows (trap-free) in all manual runs.
+            await pw_loc.fill(password)  # type: ignore
             await lovable_page.wait_for_timeout(900)
             val_len = await pw_loc.evaluate("el => el.value.length")  # type: ignore
+            if val_len != len(password):
+                print(f"  ⚠️ fill len {val_len} != {len(password)}, retry click+fill once", file=sys.stderr)
+                try:
+                    await pw_loc.click(timeout=3000, force=True)  # type: ignore
+                except:
+                    pass
+                await pw_loc.fill(password)  # type: ignore
+                await lovable_page.wait_for_timeout(900)
+                val_len = await pw_loc.evaluate("el => el.value.length")  # type: ignore
+            if val_len != len(password):
+                raise FlowError(f"password fill stuck at len={val_len}, want {len(password)}")
+            # Verify masked ••••• and requirements
+            txt2 = await body_text(lovable_page)
             txt2 = await body_text(lovable_page)
             if "Password meets all requirements" in txt2 or "exigences" in txt2.lower():
                 print(f"  ✅ Password accepted (len {val_len}, meets all requirements)", file=sys.stderr)
