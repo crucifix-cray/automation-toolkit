@@ -170,6 +170,25 @@ def _clear_proxy_env():
             os.environ.pop(_k, None)
 
 
+def lovable_email_available(email):
+    """Pre-check via Lovable API: skip mails that already have an account
+    (providers recycle — tempmailhub just re-issued our dead session-1 mail).
+    On any error: optimistic True, browser flow decides."""
+    import urllib.request as _u, json as _j
+    _clear_proxy_env()
+    try:
+        _rq = _u.Request("https://api.lovable.dev/auth/check-auth-provider",
+            data=_j.dumps({"email": email}).encode(),
+            headers={"Content-Type": "application/json", "Origin": "https://lovable.dev",
+                     "Referer": "https://lovable.dev/",
+                     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"},
+            method="POST")
+        with _u.urlopen(_rq, timeout=15) as _r:
+            return not _j.loads(_r.read()).get("user_exists", True)
+    except Exception:
+        return True
+
+
 def create_tempmailhub_email(tries=10):
     """TempMailHub API: real @gmail.com (no dots/plus), validated mailbox.
     Pure HTTP, pre-connect. Returns (email, email_id) or (None, None)."""
@@ -532,19 +551,27 @@ async def run_signup(args, run_attempt=1):
     # Browser-tab providers (zenvex → dispose.lol) come after connect.
     pre_email, pre_src, pre_id = None, None, None
     _th_em, _th_id = create_tempmailhub_email()
-    if _th_em:
+    if _th_em and lovable_email_available(_th_em):
         pre_email, pre_src, pre_id = _th_em, "tempmailhub", _th_id
-        print(f"tempmailhub Gmail {pre_email} (pre-connect)")
+        print(f"tempmailhub Gmail {pre_email} (pre-connect, available)")
     else:
+        if _th_em:
+            print(f"tempmailhub {_th_em} already registered — next provider")
         pre_email = create_22do_gmail()
+        if pre_email and not lovable_email_available(pre_email):
+            print(f"22.do {pre_email} already registered — next provider")
+            pre_email = None
         if pre_email:
             pre_src = "22do"
-            print(f"22.do Gmail {pre_email} (pre-connect, skip dispose tab)")
+            print(f"22.do Gmail {pre_email} (pre-connect, available)")
         else:
             pre_email = create_temptf_email()
+            if pre_email and not lovable_email_available(pre_email):
+                print(f"temp.tf {pre_email} already registered — browser-tab chain")
+                pre_email = None
             if pre_email:
                 pre_src = "temptf"
-                print(f"temp.tf Gmail {pre_email} (pre-connect)")
+                print(f"temp.tf Gmail {pre_email} (pre-connect, available)")
 
     if args.local:
         print(f"🦊 [Attempt {run_attempt}] Launching local Camoufox Stealth browser...")
