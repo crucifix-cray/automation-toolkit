@@ -407,7 +407,7 @@ async def run_once():
                 # Poll temp.tf directly (no browser needed; NOTE: API 404s as of 2026-09-06)
                 import urllib.request, json as _json2, re as _re, html as _html2, time as _time2
                 link_re2 = _re.compile(r"https://[^\s]+zenrows\.com[^\s]+", _re.I)
-                found = False
+                found_tf = False
                 for i in range(20):
                     try:
                         old_env2 = {k: __import__('os').environ.pop(k,None) for k in ("HTTPS_PROXY","HTTP_PROXY","https_proxy","http_proxy","ALL_PROXY","all_proxy")}
@@ -428,9 +428,9 @@ async def run_once():
                                         print(f"FOUND LINK via temp.tf {verify_url2[:200]}", file=sys.stderr)
                                         # Store in page for later
                                         await page.evaluate("(url) => { window.__verifyUrl = url; }", verify_url2)
-                                        found = True
+                                        found_tf = True
                                         break
-                                if found:
+                                if found_tf:
                                     break
                         finally:
                             for k,v in old_env2.items():
@@ -439,7 +439,7 @@ async def run_once():
                     except Exception as e:
                         print(f"Poll temp.tf err {e}", file=sys.stderr)
                     await page.wait_for_timeout(2000)
-                    if i == 4 and not found:
+                    if i == 4 and not found_tf:
                         print("No email after 8 polls, trying Resend...", file=sys.stderr)
                         await page.goto("https://app.zenrows.com/email/verify", wait_until="domcontentloaded", timeout=30000)
                         await page.wait_for_timeout(3000)
@@ -447,7 +447,7 @@ async def run_once():
                         await page.wait_for_timeout(5000)
                         print("Resent", file=sys.stderr)
                 # For Gmail, we already have verify_url via window.__verifyUrl, skip dispose polling
-                if found and email.lower().endswith("@gmail.com"):
+                if found_tf and email.lower().endswith("@gmail.com"):
                     # Skip dispose polling, use the found link
                     pass
                 else:
