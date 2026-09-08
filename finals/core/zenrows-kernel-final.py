@@ -272,71 +272,104 @@ async def run_once():
                 except Exception as _fe:
                     print(f"fill {sel} fallback err {_fe}", file=sys.stderr)
                     return False
-            if not await _human_fill("#email", email):
-                print("EMAIL fill failed -> fresh run", file=sys.stderr)
-                await browser.close()
-                cleanup_kernel(session_id)
-                sys.exit(1)
-            await page.wait_for_timeout(random.randint(500, 1100))
-            await page.mouse.move(random.randint(300, 700), random.randint(350, 550))
-            if not await _human_fill("#password", password):
-                print("PASSWORD fill failed -> fresh run", file=sys.stderr)
-                await browser.close()
-                cleanup_kernel(session_id)
-                sys.exit(1)
-            await page.wait_for_timeout(random.randint(600, 1300))
-            _btn = page.locator('button:has-text("Create account")').first
-            try:
-                _bb = await _btn.bounding_box()
-            except Exception:
-                _bb = None
-            if _bb:
-                await page.mouse.move(int(_bb["x"] + _bb["width"] / 2 + random.randint(-20, 20)), int(_bb["y"] + _bb["height"] / 2))
-                await page.wait_for_timeout(random.randint(250, 550))
-            await _btn.click(timeout=8000)
-            await page.wait_for_timeout(9000)
+            _emails_tried = [email]
+            _registered = False
             url = page.url
-            print(f"After Create URL: {url}", file=sys.stderr)
-            # page may still be navigating (email/verify auto-redirects) —
-            # retry content() until navigation settles instead of crashing
-            content = ""
-            for _cr in range(6):
-                try:
-                    content = await page.content()
-                    break
-                except Exception as _cerr:
-                    print(f"content() race ({_cr+1}/6): {_cerr}", file=sys.stderr)
-                    await page.wait_for_timeout(2000)
-            if not content:
-                try:
-                    await page.wait_for_load_state("domcontentloaded", timeout=15000)
-                    content = await page.content()
-                except Exception as _cerr2:
-                    print(f"content() still failing: {_cerr2}", file=sys.stderr)
+            for _em_try in range(3):
+                if _em_try > 0:
+                    # Fresh 22.do email, same browser (IP already proven by CF pass)
+                    _ne = create_22do_gmail(tries=15)
                     try:
-                        content = await page.evaluate("() => document.documentElement.outerHTML")
+                        _fj2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "zenrows_onkernel_farmed.json")
+                        _kn2 = {a.get("email", "").lower() for a in json.load(open(os.path.normpath(_fj2)))}
                     except Exception:
-                        content = ""
-            if "Too many accounts detected from your IP" in content:
-                print("IP FLAGGED (too many accounts) -> kill browser, fresh IP next run", file=sys.stderr)
-                await page.screenshot(path="/tmp/zen_ip_flagged.png", full_page=True)
-                await browser.close()
-                cleanup_kernel(session_id)
-                sys.exit(1)
-            if "Email domain not allowed" in content or "Invalid email address" in content:
-                print(f"DOMAIN/EMAIL REJECTED for {email} -> kill, fresh email next run", file=sys.stderr)
-                await page.screenshot(path="/tmp/zen_domain_blocked.png", full_page=True)
-                await browser.close()
-                cleanup_kernel(session_id)
-                sys.exit(1)
-            if "email/verify" not in url and "verify" not in content.lower():
+                        _kn2 = set()
+                    if not _ne or _ne.lower() in _kn2 or _ne in _emails_tried:
+                        print(f"retry {_em_try}: no fresh email -> fresh run", file=sys.stderr)
+                        await browser.close()
+                        cleanup_kernel(session_id)
+                        sys.exit(1)
+                    email = _ne
+                    email_source = "22do"
+                    _emails_tried.append(email)
+                    print(f"retry {_em_try}: new email {email}", file=sys.stderr)
+                    try:
+                        await page.reload(wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(3000)
+                        await page.wait_for_selector("#email", timeout=15000)
+                    except Exception as _rl:
+                        print(f"retry reload err {_rl} -> fresh run", file=sys.stderr)
+                        await browser.close()
+                        cleanup_kernel(session_id)
+                        sys.exit(1)
+                if not await _human_fill("#email", email):
+                    print("EMAIL fill failed -> fresh run", file=sys.stderr)
+                    await browser.close()
+                    cleanup_kernel(session_id)
+                    sys.exit(1)
+                await page.wait_for_timeout(random.randint(500, 1100))
+                await page.mouse.move(random.randint(300, 700), random.randint(350, 550))
+                if not await _human_fill("#password", password):
+                    print("PASSWORD fill failed -> fresh run", file=sys.stderr)
+                    await browser.close()
+                    cleanup_kernel(session_id)
+                    sys.exit(1)
+                await page.wait_for_timeout(random.randint(600, 1300))
+                _btn = page.locator('button:has-text("Create account")').first
                 try:
-                    _bt = (await page.evaluate("() => document.body.innerText")).replace("\n", " ")
-                    print(f"Register failed body: {_bt[:500]}", file=sys.stderr)
+                    _bb = await _btn.bounding_box()
                 except Exception:
-                    pass
-                print(f"Register failed, url={url}", file=sys.stderr)
-                await page.screenshot(path="/tmp/zen_register_failed.png", full_page=True)
+                    _bb = None
+                if _bb:
+                    await page.mouse.move(int(_bb["x"] + _bb["width"] / 2 + random.randint(-20, 20)), int(_bb["y"] + _bb["height"] / 2))
+                    await page.wait_for_timeout(random.randint(250, 550))
+                await _btn.click(timeout=8000)
+                await page.wait_for_timeout(9000)
+                url = page.url
+                print(f"After Create URL (try {_em_try}): {url}", file=sys.stderr)
+                # page may still be navigating (email/verify auto-redirects) —
+                # retry content() until navigation settles instead of crashing
+                content = ""
+                for _cr in range(6):
+                    try:
+                        content = await page.content()
+                        break
+                    except Exception as _cerr:
+                        print(f"content() race ({_cr+1}/6): {_cerr}", file=sys.stderr)
+                        await page.wait_for_timeout(2000)
+                if not content:
+                    try:
+                        await page.wait_for_load_state("domcontentloaded", timeout=15000)
+                        content = await page.content()
+                    except Exception as _cerr2:
+                        print(f"content() still failing: {_cerr2}", file=sys.stderr)
+                        try:
+                            content = await page.evaluate("() => document.documentElement.outerHTML")
+                        except Exception:
+                            content = ""
+                if "Too many accounts detected from your IP" in content:
+                    print("IP FLAGGED (too many accounts) -> kill browser, fresh IP next run", file=sys.stderr)
+                    await page.screenshot(path="/tmp/zen_ip_flagged.png", full_page=True)
+                    await browser.close()
+                    cleanup_kernel(session_id)
+                    sys.exit(1)
+                if "Email domain not allowed" in content or "Invalid email address" in content:
+                    print(f"DOMAIN/EMAIL REJECTED for {email} (try {_em_try}) -> retry same browser", file=sys.stderr)
+                    await page.screenshot(path=f"/tmp/zen_domain_blocked_{_em_try}.png", full_page=True)
+                    continue
+                if "email/verify" not in url and "verify" not in content.lower():
+                    try:
+                        _bt = (await page.evaluate("() => document.body.innerText")).replace("\n", " ")
+                        print(f"Register failed body (try {_em_try}): {_bt[:500]}", file=sys.stderr)
+                    except Exception:
+                        pass
+                    print(f"Register failed, url={url} (try {_em_try}) -> retry same browser", file=sys.stderr)
+                    await page.screenshot(path=f"/tmp/zen_register_failed_{_em_try}.png", full_page=True)
+                    continue
+                _registered = True
+                break
+            if not _registered:
+                print(f"3 emails rejected in same browser -> fresh run", file=sys.stderr)
                 await browser.close()
                 cleanup_kernel(session_id)
                 sys.exit(1)
