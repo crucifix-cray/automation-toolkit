@@ -550,16 +550,19 @@ async def poll_22do_lovable_link(ctx, email, timeout_seconds=180, zf=None):
 
 class ZenvexInbox:
     """zenvex.dev inbox via browser tab (Vue SPA, LIVE auto-refresh).
-    Recon: prefix input + domain btn (default souss.dev) + Open Inbox → /inbox,
-    address in .inbox-email-display. Domains: souss.dev znvx.me zenvex.edu.pl
-    encg.edu.pl ensam.edu.pl ofppt.edu.pl (NO gmail — 4th in chain)."""
+    Recon: prefix input + domain picker (.domain-trigger → button.domain-option)
+    + Open Inbox → /inbox, address in .inbox-email-display. Domains rotate:
+    souss.dev (proven) → znvx.me → zenvex.edu.pl → encg.edu.pl → ensam.edu.pl
+    → ofppt.edu.pl (NO gmail — 4th in chain)."""
     BASE_URL = "https://zenvex.dev"
+    DOMAINS = ["souss.dev", "znvx.me", "zenvex.edu.pl", "encg.edu.pl", "ensam.edu.pl", "ofppt.edu.pl"]
     DOMAIN = "souss.dev"
 
-    def __init__(self, context):
+    def __init__(self, context, domain=None):
         self.context = context
         self.page = None
         self.address = None
+        self.domain = domain or self.DOMAIN
 
     async def init_mailbox(self, prefix=None):
         import random as _rnd, string as _str
@@ -574,6 +577,19 @@ class ZenvexInbox:
             await _inp.fill(prefix)
         except Exception as e:
             raise Exception(f"zenvex prefix fill failed: {e}")
+        # Domain rotation: open picker, click the wanted domain option
+        try:
+            _trig = self.page.locator('button.domain-trigger').first
+            if await _trig.count():
+                await _trig.click(timeout=5000)
+                await self.page.wait_for_timeout(1000)
+                _opt = self.page.locator('button.domain-option').filter(has_text=self.domain).first
+                if await _opt.count():
+                    await _opt.click(timeout=5000)
+                    await self.page.wait_for_timeout(1000)
+                    print(f"  zenvex domain set: {self.domain}")
+        except Exception as e:
+            print(f"  zenvex domain pick fail ({str(e)[:60]}), keeping default")
         try:
             _open = self.page.get_by_role("button", name="Open Inbox").first
             try:
@@ -796,7 +812,8 @@ async def run_signup(args, run_attempt=1, force_src=None):
         else:
             if "zenvex" in tab_order:
                 try:
-                    zxinbox = ZenvexInbox(ctx)
+                    _zxdom = ZenvexInbox.DOMAINS[(run_attempt - 1) % len(ZenvexInbox.DOMAINS)]
+                    zxinbox = ZenvexInbox(ctx, domain=_zxdom)
                     email = await zxinbox.init_mailbox()
                     email_source = "zenvex"
                 except Exception as _zxe:
