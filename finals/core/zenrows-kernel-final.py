@@ -518,10 +518,11 @@ async def run_once():
                                 except Exception:
                                     html22 = ""
                                 # mail body may render inside iframe -> scan all frames too
+                                # (each with timeout: a dead frame content() hangs forever)
                                 try:
                                     for _fr in pg22.frames:
                                         try:
-                                            html22 += "\n" + await _fr.content()
+                                            html22 += "\n" + await asyncio.wait_for(_fr.content(), timeout=8)
                                         except Exception:
                                             pass
                                 except Exception:
