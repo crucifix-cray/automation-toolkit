@@ -704,13 +704,9 @@ async def run_signup(args, run_attempt=1, force_src=None):
 
         # IP check (for log)
         ip = "fail"
-        for _eg in range(3):
-            try:
-                ip = await page.evaluate("async () => { try{ const r=await fetch('https://wtfismyip.com/json'); const j=await r.json(); return j.YourFuckingIPAddress+' '+j.YourFuckingISP }catch(e){ return 'fail' } }")
-                if ip and ip != "fail":
-                    break
-            except: pass
-            await page.wait_for_timeout(2000)
+        try:
+            ip = await page.evaluate("async () => { try{ const r=await fetch('https://wtfismyip.com/json'); const j=await r.json(); return j.YourFuckingIPAddress+' '+j.YourFuckingISP }catch(e){ return 'fail' } }")
+        except: pass
         print(f"IP {ip}")
         _isp = ip.split(" ", 1)[1].strip() if " " in (ip or "") else ""
         _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="started")
@@ -793,7 +789,7 @@ async def run_signup(args, run_attempt=1, force_src=None):
             print(f"PW len retry {val}")
         if val != len(password):
             raise Exception(f"PASSWORD_FILL_FAILED: len {val} != {len(password)} — abort before Turnstile burn")
-        await page.screenshot(path="/tmp/zen_final_pw.png", full_page=True)
+        # (no screenshot here: full_page shots cost 5-10s on cloud CDP pre-Create)
 
         # Wait Turnstile Success — single batched evaluate per tick (1 CDP call):
         # token len + widget iframe presence + Create-button state. Tells apart
@@ -833,7 +829,7 @@ async def run_signup(args, run_attempt=1, force_src=None):
         btn = page.locator('[data-testid="auth-submit-button"]')
         disabled = await btn.is_disabled()
         print(f"Create disabled {disabled}")
-        await page.screenshot(path="/tmp/zen_final_before.png", full_page=True)
+        # (no pre-Create screenshot: session budget)
 
         if not disabled:
             try:
