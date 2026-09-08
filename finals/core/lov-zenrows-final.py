@@ -485,8 +485,10 @@ class ZenvexInbox:
                 pass
             await self.page.wait_for_timeout(2500)
             try:
-                rows = await self.page.evaluate("""() => [...document.querySelectorAll('button,li,[role="option"],tr')]
-                    .map(e => (e.innerText||'').slice(0,150)).filter(t=>t.length>3).join(' || ').slice(0,800)""")
+                rows = await self.page.evaluate("""() => {
+                    const scope = document.querySelector('.email-list,.list-content,.message-list') || document;
+                    return [...scope.querySelectorAll('button,li,[role="option"],tr,a')]
+                    .map(e => (e.innerText||'').slice(0,150)).filter(t=>t.length>3).join(' || ').slice(0,800); }""")
             except Exception:
                 rows = ""
             if check % 3 == 1:
@@ -839,6 +841,32 @@ async def run_signup(args, run_attempt=1, force_src=None):
             print("⛔ Turnstile challenge failed/blocked (token 0). Killing browser...")
             _log_run(email=email, src=email_source, ip=(ip or "").split(" ")[0], isp=_isp, outcome="token0")
             raise Exception("SUSPICIOUS_BLOCK_DETECTED: Cloudflare Turnstile token missing")
+
+        # Pre-Create password re-verify: React state can desync from DOM during
+        # the token wait (server then says 'Password is required' despite len ok).
+        # Real keystroke at the end forces React sync.
+        try:
+            _pvw = await page.evaluate("() => document.querySelector('#password')?.value?.length || 0")
+            if _pvw != len(password):
+                print(f"  ⚠️ password desynced (dom {_pvw} != {len(password)}) — refill")
+                try:
+                    await page.locator('input#password').fill(password, timeout=5000)
+                except Exception:
+                    pass
+            else:
+                try:
+                    await page.locator('input#password').click(timeout=2000)
+                    await page.keyboard.press("End")
+                    await page.keyboard.type(" ", delay=30)
+                    await page.keyboard.press("Backspace")
+                except Exception:
+                    pass
+                _pvw2 = await page.evaluate("() => document.querySelector('#password')?.value?.length || 0")
+                if _pvw2 != len(password):
+                    print(f"  ⚠️ password lost after sync keystroke ({_pvw2}) — refill")
+                    await page.locator('input#password').fill(password, timeout=5000)
+        except Exception as _pwe:
+            print(f"  password re-verify err: {str(_pwe)[:80]}")
 
         # Click Create — HUMAN HESITATION: bots click the instant the button
         # enables; humans stare at Success!, scroll, move the mouse, then click.
