@@ -542,6 +542,11 @@ class ZenvexInbox:
             await self.page.wait_for_timeout(2500)
             try:
                 rows = await self.page.evaluate("""() => {
+                    const items=[...document.querySelectorAll('article.email-item')];
+                    if(items.length) return items.map(a=>{
+                        const s=a.querySelector('.email-sender')?.innerText||'';
+                        const t=a.querySelector('.email-subject')?.innerText||'';
+                        return s+' / '+t; }).join(' || ').slice(0,800);
                     const scope = document.querySelector('.email-list,.list-content,.message-list') || document;
                     return [...scope.querySelectorAll('button,li,[role="option"],tr,a')]
                     .map(e => (e.innerText||'').slice(0,150)).filter(t=>t.length>3).join(' || ').slice(0,800); }""")
@@ -552,24 +557,36 @@ class ZenvexInbox:
             low = (rows or "").lower()
             if "lovable" in low or "verify" in low:
                 try:
-                    cand = self.page.locator('button,li').filter(has_text=re.compile("lovable|verify", re.I)).first
+                    cand = self.page.locator('article.email-item').filter(has_text=re.compile("lovable|verify", re.I)).first
+                    if not await cand.count():
+                        cand = self.page.locator('button,li').filter(has_text=re.compile("lovable|verify", re.I)).first
                     if await cand.count():
                         await cand.click(timeout=5000, force=True)
                         await self.page.wait_for_timeout(3000)
                 except Exception:
                     pass
                 try:
-                    htmlzx = await self.page.content()
+                    # viewer renders mail in iframe srcdoc — grab it directly
+                    htmlzx = await self.page.evaluate("""() => {
+                        const f=document.querySelector('.viewer iframe, div.viewer iframe');
+                        if(f) return f.getAttribute('srcdoc')||'';
+                        const v=document.querySelector('div.viewer');
+                        return v ? v.innerHTML.slice(0,20000) : ''; }""")
                 except Exception:
                     htmlzx = ""
-                try:
-                    for _fr in self.page.frames:
-                        try:
-                            htmlzx += "\n" + await _fr.content()
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                if not htmlzx or "oobCode" not in htmlzx:
+                    try:
+                        htmlzx = await self.page.content()
+                    except Exception:
+                        htmlzx = ""
+                    try:
+                        for _fr in self.page.frames:
+                            try:
+                                htmlzx += "\n" + await _fr.content()
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
                 mz = RESET_LINK_RE.search(htmlzx or "")
                 if mz:
                     link = html.unescape(mz.group(0)).replace("&amp;", "&")
