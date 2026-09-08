@@ -119,7 +119,8 @@ async def run_once():
                 page = ctx.pages[0] if ctx.pages else await ctx.new_page()
             else:
                 print("EGRESS still dup after 3 — proceeding anyway", file=sys.stderr)
-            _save_ip(egress_ip or "unknown")
+            # NOTE: do NOT save here — submit-time IP often equals start IP;
+            # saving now would make the submit gate always see a DUP. Save only at submit.
             if "dispose.lol" not in page.url:
                 await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(5000)
