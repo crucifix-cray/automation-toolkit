@@ -384,7 +384,10 @@ async def create_22do_gmail(zf, tries=40):
             _res = _j.loads(_r["body"])
             _em = ((_res.get("data") or {}).get("email") or "").strip()
             _local = _em.split("@")[0] if "@" in _em else ""
-            if _em.lower().endswith("@gmail.com") and _local.count(".") == 1 and "+" not in _em:
+            import os as _os22
+            _loose = _os22.environ.get("LOV22LOOSE", "") == "1"
+            _dom_ok = (_em.lower().endswith("@gmail.com") or (_loose and _em.lower().endswith("@googlemail.com")))
+            if _dom_ok and _local.count(".") == 1 and "+" not in _em:
                 return _em
             print(f"22.do skip {_em} (need @gmail.com + exactly 1 dot, no plus), retry {_t+1}/{tries}")
         except Exception as _e:
