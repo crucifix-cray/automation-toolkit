@@ -278,7 +278,7 @@ async def run_once():
             for _em_try in range(3):
                 if _em_try > 0:
                     # Fresh 22.do email, same browser (IP already proven by CF pass)
-                    _ne = create_22do_gmail(tries=15)
+                    _ne = create_22do_gmail(tries=40)
                     try:
                         _fj2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "zenrows_onkernel_farmed.json")
                         _kn2 = {a.get("email", "").lower() for a in json.load(open(os.path.normpath(_fj2)))}
