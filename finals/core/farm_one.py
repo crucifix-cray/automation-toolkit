@@ -14,7 +14,20 @@ spec.loader.exec_module(zkf)
 
 
 async def main():
-    res = await zkf.run_once()
+    res = None
+    for _att in range(1, 5):
+        try:
+            res = await zkf.run_once()
+            break
+        except SystemExit as e:
+            print(f"attempt {_att}/4 exit={e.code}, fresh browser...", flush=True)
+            await asyncio.sleep(10)
+        except Exception as e:
+            print(f"attempt {_att}/4 err={str(e)[:120]}, fresh browser...", flush=True)
+            await asyncio.sleep(10)
+    if res is None:
+        print("all 4 attempts failed", flush=True)
+        sys.exit(1)
     res["farmed_at"] = datetime.now(timezone.utc).isoformat()
     res["via"] = "onkernel-parallel"
     with open(OUT, "a+") as f:

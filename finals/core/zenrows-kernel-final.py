@@ -327,29 +327,33 @@ async def run_once():
                     pass
                 # Submit-time fresh-IP gate (residential rotates per connection:
                 # start-of-run IP != submit-time IP). Abort on repeat.
-                _sub_ip = None
-                try:
-                    _sub_ip = await page.evaluate("""async () => {
-                        try {
-                            const r = await fetch('https://cloudflare.com/cdn-cgi/trace');
-                            const t = await r.text();
-                            const m = t.match(/ip=([0-9a-fA-F.:]+)/);
-                            return m ? m[1] : '';
-                        } catch { return ''; }
-                    }""")
-                except Exception:
-                    _sub_ip = None
-                if _sub_ip:
-                    print(f"SUBMIT-IP {_sub_ip}", file=sys.stderr)
-                    if _sub_ip in _load_ips():
-                        print(f"SUBMIT-IP DUP {_sub_ip} -> fresh browser", file=sys.stderr)
-                        await browser.close()
-                        cleanup_kernel(session_id)
-                        sys.exit(1)
-                    egress_ip = _sub_ip
-                    _save_ip(egress_ip)
+                # Gate ONLY on first submit per browser: retries reuse the proven IP.
+                if _em_try > 0:
+                    print(f"retry {_em_try}: keep proven IP {egress_ip}, skip submit gate", file=sys.stderr)
                 else:
-                    print("SUBMIT-IP unreadable, proceeding", file=sys.stderr)
+                    _sub_ip = None
+                    try:
+                        _sub_ip = await page.evaluate("""async () => {
+                            try {
+                                const r = await fetch('https://cloudflare.com/cdn-cgi/trace');
+                                const t = await r.text();
+                                const m = t.match(/ip=([0-9a-fA-F.:]+)/);
+                                return m ? m[1] : '';
+                            } catch { return ''; }
+                        }""")
+                    except Exception:
+                        _sub_ip = None
+                    if _sub_ip:
+                        print(f"SUBMIT-IP {_sub_ip}", file=sys.stderr)
+                        if _sub_ip in _load_ips():
+                            print(f"SUBMIT-IP DUP {_sub_ip} -> fresh browser", file=sys.stderr)
+                            await browser.close()
+                            cleanup_kernel(session_id)
+                            sys.exit(1)
+                        egress_ip = _sub_ip
+                        _save_ip(egress_ip)
+                    else:
+                        print("SUBMIT-IP unreadable, proceeding", file=sys.stderr)
                 # Final field re-verify (page JS can clear inputs after typing)
                 try:
                     _ev = await page.input_value("#email", timeout=3000)
