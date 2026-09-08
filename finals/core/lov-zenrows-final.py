@@ -1203,7 +1203,12 @@ async def main():
             print(f"⏳ Pacing {args.pace_mins} min before loop run {loop_i}/{args.loop}...", flush=True)
             await asyncio.sleep(args.pace_mins * 60)
         print(f"\n########## LOOP RUN {loop_i}/{args.loop} ##########", flush=True)
-        prov_list = PROVIDER_ORDER if args.providers == "all" else [None]
+        if args.providers == "all":
+            prov_list = PROVIDER_ORDER
+        elif args.providers in PROVIDER_ORDER:
+            prov_list = [args.providers]
+        else:
+            prov_list = [None]
         for prov in prov_list:
             if prov:
                 print(f"\n===== PROVIDER {prov} (fresh browser+IP) =====", flush=True)
