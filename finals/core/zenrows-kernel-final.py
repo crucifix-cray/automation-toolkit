@@ -324,6 +324,45 @@ async def run_once():
                     }""")
                 except Exception:
                     pass
+                # Submit-time fresh-IP gate (residential rotates per connection:
+                # start-of-run IP != submit-time IP). Abort on repeat.
+                _sub_ip = None
+                try:
+                    _sub_ip = await page.evaluate("""async () => {
+                        try {
+                            const r = await fetch('https://cloudflare.com/cdn-cgi/trace');
+                            const t = await r.text();
+                            const m = t.match(/ip=([0-9a-fA-F.:]+)/);
+                            return m ? m[1] : '';
+                        } catch { return ''; }
+                    }""")
+                except Exception:
+                    _sub_ip = None
+                if _sub_ip:
+                    print(f"SUBMIT-IP {_sub_ip}", file=sys.stderr)
+                    if _sub_ip in _load_ips():
+                        print(f"SUBMIT-IP DUP {_sub_ip} -> fresh browser", file=sys.stderr)
+                        await browser.close()
+                        cleanup_kernel(session_id)
+                        sys.exit(1)
+                    egress_ip = _sub_ip
+                    _save_ip(egress_ip)
+                else:
+                    print("SUBMIT-IP unreadable, proceeding", file=sys.stderr)
+                # Final field re-verify (page JS can clear inputs after typing)
+                try:
+                    _ev = await page.input_value("#email", timeout=3000)
+                    _pv = await page.input_value("#password", timeout=3000)
+                except Exception:
+                    _ev, _pv = "", ""
+                if _ev != email or _pv != password:
+                    print(f"fields changed pre-submit (email={len(_ev)} pw={len(_pv)}) -> refill once", file=sys.stderr)
+                    try:
+                        await page.fill("#email", email)
+                        await page.fill("#password", password)
+                        await page.wait_for_timeout(600)
+                    except Exception:
+                        pass
                 _btn = page.locator('button:has-text("Create account")').first
                 try:
                     _bdis = await _btn.is_disabled(timeout=3000)
