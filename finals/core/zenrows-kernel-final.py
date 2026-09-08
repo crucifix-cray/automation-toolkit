@@ -315,15 +315,48 @@ async def run_once():
                     cleanup_kernel(session_id)
                     sys.exit(1)
                 await page.wait_for_timeout(random.randint(600, 1300))
+                # Kill cookie-banner overlays (HubSpot) that swallow the click
+                try:
+                    await page.evaluate("""() => {
+                        for (const s of ['#hs-banner-parent','#cookieBanner-26062658','[id*="cookieBanner"]','.hs-cookie-notification-position']){
+                            try { document.querySelectorAll(s).forEach(e=>e.remove()); } catch {}
+                        }
+                    }""")
+                except Exception:
+                    pass
                 _btn = page.locator('button:has-text("Create account")').first
+                try:
+                    _bdis = await _btn.is_disabled(timeout=3000)
+                except Exception:
+                    _bdis = "unknown"
+                print(f"Create btn disabled={_bdis}", file=sys.stderr)
                 try:
                     _bb = await _btn.bounding_box()
                 except Exception:
                     _bb = None
+                _clicked = False
                 if _bb:
                     await page.mouse.move(int(_bb["x"] + _bb["width"] / 2 + random.randint(-20, 20)), int(_bb["y"] + _bb["height"] / 2))
                     await page.wait_for_timeout(random.randint(250, 550))
-                await _btn.click(timeout=8000)
+                    try:
+                        await page.mouse.click(int(_bb["x"] + _bb["width"] / 2), int(_bb["y"] + _bb["height"] / 2), delay=random.randint(80, 160))
+                        _clicked = True
+                    except Exception as _mc:
+                        print(f"mouse click err {_mc}", file=sys.stderr)
+                if not _clicked:
+                    try:
+                        await _btn.click(timeout=8000)
+                        _clicked = True
+                    except Exception as _lc:
+                        print(f"locator click err {_lc}, JS fallback", file=sys.stderr)
+                if not _clicked:
+                    try:
+                        await page.evaluate("""() => {
+                            const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Create account'));
+                            if(b) b.click();
+                        }""")
+                    except Exception:
+                        pass
                 await page.wait_for_timeout(9000)
                 url = page.url
                 print(f"After Create URL (try {_em_try}): {url}", file=sys.stderr)
