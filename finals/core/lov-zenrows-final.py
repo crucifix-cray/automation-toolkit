@@ -392,12 +392,72 @@ async def create_22do_gmail(zf, tries=40):
     return None
 
 
-async def poll_22do_lovable_link(ctx, email, timeout_seconds=180):
+async def poll_22do_lovable_link(ctx, email, timeout_seconds=180, zf=None):
     """Poll 22.do inbox for the Lovable verify mail, return oobCode link or None.
-    Same approach as zenrows-kernel-final.py: #email-list-wrap .tr rows,
-    Subject/From match, /content/{id} fallback."""
+    Fast path (zf given): pure tab-fetch — applyToken{email,uuid} → message{email}
+    → content/{id} HTML. No DOM tab, 2-3 evaluates per check. Falls back to the
+    legacy DOM tab poll when fetch path fails."""
     print(f"📥 Waiting for Lovable verify link on 22.do ({email})...")
     link_re = re.compile(r"https?://lovable\.dev/auth/action\?[^\"'\s<>]*oobCode=[^\"'\s<>]+", re.I)
+    # FAST PATH: pure tab-fetch (applyToken → message → content/{id}).
+    # Reverse-engineered from 22.do/inbox JS: needs Bearer from applyToken.
+    if zf is not None:
+        import json as _j22, html as _h22, random as _r22
+        try:
+            await zf.home("https://22.do/")
+        except Exception:
+            pass
+        _uuid = "".join(_r22.choices("0123456789abcdef", k=32))
+        _tok = None
+        try:
+            _tr = await zf.call("POST", "https://22.do/action/mailbox/applyToken",
+                                {"email": email, "uuid": _uuid},
+                                {"Content-Type": "application/json"})
+            _tj = _j22.loads(_tr["body"]) if _tr["status"] == 200 else {}
+            if _tj.get("status") and (_tj.get("data") or {}).get("token"):
+                _tok = _tj["data"]["token"]
+                print("  22.do fetch-path token ok")
+        except Exception as _te:
+            print(f"  22.do applyToken fail: {str(_te)[:80]}")
+        if _tok:
+            deadline = time.time() + timeout_seconds
+            check = 0
+            while time.time() < deadline:
+                check += 1
+                try:
+                    _mr = await zf.call("POST", "https://22.do/action/mailbox/message",
+                                        {"email": email, "lastime": 0},
+                                        {"Content-Type": "application/json",
+                                         "Authorization": f"Bearer {_tok}"})
+                    _mj = _j22.loads(_mr["body"]) if _mr["status"] == 200 else {}
+                    _items = (_mj.get("data") or []) if _mj.get("status") else []
+                except Exception:
+                    _items = []
+                if check % 3 == 1:
+                    print(f"  Check #{check}: {len(_items)} message(s) [fetch-path]")
+                for _m in _items:
+                    _s = str(_m.get("subject", ""))
+                    _f = str(_m.get("from", ""))
+                    if "lovable" in (_s + _f).lower() or "verify" in _s.lower():
+                        _mid = str(_m.get("messageId", _m.get("id", "")))
+                        print(f"  ✅ Found Lovable mail: {_s[:80]} / {_f[:40]}")
+                        _html22 = ""
+                        if _mid:
+                            try:
+                                _cr = await zf.call("GET", f"https://22.do/content/{_mid}")
+                                _html22 = _cr["body"] if _cr["status"] == 200 else ""
+                            except Exception:
+                                pass
+                        _m22 = link_re.search(_html22 or "")
+                        if _m22:
+                            link = _h22.unescape(_m22.group(0)).replace("&amp;", "&")
+                            print(f"  🎯 FOUND VERIFY LINK via 22.do fetch: {link[:120]}...")
+                            return link
+                        print("  ⚠️ mail found but no link in content page")
+                        return None
+                await asyncio.sleep(5)
+            return None
+        print("  22.do fetch-path unavailable, DOM tab fallback")
     pg22 = await ctx.new_page()
     try:
         await pg22.goto(f"https://22.do/inbox/#/{email}", wait_until="domcontentloaded", timeout=60000)
@@ -1037,7 +1097,7 @@ async def run_signup(args, run_attempt=1, force_src=None):
             if email_source == "tempmailhub":
                 link = await poll_tempmailhub_link(zf, email_id)
             elif email_source == "22do":
-                link = await poll_22do_lovable_link(ctx, email)
+                link = await poll_22do_lovable_link(ctx, email, zf=zf)
             elif email_source == "temptf":
                 link = await poll_temptf_link(zf, email)
             elif email_source == "zenvex":
