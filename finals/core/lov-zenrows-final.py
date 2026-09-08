@@ -964,20 +964,13 @@ async def run_signup(args, run_attempt=1, force_src=None):
         # (no pre-Create screenshot: session budget)
 
         if not disabled:
+            # NO synthetic mouse movement: single-shot mouse.move teleports
+            # (superhuman) and may be the bot signal — the one success used a
+            # plain element click with zero mouse trail. Keep a passive dwell.
+            await page.wait_for_timeout(random.randint(4000, 7000))
             try:
-                box = await btn.bounding_box()
-                if box:
-                    cx, cy = int(box["x"] + box["width"] / 2), int(box["y"] + box["height"] / 2)
-                    await page.mouse.move(random.randint(300, 700), random.randint(200, 500))
-                    await page.wait_for_timeout(random.randint(2500, 4500))
-                    await page.mouse.wheel(0, random.randint(-120, -40))
-                    await page.wait_for_timeout(random.randint(2000, 4000))
-                    await page.mouse.move(cx + random.randint(-40, 40), cy + random.randint(-30, 30))
-                    await page.wait_for_timeout(random.randint(1500, 3500))
-                    print(f"  🖱️ human hesitation done, clicking Create at ({cx},{cy})")
-                    await page.mouse.click(cx, cy, delay=random.randint(90, 180))
-                else:
-                    await btn.click()
+                await btn.click(timeout=8000)
+                print("  🖱️ Create clicked (plain element click, no mouse trail)")
             except Exception:
                 await btn.click()
             await page.wait_for_timeout(8000)
