@@ -238,7 +238,7 @@ class ZenFetch:
         self.page = None
 
 
-async def create_tempmailhub_email(zf, tries=10):
+async def create_tempmailhub_email(zf, tries=4):
     """TempMailHub API via ZenRows tab fetch: real @gmail.com (no dots/plus),
     validated mailbox. Returns (email, email_id) or (None, None)."""
     import json as _j
@@ -981,9 +981,30 @@ async def run_signup(args, run_attempt=1, force_src=None):
             except Exception:
                 await btn.click()
             await page.wait_for_timeout(8000)
-            await page.screenshot(path="/tmp/zen_final_after.png", full_page=True)
-            content = await page.content()
-            content_lower = content.lower()
+            # Verdict wait: poll VISIBLE TEXT (1 evaluate/tick, max ~20s) for a
+            # definitive state. Single-shot content reads catch mid-render HTML
+            # (ambiguous snippet, wrong branch). Screenshot only on failure.
+            content, content_lower = "", ""
+            for _v in range(10):
+                try:
+                    _bt = await page.evaluate("() => document.body ? document.body.innerText.slice(0,3000) : ''")
+                except Exception:
+                    break
+                content += "\n" + (_bt or "")
+                content_lower = content.lower()
+                if ("check your inbox" in content_lower or "verify" in content_lower
+                        or "suspicious" in content_lower or "denied" in content_lower
+                        or "invalid" in content_lower or "try again" in content_lower
+                        or "too many" in content_lower):
+                    break
+                await page.wait_for_timeout(2000)
+            else:
+                try:
+                    await page.screenshot(path="/tmp/zen_final_after.png", full_page=True)
+                except Exception:
+                    pass
+                content = await page.content()
+                content_lower = content.lower()
 
             suspicious_keywords = [
                 "suspicious",
