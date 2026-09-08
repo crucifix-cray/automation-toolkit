@@ -198,11 +198,18 @@ class ZenFetch:
 
     async def open(self, ctx):
         self.page = await ctx.new_page()
-        try:
-            await self.page.goto("https://www.google.com/generate_204", timeout=15000)
-        except Exception:
-            pass
         return self
+
+    async def home(self, origin_url):
+        """Navigate tab to the API's own origin first — cross-origin fetch
+        dies on CORS (tempmailhub ACAO=tempmailhub.org only, 22.do/temp.tf none)."""
+        try:
+            await self.page.goto(origin_url, wait_until="domcontentloaded", timeout=30000)
+            await self.page.wait_for_timeout(2500)
+            return True
+        except Exception as e:
+            print(f"  zf home {origin_url} fail: {str(e)[:100]}")
+            return False
 
     async def call(self, method, url, data=None, headers=None, timeout_ms=20000):
         try:
@@ -695,16 +702,20 @@ async def run_signup(args, run_attempt=1, force_src=None):
 
     try:
         # API providers via ZenFetch tab (residential egress, zero local curl).
+        # Each provider's calls run from its own origin (CORS).
         zf = await ZenFetch().open(ctx)
         if "tempmailhub" in only:
+            await zf.home("https://tempmailhub.org/")
             _th_em, _th_id = await create_tempmailhub_email(zf)
             if _avail(_th_em, "tempmailhub Gmail"):
                 pre_email, pre_src, pre_id = _th_em, "tempmailhub", _th_id
         if not pre_email and "22do" in only:
+            await zf.home("https://22.do/")
             _em22 = await create_22do_gmail(zf)
             if _avail(_em22, "22.do Gmail"):
                 pre_email, pre_src = _em22, "22do"
         if not pre_email and "temptf" in only:
+            await zf.home("https://temp.tf/")
             _emtf = await create_temptf_email(zf)
             if _avail(_emtf, "temp.tf Gmail"):
                 pre_email, pre_src = _emtf, "temptf"
