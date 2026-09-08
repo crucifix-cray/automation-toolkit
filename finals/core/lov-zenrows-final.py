@@ -189,11 +189,75 @@ def lovable_email_available(email):
         return True
 
 
-def create_tempmailhub_email(tries=10):
-    """TempMailHub API: real @gmail.com (no dots/plus), validated mailbox.
-    Pure HTTP, pre-connect. Returns (email, email_id) or (None, None)."""
-    import urllib.request as _u, urllib.error as _ue, json as _j
-    _clear_proxy_env()
+class ZenFetch:
+    """Run provider HTTP APIs via fetch() INSIDE the ZenRows tab (residential
+    GB egress). Local raw-IP curl gets 404/denied (tempmailhub). One page,
+    one evaluate per call — minimal session burn."""
+    def __init__(self):
+        self.page = None
+
+    async def open(self, ctx):
+        self.page = await ctx.new_page()
+        try:
+            await self.page.goto("https://www.google.com/generate_204", timeout=15000)
+        except Exception:
+            pass
+        return self
+
+    async def call(self, method, url, data=None, headers=None, timeout_ms=20000):
+        try:
+            return await self.page.evaluate("""async (p) => {
+                const ctl = new AbortController();
+                const to = setTimeout(() => ctl.abort(), p.timeout_ms);
+                try {
+                    const r = await fetch(p.url, {method: p.method,
+                        headers: p.headers || {'Content-Type':'application/json'},
+                        body: (p.data !== undefined && p.data !== null) ? JSON.stringify(p.data) : undefined,
+                        signal: ctl.signal});
+                    const t = await r.text();
+                    return {status: r.status, body: t};
+                } catch(e) { return {status: 0, body: 'FETCH_ERR:' + String(e).slice(0,120)}; }
+                finally { clearTimeout(to); }
+            }""", {"method": method, "url": url, "data": data, "headers": headers or {}, "timeout_ms": timeout_ms})
+        except Exception as e:
+            return {"status": 0, "body": f"EVAL_ERR:{str(e)[:100]}"}
+
+    async def close(self):
+        if self.page:
+            try:
+                await self.page.close()
+            except Exception:
+                pass
+        self.page = None
+
+
+async def create_tempmailhub_email(zf, tries=10):
+    """TempMailHub API via ZenRows tab fetch: real @gmail.com (no dots/plus),
+    validated mailbox. Returns (email, email_id) or (None, None)."""
+    import json as _j
+    for _t in range(tries):
+        try:
+            _r = await zf.call("POST", f"{TEMPMAILHUB_API}/emails", {"domain": "gmail.com"},
+                               {"Content-Type": "application/json", "Origin": "https://tempmailhub.org"})
+            if _r["status"] != 201:
+                print(f"tempmailhub try {_t+1} status {_r['status']} {str(_r['body'])[:80]}")
+                continue
+            _acct = _j.loads(_r["body"])
+            _em, _eid = _acct.get("email", ""), str(_acct.get("email_id", ""))
+            _local = _em.split("@")[0] if "@" in _em else ""
+            if not (_em.lower().endswith("@gmail.com") and "." not in _local and "+" not in _local):
+                print(f"tempmailhub skip {_em} (need clean gmail), retry {_t+1}/{tries}")
+                continue
+            _m = await zf.call("GET", f"{TEMPMAILHUB_API}/emails/messages?email_id={_eid}",
+                               None, {"Origin": "https://tempmailhub.org"})
+            _body = _m["body"]
+            if "norecentemails" in _body.lower() or '"emails":[' in _body:
+                print(f"tempmailhub Gmail {_em} (id {_eid})")
+                return _em, _eid
+            print(f"tempmailhub mailbox not ready for {_em}, retry {_t+1}/{tries}")
+        except Exception as _e:
+            print(f"tempmailhub try {_t+1} err {str(_e)[:100]}")
+    return None, None
     for _t in range(tries):
         try:
             _d = _j.dumps({"domain": "gmail.com"}).encode()
@@ -221,19 +285,17 @@ def create_tempmailhub_email(tries=10):
     return None, None
 
 
-def poll_tempmailhub_link(email_id, timeout_seconds=180):
-    """Poll TempMailHub API for the Lovable verify link. Pure HTTP (no session burn)."""
-    import urllib.request as _u, json as _j, html as _h
-    _clear_proxy_env()
+async def poll_tempmailhub_link(zf, email_id, timeout_seconds=180):
+    """Poll TempMailHub API via ZenRows tab fetch (1 evaluate per check)."""
+    import json as _j, html as _h
     deadline = time.time() + timeout_seconds
     check = 0
     while time.time() < deadline:
         check += 1
         try:
-            _rq = _u.Request(f"{TEMPMAILHUB_API}/emails/messages?email_id={email_id}",
-                headers={"Origin": "https://tempmailhub.org"})
-            with _u.urlopen(_rq, timeout=20) as _r:
-                _data = _j.loads(_r.read())
+            _r = await zf.call("GET", f"{TEMPMAILHUB_API}/emails/messages?email_id={email_id}",
+                               None, {"Origin": "https://tempmailhub.org"})
+            _data = _j.loads(_r["body"]) if _r["status"] == 200 else []
             _items = _data if isinstance(_data, list) else _data.get("emails", _data.get("messages", []))
             if check % 5 == 1:
                 print(f"  tempmailhub poll #{check}: {len(_items)} msgs")
@@ -247,30 +309,28 @@ def poll_tempmailhub_link(email_id, timeout_seconds=180):
         except Exception as _e:
             if check % 5 == 1:
                 print(f"  tempmailhub poll err {str(_e)[:100]}")
-        time.sleep(5)
+        await asyncio.sleep(5)
     return None
 
 
-def _temptf_get(path, data=None):
-    import urllib.request as _u, json as _j
-    _clear_proxy_env()
-    url = f"{TEMP_TF_API}{path}"
+async def _temptf_get(zf, path, data=None):
+    import json as _j
     if data is not None:
-        _rq = _u.Request(url, data=_j.dumps(data).encode(), headers={"Content-Type": "application/json"}, method="POST")
+        _r = await zf.call("POST", f"{TEMP_TF_API}{path}", data, {"Content-Type": "application/json"})
     else:
-        _rq = _u.Request(url)
-    with _u.urlopen(_rq, timeout=15) as _r:
-        return _j.loads(_r.read())
+        _r = await zf.call("GET", f"{TEMP_TF_API}{path}")
+    if _r["status"] != 200:
+        raise Exception(f"temp.tf {path} status {_r['status']}: {str(_r['body'])[:100]}")
+    return _j.loads(_r["body"])
 
 
-def create_temptf_email(tries=10):
-    """temp.tf API: dot-trick @gmail.com. Pure HTTP, pre-connect. Returns email or None."""
-    import urllib.error as _ue
+async def create_temptf_email(zf, tries=10):
+    """temp.tf API via ZenRows tab fetch: dot-trick @gmail.com. Returns email or None."""
     for _t in range(tries):
         try:
-            _acct = _temptf_get("/account?dot=1&providers=gmail")
+            _acct = await _temptf_get(zf, "/account?dot=1&providers=gmail")
             _em = _acct.get("email", "")
-            _temptf_get("/check", {"email": _em})
+            await _temptf_get(zf, "/check", {"email": _em})
             print(f"temp.tf Gmail {_em}")
             return _em
         except Exception as _e:
@@ -278,15 +338,15 @@ def create_temptf_email(tries=10):
     return None
 
 
-def poll_temptf_link(email, timeout_seconds=180):
-    """Poll temp.tf API for the Lovable verify link. Pure HTTP (no session burn)."""
+async def poll_temptf_link(zf, email, timeout_seconds=180):
+    """Poll temp.tf API via ZenRows tab fetch (1 evaluate per check)."""
     import html as _h
     deadline = time.time() + timeout_seconds
     check = 0
     while time.time() < deadline:
         check += 1
         try:
-            _resp = _temptf_get("/check", {"email": email})
+            _resp = await _temptf_get(zf, "/check", {"email": email})
             _items = _resp.get("data", [])
             if check % 5 == 1:
                 print(f"  temp.tf poll #{check}: {len(_items)} msgs")
@@ -299,26 +359,22 @@ def poll_temptf_link(email, timeout_seconds=180):
         except Exception as _e:
             if check % 5 == 1:
                 print(f"  temp.tf poll err {str(_e)[:100]}")
-        time.sleep(5)
+        await asyncio.sleep(5)
     return None
 
 
-def create_22do_gmail(tries=40):
-    """22.do fake-gmail API (pure HTTP, no browser). Returns @gmail.com or None.
-    Same approach as zenrows-kernel-final.py: @gmail.com + exactly 1 dot, no plus."""
-    import urllib.request as _u, json as _j
-    for _k in list(os.environ):
-        if _k.lower().endswith('_proxy'):
-            os.environ.pop(_k, None)
+async def create_22do_gmail(zf, tries=40):
+    """22.do fake-gmail API via ZenRows tab fetch. Returns @gmail.com or None."""
+    import json as _j
     for _t in range(tries):
         try:
-            _d = _j.dumps({"type": "random"}).encode()
-            _rq = _u.Request("https://22.do/action/mailbox/gmail", data=_d,
-                headers={"Content-Type": "application/json",
-                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"},
-                method="POST")
-            with _u.urlopen(_rq, timeout=15) as _r:
-                _res = _j.loads(_r.read())
+            _r = await zf.call("POST", "https://22.do/action/mailbox/gmail", {"type": "random"},
+                {"Content-Type": "application/json",
+                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"})
+            if _r["status"] != 200:
+                print(f"22.do API try {_t+1} status {_r['status']}")
+                continue
+            _res = _j.loads(_r["body"])
             _em = ((_res.get("data") or {}).get("email") or "").strip()
             _local = _em.split("@")[0] if "@" in _em else ""
             if _em.lower().endswith("@gmail.com") and _local.count(".") == 1 and "+" not in _em:
@@ -567,34 +623,19 @@ async def run_signup(args, run_attempt=1, force_src=None):
     zenrows_wss_url = f"wss://browser.zenrows.com?apikey={key}&proxy_country={proxy_country}"
     _run_t0 = time.time()
 
-    # 0) PROVIDER CHAIN, all pure-HTTP pre-connect (no session burn):
-    # tempmailhub (real clean gmail) → 22.do (1-dot gmail) → temp.tf (dot gmail).
-    # Browser-tab providers (zenvex → dispose.lol) come after connect.
+    # 0) PROVIDER CHAIN runs AFTER connect via ZenFetch (fetch inside the
+    # ZenRows tab = residential egress; local raw-IP curl gets 404/denied).
+    # tempmailhub → 22.do → temp.tf (tab-fetch) → zenvex tab → dispose tab.
     pre_email, pre_src, pre_id = None, None, None
     only = [force_src] if force_src else ["tempmailhub", "22do", "temptf"]
+    zf = None
 
     def _avail(_em, _tag):
         if _em and lovable_email_available(_em):
-            print(f"{_tag} {_em} (pre-connect, available)")
+            print(f"{_tag} {_em} (available)")
             return True
         if _em:
             print(f"{_tag} {_em} already registered — next provider")
-        return False
-
-    if "tempmailhub" in only:
-        _th_em, _th_id = create_tempmailhub_email()
-        if _avail(_th_em, "tempmailhub Gmail"):
-            pre_email, pre_src, pre_id = _th_em, "tempmailhub", _th_id
-    if not pre_email and "22do" in only:
-        _em22 = create_22do_gmail()
-        if _avail(_em22, "22.do Gmail"):
-            pre_email, pre_src = _em22, "22do"
-    if not pre_email and "temptf" in only:
-        _emtf = create_temptf_email()
-        if _avail(_emtf, "temp.tf Gmail"):
-            pre_email, pre_src = _emtf, "temptf"
-    if force_src in ("tempmailhub", "22do", "temptf") and not pre_email:
-        print(f"forced provider {force_src} missed — aborting run (next provider gets own run)")
         return False
 
     if args.local:
@@ -636,7 +677,25 @@ async def run_signup(args, run_attempt=1, force_src=None):
     print(f"🎭 Fingerprint jitter: cores={_cores} mem={_mem} plat={_plat} plugins={_nplug}")
 
     try:
-        # Use pre-connect API mail if we got one — else browser-tab chain:
+        # API providers via ZenFetch tab (residential egress, zero local curl).
+        zf = await ZenFetch().open(ctx)
+        if "tempmailhub" in only:
+            _th_em, _th_id = await create_tempmailhub_email(zf)
+            if _avail(_th_em, "tempmailhub Gmail"):
+                pre_email, pre_src, pre_id = _th_em, "tempmailhub", _th_id
+        if not pre_email and "22do" in only:
+            _em22 = await create_22do_gmail(zf)
+            if _avail(_em22, "22.do Gmail"):
+                pre_email, pre_src = _em22, "22do"
+        if not pre_email and "temptf" in only:
+            _emtf = await create_temptf_email(zf)
+            if _avail(_emtf, "temp.tf Gmail"):
+                pre_email, pre_src = _emtf, "temptf"
+        if force_src in ("tempmailhub", "22do", "temptf") and not pre_email:
+            print(f"forced provider {force_src} missed — aborting run (next provider gets own run)")
+            return False
+
+        # Use API mail if we got one — else browser-tab chain:
         # zenvex first, dispose.lol last (force_src limits to one tab provider).
         inbox = None
         zxinbox = None
@@ -934,11 +993,11 @@ async def run_signup(args, run_attempt=1, force_src=None):
             # Wait for Lovable verify link from the matching inbox.
             # Pure-HTTP polls (tempmailhub/temp.tf) burn zero session budget.
             if email_source == "tempmailhub":
-                link = await asyncio.to_thread(poll_tempmailhub_link, email_id)
+                link = await poll_tempmailhub_link(zf, email_id)
             elif email_source == "22do":
                 link = await poll_22do_lovable_link(ctx, email)
             elif email_source == "temptf":
-                link = await poll_temptf_link(email)
+                link = await poll_temptf_link(zf, email)
             elif email_source == "zenvex":
                 link = await zxinbox.wait_for_lovable_link()
             else:
@@ -1064,6 +1123,11 @@ async def run_signup(args, run_attempt=1, force_src=None):
         try:
             if zxinbox:
                 await zxinbox.close()
+        except Exception:
+            pass
+        try:
+            if zf:
+                await zf.close()
         except Exception:
             pass
         if browser:
