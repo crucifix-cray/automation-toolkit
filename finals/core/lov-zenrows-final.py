@@ -453,7 +453,14 @@ class ZenvexInbox:
             raise Exception(f"zenvex prefix fill failed: {e}")
         try:
             _open = self.page.get_by_role("button", name="Open Inbox").first
-            await _open.click(timeout=8000)
+            try:
+                await _open.scroll_into_view_if_needed(timeout=5000)
+            except Exception:
+                pass
+            try:
+                await _open.click(timeout=8000)
+            except Exception:
+                await _open.evaluate("el => el.click()")
         except Exception as e:
             raise Exception(f"zenvex Open Inbox click failed: {e}")
         await self.page.wait_for_timeout(4000)
@@ -726,8 +733,18 @@ async def run_signup(args, run_attempt=1, force_src=None):
 
         # Fill email + VERIFY it stuck (effective-script lesson: silent empty
         # field burns the run). Fallback keyboard.type on mismatch.
+        # If the form never renders (slow hydration), reload once before dying.
         email_loc = page.locator('input#email')
-        await email_loc.wait_for(timeout=10000)
+        try:
+            await email_loc.wait_for(timeout=12000)
+        except Exception:
+            print("  ⚠️ input#email missing — one reload then retry")
+            try:
+                await page.reload(wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(4000)
+            except Exception:
+                pass
+            await email_loc.wait_for(timeout=15000)
         await email_loc.fill(email)
         try:
             _eval = await email_loc.input_value(timeout=2000)
