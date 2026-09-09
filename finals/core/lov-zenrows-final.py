@@ -126,7 +126,7 @@ class DisposeLolInbox:
         marker = "lovprobe-" + "".join(_rnd.choices(_str.ascii_lowercase + _str.digits, k=8))
         print(f"  📮 Mailtrap probe → {self.address} [{marker}]")
         _tok = os.environ.get("MAILTRAP_API_TOKEN", "5a2384b6c3e7723a389fe8cd85867253")
-        _frm = os.environ.get("MAILTRAP_FROM", "")
+        _frm = os.environ.get("MAILTRAP_FROM", "hello@demomailtrap.co")
         if not _frm:
             print("  ⚠️ MAILTRAP_FROM unset — skipping probe gate (set env to enforce)")
             return True
