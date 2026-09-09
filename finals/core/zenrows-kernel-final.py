@@ -58,6 +58,8 @@ def create_22do_gmail(tries=40):
     return None
 
 EGRESS_IPS_FILE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "zenrows_egress_ips.json"))
+FLAGGED_IPS_FILE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "zenrows_flagged_ips.json"))
+IP_WINDOW = 15  # sliding window: pool recycles, only recent reuse matters
 
 def _load_ips():
     try:
@@ -65,14 +67,30 @@ def _load_ips():
     except Exception:
         return []
 
+def _load_flagged():
+    try:
+        return json.load(open(FLAGGED_IPS_FILE))
+    except Exception:
+        return []
+
 def _save_ip(ip):
     try:
         ips = _load_ips()
-        if ip not in ips:
+        if ip and ip != "unknown" and ip not in ips:
             ips.append(ip)
-            json.dump(ips, open(EGRESS_IPS_FILE, "w"), indent=1)
+        json.dump(ips[-IP_WINDOW:], open(EGRESS_IPS_FILE, "w"), indent=1)
     except Exception as e:
         print(f"ip-save err {e}", file=sys.stderr)
+
+def _flag_ip(ip):
+    try:
+        fl = _load_flagged()
+        if ip and ip != "unknown" and ip not in fl:
+            fl.append(ip)
+            json.dump(fl, open(FLAGGED_IPS_FILE, "w"), indent=1)
+            print(f"IP {ip} added to flagged list", file=sys.stderr)
+    except Exception as e:
+        print(f"ip-flag err {e}", file=sys.stderr)
 
 async def run_once():
     cdp_ws, live_url, session_id = create_kernel_browser()
@@ -103,10 +121,17 @@ async def run_once():
                     egress_ip = "unknown"
                     break
                 _used = _load_ips()
-                if egress_ip not in _used and egress_ip != "unknown":
+                _flagged = _load_flagged()
+                if egress_ip in _flagged:
+                    print(f"EGRESS FLAGGED {egress_ip} -> fresh browser try {_iptry+1}/3", file=sys.stderr)
+                elif egress_ip not in _used and egress_ip != "unknown":
                     print(f"EGRESS fresh {egress_ip}", file=sys.stderr)
                     break
-                print(f"EGRESS DUP {egress_ip} (used {len(_used)}) -> fresh browser try {_iptry+1}/3", file=sys.stderr)
+                else:
+                    print(f"EGRESS recent-dup {egress_ip} (window {len(_used)}) -> fresh browser try {_iptry+1}/2", file=sys.stderr)
+                    if _iptry >= 1:
+                        print("window retries used — pool recycles, proceeding", file=sys.stderr)
+                        break
                 try:
                     await browser.close()
                 except Exception:
@@ -388,8 +413,13 @@ async def run_once():
                         _sub_ip = None
                     if _sub_ip:
                         print(f"SUBMIT-IP {_sub_ip}", file=sys.stderr)
+                        if _sub_ip in _load_flagged():
+                            print(f"SUBMIT-IP FLAGGED {_sub_ip} -> fresh browser", file=sys.stderr)
+                            await browser.close()
+                            cleanup_kernel(session_id)
+                            sys.exit(1)
                         if _sub_ip in _load_ips():
-                            print(f"SUBMIT-IP DUP {_sub_ip} -> fresh browser", file=sys.stderr)
+                            print(f"SUBMIT-IP recent-dup {_sub_ip} -> fresh browser", file=sys.stderr)
                             await browser.close()
                             cleanup_kernel(session_id)
                             sys.exit(1)
@@ -469,6 +499,7 @@ async def run_once():
                             content = ""
                 if "Too many accounts detected from your IP" in content:
                     print("IP FLAGGED (too many accounts) -> kill browser, fresh IP next run", file=sys.stderr)
+                    _flag_ip(egress_ip)
                     await page.screenshot(path="/tmp/zen_ip_flagged.png", full_page=True)
                     await browser.close()
                     cleanup_kernel(session_id)
