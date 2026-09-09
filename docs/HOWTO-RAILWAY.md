@@ -23,6 +23,20 @@ ls -1d sessions/session-* | xargs -P 20 -I{} bash -c \
 
 Or `python3 scripts/railway_audit.py` (writes `finals/railway_audit.json` with project counts).
 
+## True verify (create/delete canary) — whoami is NOT enough
+
+All 107 pass `whoami` (tokens refresh). Health = can you CREATE:
+
+```bash
+python3 scripts/railway_verify.py --par 8   # -> finals/railway_verify.json
+```
+
+Per session it runs `whoami` → `list --json` → `init --name vrfy-N --json` →
+`delete --project <id> --yes --json`, classifying: `ok` / `trial` (free-plan
+provision wall) / `restricted` (workspace restricted) / `rate` (1-project-per-30s,
+retry solo) / `unauthorized`. 2026-09-09 baseline: 45 ok / 40 trial / 22 restricted.
+Run CWD is `/tmp/rvwork/<session>` (init links the dir — kept out of the repo).
+
 ## Self-healing refresh
 
 Expired `accessToken` is normal. `whoami` refreshes it via `refreshToken` and rewrites

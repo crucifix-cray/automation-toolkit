@@ -99,7 +99,7 @@ RAILWAY_GRAPHQL = "https://backboard.railway.com/graphql/v2"
 RAILWAY_SCOPES = "openid email profile offline_access workspace:admin project:admin ssh_keys"
 PKCE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
 
-SESSIONS_DIR = Path(ORIG_HOME) / "Documents" / "railways"
+SESSIONS_DIR = Path(ORIG_HOME) / "Documents" / "railways" / "sessions"
 MEGA_REMOTE = "mega:railway_sessions"
 # ponytail: BD Browser API pool for ASN rotation (free tier per-run fresh IP + new ASN)
 BRD_WSS_POOL = [

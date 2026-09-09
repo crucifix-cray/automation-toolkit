@@ -77,7 +77,7 @@ RAILWAY_GRAPHQL = "https://backboard.railway.com/graphql/v2"
 RAILWAY_SCOPES = "openid email profile offline_access workspace:admin project:admin ssh_keys"
 PKCE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
 
-SESSIONS_DIR = Path.home() / "Documents" / "railways"
+SESSIONS_DIR = Path.home() / "Documents" / "railways" / "sessions"
 MEGA_REMOTE = "mega:railway_sessions"
 
 ACTION_TIMEOUT = 60_000
