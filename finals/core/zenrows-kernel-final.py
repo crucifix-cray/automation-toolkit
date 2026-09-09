@@ -125,11 +125,54 @@ async def run_once():
                 await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(5000)
             body = await page.evaluate("() => document.body.innerText")
-            # 0) 22.do fake-gmail API first (pure HTTP, instant; polled via 22.do inbox)
-            email = create_22do_gmail()
-            email_source = "22do" if email else "dispose"
-            if email:
-                print(f"22.do Gmail {email} (skip dispose)", file=sys.stderr)
+            # Multi-provider rotation (round-robin file): 22do -> temptf -> hub -> dispose.
+            # One provider per run (fresh IP each run); creation is cheap, registration is not.
+            import importlib.util as _ilu
+            _mspec = _ilu.spec_from_file_location("mail_providers", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mail_providers.py"))
+            _mp = importlib.util.module_from_spec(_mspec)
+            _mspec.loader.exec_module(_mp)
+            try:
+                _rot = int(open("/tmp/zen_provider_rot.txt").read().strip())
+            except Exception:
+                _rot = 0
+            open("/tmp/zen_provider_rot.txt", "w").write(str((_rot + 1) % 4))
+            _order = ["22do", "temptf", "hub", "dispose"][_rot:] + ["22do", "temptf", "hub", "dispose"][:_rot]
+            print(f"provider order: {_order}", file=sys.stderr)
+            email = None
+            email_source = "dispose"
+            email_eid = None
+            for _prov in _order:
+                if _prov == "22do":
+                    email = create_22do_gmail()
+                    if email:
+                        email_source = "22do"
+                        print(f"22.do Gmail {email}", file=sys.stderr)
+                        break
+                elif _prov in ("temptf", "hub"):
+                    try:
+                        _zf = _mp.TabFetch(ctx)
+                        if _prov == "temptf" and await _zf.home("https://temp.tf/"):
+                            email = await _mp.create_temptf(_zf)
+                            if email:
+                                email_source = "temptf"
+                                print(f"temp.tf Gmail {email}", file=sys.stderr)
+                                break
+                        elif _prov == "hub" and await _zf.home("https://tempmailhub.org/"):
+                            _hem, _heid = await _mp.create_hub(_zf)
+                            if _hem:
+                                email, email_eid = _hem, _heid
+                                email_source = "hub"
+                                print(f"tempmailhub Gmail {email} (id {_heid})", file=sys.stderr)
+                                break
+                    except Exception as _pe:
+                        print(f"provider {_prov} err {str(_pe)[:100]}", file=sys.stderr)
+                    finally:
+                        try:
+                            await _zf.close()
+                        except Exception:
+                            pass
+                elif _prov == "dispose":
+                    break
             if not email:
                 # Gmail ONLY: astroai.eu.cc + mail.tm blocked ("Email domain not allowed").
                 # Fallback = dispose.lol page Gmail (must have exactly 1 dot, no plus).
@@ -582,7 +625,25 @@ async def run_once():
                     await pg22.close()
                 except Exception:
                     pass
-            if is_gmail and email_source not in ("22do", "dispose"):
+            if email_source in ("temptf", "hub"):
+                # Fetch-poll via provider-homed tab (beats raw-IP blocks + CORS)
+                try:
+                    _zfp = _mp.TabFetch(ctx)
+                    _vlink = None
+                    if email_source == "temptf" and await _zfp.home("https://temp.tf/"):
+                        _vlink = await _mp.poll_temptf(_zfp, email)
+                    elif email_source == "hub" and await _zfp.home("https://tempmailhub.org/"):
+                        _vlink = await _mp.poll_hub(_zfp, email_eid)
+                    if _vlink:
+                        await page.evaluate("(url) => { window.__verifyUrl = url; }", _vlink)
+                        found_tf = True
+                    try:
+                        await _zfp.close()
+                    except Exception:
+                        pass
+                except Exception as _fpe:
+                    print(f"fetch-poll err {_fpe}", file=sys.stderr)
+            if is_gmail and email_source not in ("22do", "dispose", "temptf", "hub"):
                 # Poll temp.tf directly (no browser needed; NOTE: API 404s as of 2026-09-06)
                 import urllib.request, json as _json2, re as _re, html as _html2, time as _time2
                 link_re2 = _re.compile(r"https://[^\s]+zenrows\.com[^\s]+", _re.I)
