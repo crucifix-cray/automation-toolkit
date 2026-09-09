@@ -638,6 +638,75 @@ async def run_once():
                     pgD = await ctx.new_page()
                     await pgD.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=60000)
                     await pgD.wait_for_timeout(4000)
+                    if email_source == "22do":
+                        # 22.do inbox stayed empty -> switch to dispose: take the
+                        # displayed dispose Gmail, re-register with it, then poll HERE.
+                        try:
+                            _dbody = await pgD.evaluate("() => document.body.innerText")
+                        except Exception:
+                            _dbody = ""
+                        _dg = [m for m in re.findall(r"[a-z0-9._%+-]+@gmail\.com", _dbody or "", re.I)
+                               if m.split("@")[0].count(".") == 1 and "+" not in m]
+                        if not _dg:
+                            print("22.do empty + no dispose Gmail -> fresh run", file=sys.stderr)
+                            try:
+                                await pgD.close()
+                            except Exception:
+                                pass
+                            await browser.close()
+                            cleanup_kernel(session_id)
+                            sys.exit(1)
+                        email = _dg[0]
+                        email_source = "dispose"
+                        print(f"22.do empty -> re-register as dispose {email}", file=sys.stderr)
+                        try:
+                            await page.goto("https://app.zenrows.com/register", wait_until="domcontentloaded", timeout=30000)
+                            await page.wait_for_timeout(3000)
+                            await page.wait_for_selector("#email", timeout=15000)
+                            if not await _human_fill("#email", email):
+                                raise Exception("refill email failed")
+                            await page.wait_for_timeout(600)
+                            if not await _human_fill("#password", password):
+                                raise Exception("refill pw failed")
+                            await page.wait_for_timeout(800)
+                            try:
+                                await page.evaluate("""() => {
+                                    for (const s of ['#hs-banner-parent','#cookieBanner-26062658','[id*="cookieBanner"]']){ try { document.querySelectorAll(s).forEach(e=>e.remove()); } catch {} }
+                                    const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Create account'));
+                                    if(b) b.click();
+                                }""")
+                            except Exception:
+                                pass
+                            await page.wait_for_timeout(9000)
+                            _curl = page.url
+                            _cbody = ""
+                            try:
+                                _cbody = await page.content()
+                            except Exception:
+                                pass
+                            if "email/verify" not in _curl and "verify" not in (_cbody or "").lower():
+                                print(f"dispose re-register failed url={_curl} -> fresh run", file=sys.stderr)
+                                try:
+                                    await pgD.close()
+                                except Exception:
+                                    pass
+                                await browser.close()
+                                cleanup_kernel(session_id)
+                                sys.exit(1)
+                            print(f"re-registered {email} -> email/verify", file=sys.stderr)
+                            await pgD.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=60000)
+                            await pgD.wait_for_timeout(4000)
+                        except SystemExit:
+                            raise
+                        except Exception as _rre:
+                            print(f"dispose re-register err {_rre} -> fresh run", file=sys.stderr)
+                            try:
+                                await pgD.close()
+                            except Exception:
+                                pass
+                            await browser.close()
+                            cleanup_kernel(session_id)
+                            sys.exit(1)
                     for i in range(20):
                         try:
                             bodyD = await pgD.evaluate("() => document.body.innerText")
