@@ -1,0 +1,102 @@
+===========================================================================
+ONKERNEL LOVABLE REVIVAL REPORT - 2026-09-06 21:11:28
+===========================================================================
+Total Attempted : 66
+REVIVED (Fresh) : 28 (42.4%)
+FAILED          : 38 (57.6%)
+---------------------------------------------------------------------------
+Session         Status     Cookies  Email                            Failure Reason
+---------------------------------------------------------------------------
+session-1       ❌ FAILED   0        elliannadaniels20@gmail.com      Error: Locator.wait_for: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator("input[type='email'], input[name='email']").first to be visible
+
+session-2       ❌ FAILED   0        altonlehman16@gmail.com          Error: Locator.wait_for: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator("input[type='email'], input[name='email']").first to be visible
+
+session-5       ✅ REVIVED  55       lenasolids546@gmail.com          Dashboard reached (https://lovable.dev/dashboard)
+session-6       ❌ FAILED   0        ariyahancock8@gmail.com          Error: Locator.wait_for: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator("input[type='email'], input[name='email']").first to be visible
+
+session-7       ❌ FAILED   0        abukha090@gmail.com              Error: Locator.wait_for: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator("input[type='email'], input[name='email']").first to be visible
+
+session-8       ✅ REVIVED  55       Fletcherjakobs@gmail.com         Dashboard reached (https://lovable.dev/dashboard)
+session-9       ❌ FAILED   0        Omaricosta012@gmail.com          Invalid credentials
+session-10      ❌ FAILED   0        lindahicks827@gmail.com          Invalid credentials
+session-12      ✅ REVIVED  14       joellampard07@gmail.com          Dashboard reached (https://lovable.dev/dashboard)
+session-13      ❌ FAILED   0        altonlehman16@gmail.com          Error: Locator.wait_for: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator("input[type='email'], input[name='email']").first to be visible
+    - locator resolved to visible <input value="" id="email" type="email" name="email" autocorrect="off" spellcheck="false" placeholder="Email" aria-invalid="false" autocomplete="email" autocapitalize="none" aria-describedby="_r_11_-form-item-description" class="input-field w-full text-[var(--fg-primary)] outline-hidden max-md:text-base placeholder:text-[var(--fg-tertiary)] disabled:cursor-not-allowed disabled:opacity-50 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-[var(--fg-primary)] h-11 rounded-full bg…/>
+
+session-14      ✅ REVIVED  55       emonkhanireht56@gmail.com        Dashboard reached (https://lovable.dev/dashboard)
+session-15      ❌ FAILED   0        elliannadaniels20@gmail.com      Invalid credentials
+session-16      ❌ FAILED   0        giarich380@gmail.com             Invalid credentials
+session-17      ✅ REVIVED  14       liamantoine31@gmail.com          Dashboard reached (https://lovable.dev/dashboard)
+session-18      ❌ FAILED   0        jadmoreno9@gmail.com             Invalid credentials
+session-19      ✅ REVIVED  55       Josephgrant651@gmail.com         Dashboard reached (https://lovable.dev/dashboard)
+session-20      ❌ FAILED   0        beverlydiazmaxy02@gmail.com      Invalid credentials
+session-21      ✅ REVIVED  55       mariepeterson749@gmail.com       Dashboard reached (https://lovable.dev/dashboard)
+session-22      ❌ FAILED   0        hoseamergra@gmail.com            Invalid credentials
+session-23      ❌ FAILED   0        jessedHamilton1234@gmail.com     Invalid credentials
+session-24      ✅ REVIVED  57       alexandermay706@gmail.com        Dashboard reached (https://lovable.dev/dashboard)
+session-25      ❌ FAILED   0        duncanmarkd12@gmail.com          Error: Command 'kernel browsers create --stealth --timeout 240 -o json' returned non-zero exit status 1.
+session-26      ❌ FAILED   0        Phoenixharrington7@gmail.com     Invalid credentials
+session-27      ✅ REVIVED  55       zakarmmusa832@gmail.com          Dashboard reached (https://lovable.dev/dashboard)
+session-28      ✅ REVIVED  14       julianhiramqwr@gmail.com         Dashboard reached (https://lovable.dev/dashboard)
+session-29      ❌ FAILED   0        lawanmanu43@gmail.com            Error: Command 'kernel browsers create --stealth --timeout 240 -o json' returned non-zero exit status 1.
+session-30      ✅ REVIVED  54       rosaliabarrett81@gmail.com       Dashboard reached (https://lovable.dev/dashboard)
+session-31      ✅ REVIVED  51       dakarihickmanhickman@gmail.com   Dashboard reached (https://lovable.dev/dashboard)
+session-32      ❌ FAILED   0        ellathompsone09@gmail.com        Invalid credentials
+session-33      ✅ REVIVED  57       nyomiparra12@gmail.com           Dashboard reached (https://lovable.dev/dashboard)
+session-34      ✅ REVIVED  11       dakarihickmanhickman@gmail.com   Dashboard reached (https://lovable.dev/dashboard)
+session-35      ✅ REVIVED  55       johnpeter08541@gmail.com         Dashboard UI authenticated (https://lovable.dev/login)
+session-36      ❌ FAILED   0        celiamorgan831@gmail.com         Invalid credentials
+session-37      ❌ FAILED   0        giarich380@gmail.com             Invalid credentials
+session-38      ✅ REVIVED  55       samsonarifalo0@gmail.com         Dashboard reached (https://lovable.dev/dashboard)
+session-39      ✅ REVIVED  55       emmalinerivers9@gmail.com        Dashboard reached (https://lovable.dev/dashboard)
+session-40      ❌ FAILED   0        noelWalker357@gmail.com          Invalid credentials
+session-41      ❌ FAILED   0        noelWalker357@gmail.com          Invalid credentials
+session-42      ✅ REVIVED  55       daxtonharper8@gmail.com          Dashboard reached (https://lovable.dev/dashboard)
+session-43      ❌ FAILED   0        maliaglass0@gmail.com            Invalid credentials
+session-44      ❌ FAILED   0        maliaglass0@gmail.com            Invalid credentials
+session-45      ❌ FAILED   0        maliaglass0@gmail.com            Invalid credentials
+session-46      ✅ REVIVED  55       kristinenorris08@gmail.com       Dashboard reached (https://lovable.dev/dashboard)
+session-47      ❌ FAILED   0        jakesparosam@gmail.com           Error: Command 'kernel browsers create --stealth --timeout 240 -o json' returned non-zero exit status 1.
+session-48      ✅ REVIVED  57       jakesparosam@gmail.com           Dashboard reached (https://lovable.dev/dashboard)
+session-49      ❌ FAILED   0        nancydeckerg@gmail.com           Invalid credentials
+session-50      ✅ REVIVED  57       jakesparosam@gmail.com           Dashboard reached (https://lovable.dev/dashboard)
+session-51      ❌ FAILED   0        jakesparosam@gmail.com           Error: Command 'kernel browsers create --stealth --timeout 240 -o json' returned non-zero exit status 1.
+session-52      ✅ REVIVED  57       jakesparosam@gmail.com           Dashboard reached (https://lovable.dev/dashboard)
+session-53      ❌ FAILED   0        nancydeckerg@gmail.com           Invalid credentials
+session-54      ❌ FAILED   0        maliaglass0@gmail.com            Invalid credentials
+session-55      ❌ FAILED   0        nancydeckerg@gmail.com           Invalid credentials
+session-56      ✅ REVIVED  14       jakesparosam@gmail.com           Dashboard reached (https://lovable.dev/dashboard)
+session-57      ❌ FAILED   0        maliaglass0@gmail.com            Invalid credentials
+session-58      ✅ REVIVED  50       johngriffin62w@gmail.com         Dashboard reached (https://lovable.dev/dashboard)
+session-59      ❌ FAILED   0        johngriffin62w@gmail.com         Error: Command 'kernel browsers create --stealth --timeout 240 -o json' returned non-zero exit status 1.
+session-60      ❌ FAILED   0        noelWalker357@gmail.com          Invalid credentials
+session-61      ✅ REVIVED  55       zakarmmusa832@gmail.com          Dashboard reached (https://lovable.dev/dashboard)
+session-62      ❌ FAILED   0        johngriffin62w@gmail.com         Error: Command 'kernel browsers create --stealth --timeout 240 -o json' returned non-zero exit status 1.
+session-63      ✅ REVIVED  55       johngriffin62w@gmail.com         Dashboard reached (https://lovable.dev/dashboard)
+session-64      ❌ FAILED   0        johngriffin62w@gmail.com         Blocked: 'Login denied due to suspicious activity'
+session-65      ❌ FAILED   0        johngriffin62w@gmail.com         Error: Locator.wait_for: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator("input[type='email'], input[name='email']").first to be visible
+
+session-66      ✅ REVIVED  55       johngriffin62w@gmail.com         Dashboard reached (https://lovable.dev/dashboard)
+session-67      ✅ REVIVED  55       johngriffin62w@gmail.com         Dashboard reached (https://lovable.dev/dashboard)
+session-1787572795-410056 ❌ FAILED   0        ellathompsone09@gmail.com        Invalid credentials
+session-1788604939 ❌ FAILED   0        roce.sisla@gmail.com             Error: Command 'kernel browsers create --stealth --timeout 240 -o json' returned non-zero exit status 1.
+---------------------------------------------------------------------------
+
+REVIVED SESSIONS (28):
+session-5, session-8, session-12, session-14, session-17, session-19, session-21, session-24, session-27, session-28, session-30, session-31, session-33, session-34, session-35, session-38, session-39, session-42, session-46, session-48, session-50, session-52, session-56, session-58, session-61, session-63, session-66, session-67
+
+FAILED SESSIONS (38):
+session-1, session-2, session-6, session-7, session-9, session-10, session-13, session-15, session-16, session-18, session-20, session-22, session-23, session-25, session-26, session-29, session-32, session-36, session-37, session-40, session-41, session-43, session-44, session-45, session-47, session-49, session-51, session-53, session-54, session-55, session-57, session-59, session-60, session-62, session-64, session-65, session-1787572795-410056, session-1788604939
+===========================================================================

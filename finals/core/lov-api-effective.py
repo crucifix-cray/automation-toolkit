@@ -455,10 +455,11 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
     """
     print("🤖 Turnstile: waiting/checking (max 15 tries, token>20, button enabled)…", file=sys.stderr)
 
-    # Quick path: wait up to 12s for auto-Success! (GB does 2-4s). Check token each second.
-    # Batched single evaluate per tick: cloud CDP round-trips are slow (88s observed
-    # for 12 ticks with 3-4 calls each) and sessions die ~3min after creation.
-    for sec in range(12):
+    # Quick path: wait up to 8s for auto-Success! (GB does 2-4s, token 837 auto
+    # with ZERO clicks per probes). Batched single evaluate per tick: cloud CDP
+    # round-trips are slow (88s observed for 12 ticks) and sessions die ~3min
+    # after creation. If token stays 0 after 8s AND checkbox present → click path.
+    for sec in range(8):
         try:
             state = await page.evaluate("""() => { const i=document.querySelector('input[name="cf-turnstile-response"]');
                 const b=document.querySelector('[data-testid="auth-submit-button"]');
@@ -492,10 +493,10 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
             # Let caller handle reload+refill; break to enter click loop which does reload
             break
         # No token yet, keep waiting a bit
-        if sec < 11:
+        if sec < 7:
             await page.wait_for_timeout(1000)
-            # Also detect if Turnstile widget never appeared — after 8s assume no challenge or auto-pass
-            if sec == 8:
+            # Also detect if Turnstile widget never appeared — after ~7 ticks assume no challenge or auto-pass
+            if sec == 6:
                 has_iframe = await page.locator('iframe[src*="challenges.cloudflare.com"]').count()  # type: ignore
                 has_widget = await page.locator('div.cf-turnstile').count()  # type: ignore
                 if has_iframe == 0 and has_widget == 0:
@@ -578,11 +579,21 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
                 pass
             continue
 
-        # Checkbox-ready wait: widget shell often exists before the clickable
-        # checkbox renders. ClickSolver on a loading widget finds nothing and
-        # hammers a re-rendering iframe until the target dies (observed cascade).
-        checkbox_ready = False
-        for _ in range(10):
+        # Widget probe: ONE batched evaluate (iframe present + rendered bbox for
+        # manual click) + ONE single-pass frame check. The old 10x3 frame_locator
+        # storm was up to 30 CDP calls on a ~3min-lifetime session — and cross-origin
+        # iframe DOM usually can't be pierced anyway. Probes prove token 837
+        # auto-appears with ZERO clicks; clicking may be what flags/kills.
+        widget = {"iframes": 0, "box": None}
+        try:
+            widget = await page.evaluate("""() => { const f=[...document.querySelectorAll('iframe')].filter(x=>(x.src||'').includes('challenges.cloudflare.com'));
+                if(!f.length) return {iframes:0, box:null};
+                const r=f[0].getBoundingClientRect(); return {iframes:f.length, box:{x:r.x,y:r.y,w:r.width,h:r.height}}; }""")  # type: ignore
+        except Exception as e:
+            print(f"  ⚠️ widget probe failed: {str(e)[:80]}", file=sys.stderr)
+        checkbox_ready = bool(widget.get("box") and (widget["box"] or {}).get("w", 0) > 0)
+        if not checkbox_ready:
+            # Single-pass frame check (no loop) before declaring non-interactive
             try:
                 fl = page.frame_locator('iframe[src*="challenges.cloudflare.com"]')  # type: ignore
                 for _sel in ['input[type="checkbox"]', '[role="checkbox"]', 'label']:
@@ -592,20 +603,28 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
                             break
                     except Exception:
                         continue
-                if checkbox_ready:
-                    break
             except Exception:
                 pass
-            await page.wait_for_timeout(1000)
-        print(f"  checkbox_ready={checkbox_ready}", file=sys.stderr)
+        print(f"  checkbox_ready={checkbox_ready} iframes={widget.get('iframes', 0)}", file=sys.stderr)
+        # Always try turnstile.execute() first when token is 0 — 1 call, no click.
+        # Then re-check token; only fall through to clicking if still 0.
+        try:
+            await page.evaluate("() => { try { window.turnstile && window.turnstile.execute && window.turnstile.execute(); } catch(e) {} }")  # type: ignore
+            print("  ▶️ turnstile.execute() called", file=sys.stderr)
+        except Exception as e:
+            print(f"  ⚠️ turnstile.execute() failed: {e}", file=sys.stderr)
+        try:
+            await page.wait_for_timeout(4000)
+            tok = await page.evaluate("""() => document.querySelector('input[name="cf-turnstile-response"]')?.value?.length || 0""")  # type: ignore
+            if tok and tok > 20:
+                print(f"  ✅ Token {tok} after execute() — no click needed", file=sys.stderr)
+                continue  # loop entry re-checks token+button and returns
+        except Exception:
+            pass
         if not checkbox_ready:
-            # No interactive checkbox: widget is in auto (non-interactive) mode —
-            # trigger verification via API instead of clicking blindly.
-            try:
-                await page.evaluate("() => { try { window.turnstile && window.turnstile.execute && window.turnstile.execute(); } catch(e) {} }")  # type: ignore
-                print("  ▶️ turnstile.execute() called (no checkbox mode)", file=sys.stderr)
-            except Exception as e:
-                print(f"  ⚠️ turnstile.execute() failed: {e}", file=sys.stderr)
+            print("  ⏳ No clickable widget and no token — waiting 2s…", file=sys.stderr)
+            await page.wait_for_timeout(2000)
+            continue
 
         # Human scroll/jitter before click
         try:
@@ -619,9 +638,11 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
         clicked = False
         last_err: Optional[str] = None
 
-        # Strategy A: ClickSolver (if available) — ONLY if checkbox actually rendered,
-        # and guard "success element does not exist"
-        if CAPTCHA_SOLVER_AVAILABLE and not clicked and checkbox_ready:
+        # Strategy A: ClickSolver — OFF by default (LOV_SOLVER=1 to enable).
+        # Probes: token auto-appears with zero clicks; solver clicks cascade into
+        # "success element does not exist" → "iframes not found" → session death.
+        if (_os.environ.get("LOV_SOLVER", "") == "1"
+                and CAPTCHA_SOLVER_AVAILABLE and not clicked and checkbox_ready):
             print("  🎯 Strategy ClickSolver…", file=sys.stderr)
             for fw in (FrameworkType.PATCHRIGHT, FrameworkType.PLAYWRIGHT) if 'FrameworkType' in globals() else []:  # type: ignore
                 try:
@@ -758,8 +779,8 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
             print(f"✅ Turnstile SOLVED — token={tok} (837-858 expected on GB) button=enabled", file=sys.stderr)
             return True
         if tok and tok > 20 and not is_enabled:
-            print("  ⏳ Token valid but button disabled — waiting 3s…", file=sys.stderr)
-            await page.wait_for_timeout(3000)
+            print("  ⏳ Token valid but button disabled — waiting 2s…", file=sys.stderr)
+            await page.wait_for_timeout(2000)
             try:
                 btn = page.locator('[data-testid="auth-submit-button"]').last
                 if await btn.count() and not await btn.is_disabled():  # type: ignore
@@ -767,8 +788,8 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
                     return True
             except Exception:
                 pass
-        print("  ↻ Retry in 2s…", file=sys.stderr)
-        await page.wait_for_timeout(2000)
+        print("  ↻ Retry in 1.2s…", file=sys.stderr)
+        await page.wait_for_timeout(1200)
 
     # Exhausted
     try:
@@ -1043,7 +1064,7 @@ async def run(
 
         print(f"🌐 Navigating to {LOVABLE_SIGNUP_URL} (direct /signup, no /login popup)…", file=sys.stderr)
         await navigate(lovable_page, LOVABLE_SIGNUP_URL)
-        await lovable_page.wait_for_timeout(3200)
+        await lovable_page.wait_for_timeout(1500)  # short: sessions die ~3min, hydration check follows
         try:
             egress = await asyncio.wait_for(verify_egress_ip(lovable_page), timeout=12)  # type: ignore
             print(f"🌐 Egress check: {egress[:300]}", file=sys.stderr)
@@ -1060,9 +1081,9 @@ async def run(
             except Exception:
                 pass
             await navigate(lovable_page, LOVABLE_URL)
-            await lovable_page.wait_for_timeout(2500)
+            await lovable_page.wait_for_timeout(1500)
             await navigate(lovable_page, LOVABLE_SIGNUP_URL)
-            await lovable_page.wait_for_timeout(3200)
+            await lovable_page.wait_for_timeout(1500)
             txt = await body_text(lovable_page)
 
         await dismiss_cookie_banner(lovable_page)
@@ -1148,7 +1169,7 @@ async def run(
                 except Exception:
                     await lovable_page.screenshot(path="/tmp/lov-continuer-fail.png", full_page=True)  # type: ignore
                     raise FlowError("Could not click Continuer/Continue") from e
-        await lovable_page.wait_for_timeout(2000)
+        await lovable_page.wait_for_timeout(1200)  # short: password wait follows
 
         # Wait for password step
         print("🔐 Waiting for input#password…", file=sys.stderr)

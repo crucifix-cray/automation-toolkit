@@ -103,8 +103,8 @@ SESSIONS_DIR = Path(ORIG_HOME) / "Documents" / "railways"
 MEGA_REMOTE = "mega:railway_sessions"
 # ponytail: ZenRows Browser pool for ASN rotation (French GF, 2 keys, free tier)
 ZENROWS_WSS_POOL = [
-    f"wss://browser.zenrows.com?apikey=3a6a9ee9aee5e3fa9a76b934eafd8dd1cf6dd39f&proxy_country=gf",
-    f"wss://browser.zenrows.com?apikey=b71908b722a88c56ee0ed960730465ab8e4bdfa3&proxy_country=gf",
+    f"wss://browser.zenrows.com?apikey=1a5d93cda0d10ac0bd9ab3da3fa93019f126397a&proxy_country=gb",
+    f"wss://browser.zenrows.com?apikey=a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7&proxy_country=gb",
 ]
 # Keep BRD names for compat
 BRD_WSS_POOL = ZENROWS_WSS_POOL
