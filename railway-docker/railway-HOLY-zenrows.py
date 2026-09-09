@@ -107,6 +107,8 @@ ZENROWS_WSS_POOL = [
     f"wss://browser.zenrows.com?apikey=11d7d0ee3adf967ba7361c9139e7a7aa66251fac&proxy_country=gb",
     f"wss://browser.zenrows.com?apikey=7213c8436771ba990ec226f68d64b3d6c1e666f3&proxy_country=gb",
     f"wss://browser.zenrows.com?apikey=061e11620c8d64cf236ed9e2e2d486fc4172dfc0&proxy_country=gb",
+    f"wss://browser.zenrows.com?apikey=8b785bbea662eb15f13f38a6df2c25b58bf84e4b&proxy_country=gb",
+    f"wss://browser.zenrows.com?apikey=7ff6cb1ee1ff55ac81687b7cf3f4855ecb6b33a9&proxy_country=gb",
     f"wss://browser.zenrows.com?apikey=1a5d93cda0d10ac0bd9ab3da3fa93019f126397a&proxy_country=gb",
     f"wss://browser.zenrows.com?apikey=a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7&proxy_country=gb",
 ]
@@ -732,9 +734,10 @@ def get_next_session_number():
 
 
 def next_session_dir(base_dir: Path, session_num: int = None):
-    """Get next session directory path"""
+    """Get next session directory path (HOLY_SESSION_NUM pins it for parallel runs)"""
     if session_num is None:
-        session_num = get_next_session_number()
+        fixed = os.environ.get("HOLY_SESSION_NUM", "")
+        session_num = int(fixed) if fixed.isdigit() else get_next_session_number()
     return base_dir / f"session-{session_num}"
 
 
@@ -1681,7 +1684,12 @@ async def run(use_warp=False, cloud_mode=False):
         use_warp = False
         import subprocess as _sp, uuid as _uuid
         from pathlib import Path as _Path
-        try: _sp.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
+        # kill-only cleanup of OUR headless leftovers (never pkill: user's headed chrome is spared)
+        try:
+            _pids = _sp.run(["pgrep", "-f", "chrome.*--headless"], capture_output=True, text=True, timeout=5).stdout.split()
+            for _pid in _pids:
+                try: _sp.run(["kill", "-9", _pid], capture_output=True, timeout=5)
+                except: pass
         except: pass
         # ponytail: rotate ASN per run via pool file + API lock (so parallel cells don't clash)
         # if BRD_WSS was passed via env for 1:1, use only that one (don't rotate, skip locks)
@@ -1935,6 +1943,8 @@ async def run(use_warp=False, cloud_mode=False):
                     # 0. temp.tf API — instant Gmail dots, no browser
                     try:
                         print(f"☁️  [round {_provider_round+1}] Trying temp.tf Gmail (dots)...")
+                        if os.environ.get("HOLY_SKIP_TEMPTF") == "1":
+                            raise RuntimeError("skipped via HOLY_SKIP_TEMPTF")
                         mailbox = TempTfInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
                         await mailbox.create()
                         print(f"✅ Mailbox ready: {mailbox.address} (via temp.tf)")
@@ -1944,9 +1954,14 @@ async def run(use_warp=False, cloud_mode=False):
                     # 1. dispose.lol Gmail via separate BD
                     try:
                         print(f"☁️  [round {_provider_round+1}] Trying dispose.lol Gmail (separate BD)...")
+                        if os.environ.get("HOLY_SKIP_DISPOSE") == "1":
+                            raise RuntimeError("skipped via HOLY_SKIP_DISPOSE")
                         from playwright.async_api import async_playwright as _p
                         import uuid as _uuid2
-                        dispose_wss = BRD_WSS.split("?")[0] + f"?sessionId={_uuid2.uuid4()}"
+                        if "zenrows.com" in BRD_WSS:
+                            dispose_wss = BRD_WSS
+                        else:
+                            dispose_wss = BRD_WSS.split("?")[0] + f"?sessionId={_uuid2.uuid4()}"
                         p2 = await _p().start()
                         b_dispose = await p2.chromium.connect_over_cdp(dispose_wss)
                         ctx_dispose = b_dispose.contexts[0] if b_dispose.contexts else await b_dispose.new_context()
@@ -1976,11 +1991,17 @@ async def run(use_warp=False, cloud_mode=False):
                     # 2. 22.do via separate BD
                     _22do_ok = False
                     for dom in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
+                        if os.environ.get("HOLY_SKIP_22DO") == "1":
+                            print("  skip 22.do (HOLY_SKIP_22DO)")
+                            break
                         try:
                             print(f"☁️  [round {_provider_round+1}] Trying 22.do {dom} (separate BD)...")
                             from playwright.async_api import async_playwright as _p2
                             import uuid as _uuid3
-                            wss_22 = BRD_WSS.split("?")[0] + f"?sessionId={_uuid3.uuid4()}"
+                            if "zenrows.com" in BRD_WSS:
+                                wss_22 = BRD_WSS
+                            else:
+                                wss_22 = BRD_WSS.split("?")[0] + f"?sessionId={_uuid3.uuid4()}"
                             p22 = await _p2().start()
                             b22 = await p22.chromium.connect_over_cdp(wss_22)
                             ctx22 = b22.contexts[0] if b22.contexts else await b22.new_context()
@@ -2005,6 +2026,8 @@ async def run(use_warp=False, cloud_mode=False):
                     # 3. mail.tm API
                     try:
                         print(f"☁️  [round {_provider_round+1}] Trying mail.tm API...")
+                        if os.environ.get("HOLY_SKIP_MAILTM") == "1":
+                            raise RuntimeError("skipped via HOLY_SKIP_MAILTM")
                         mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
                         await mailbox.create()
                         print(f"✅ Mailbox ready: {mailbox.address} (via mail.tm)")
@@ -2114,15 +2137,22 @@ async def run(use_warp=False, cloud_mode=False):
                         except: idx = 0
                         pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
                         pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
-                        # update WSS for next try (new ASN + sessionId)
+                        # update WSS for next try (new ASN + sessionId; keep apikey for ZenRows)
                         import os as _os2
-                        new_wss = pool_pick.split("?")[0] + f"?sessionId={_uuid4.uuid4()}"
+                        if "zenrows.com" in pool_pick:
+                            new_wss = pool_pick
+                        else:
+                            new_wss = pool_pick.split("?")[0] + f"?sessionId={_uuid4.uuid4()}"
                         _os2.environ["BRD_WSS"] = new_wss
                         print(f"🔄 New BD session {pool_pick[:45]}*** -> {new_wss[:50]}***")
                         tried_mails.append(mailbox.address if mailbox else "unknown")
                         # kill old BD browsers before new one (ensure fresh IP)
                         import subprocess as _sp2
-                        try: _sp2.run(["pkill", "-9", "chrome", "chromium", "firefox"], capture_output=True, timeout=5)
+                        try:
+                            _hp = _sp2.run(["pgrep", "-f", "chrome.*--headless"], capture_output=True, text=True, timeout=5).stdout.split()
+                            for _hpid in _hp:
+                                try: _sp2.run(["kill", "-9", _hpid], capture_output=True, timeout=5)
+                                except: pass
                         except: pass
                         try: await page.close()
                         except: pass
@@ -2156,7 +2186,10 @@ async def run(use_warp=False, cloud_mode=False):
                                     print(f"🔄 [breaker {attempt+1}/8] Trying dispose.lol...")
                                     from playwright.async_api import async_playwright as _p4
                                     import uuid as _uuid4b
-                                    disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
+                                    if "zenrows.com" in new_wss:
+                                        disp_wss = new_wss
+                                    else:
+                                        disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
                                     p4 = await _p4().start()
                                     b4 = await p4.chromium.connect_over_cdp(disp_wss)
                                     ctx4 = b4.contexts[0] if b4.contexts else await b4.new_context()
