@@ -1278,6 +1278,8 @@ async def main():
         print(f"\n########## LOOP RUN {loop_i}/{args.loop} ##########", flush=True)
         if args.providers == "all":
             prov_list = PROVIDER_ORDER
+        elif args.providers == "gmail":
+            prov_list = ["22do", "dispose"]
         elif args.providers in PROVIDER_ORDER:
             prov_list = [args.providers]
         else:
