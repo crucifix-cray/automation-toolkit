@@ -54,3 +54,7 @@ opencode backups/opencode.db
 opencode backups/opencode.db-shm
 opencode backups/opencode.db-wal
 opencode backups/sessions/
+
+# OnKernel sessions contain API keys + Clerk cookies (onk-api.py / onk-org-reset.py) - never commit.
+finals/sessions/onk_*.json
+finals/sessions/latest_onk.json
