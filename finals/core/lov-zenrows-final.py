@@ -979,34 +979,22 @@ async def run_signup(args, run_attempt=1, force_src=None):
                     zxinbox = None
             if (not email or email_source != "zenvex") and "dispose" in tab_order:
                 print("API + zenvex miss, fallback to dispose.lol Gmail tab")
-                for _dtry in range(1, 4):
-                    inbox = DisposeLolInbox(ctx)
-                    try:
-                        email = await inbox.init_mailbox()
-                    except Exception as _ibe:
-                        print(f"  dispose init fail: {str(_ibe)[:80]}")
-                        try:
-                            await inbox.close()
-                        except Exception:
-                            pass
-                        inbox = None
-                        continue
-                    email_source = "dispose"
-                    try:
-                        if await inbox.probe_deliverability(zf):
-                            break
-                    except Exception as _pbe:
-                        print(f"  probe gate err, accepting mail: {str(_pbe)[:80]}")
-                        break
-                    try:
-                        await inbox.close()
-                    except Exception:
-                        pass
-                    inbox, email = None, None
-                    email_source = "dispose"
-                if not email:
-                    print("dispose probe gate: 3 dead addresses — aborting run")
+                inbox = DisposeLolInbox(ctx)
+                try:
+                    email = await inbox.init_mailbox()
+                except Exception as _ibe:
+                    print(f"  dispose init fail: {str(_ibe)[:80]}")
                     return False
+                email_source = "dispose"
+                # ONE probe (40s): retries re-render the SAME address (shared
+                # ctx cookies) while burning the 3-min session — a fail aborts
+                # to a fully fresh run instead.
+                try:
+                    if not await inbox.probe_deliverability(zf, timeout_seconds=40):
+                        print("dispose probe gate: dead address — aborting run for fresh IP/mail")
+                        return False
+                except Exception as _pbe:
+                    print(f"  probe gate err, accepting mail: {str(_pbe)[:80]}")
             if not email:
                 print(f"forced provider {force_src} missed — aborting run")
                 return False
