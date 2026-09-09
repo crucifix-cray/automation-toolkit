@@ -118,6 +118,57 @@ class DisposeLolInbox:
             try: await self.page.close()
             except: pass
 
+    async def probe_deliverability(self, zf, timeout_seconds=75):
+        """Mailtrap send-test gate: send a probe to this dispose address, pass
+        only if it shows in the inbox. Dead/recycled addresses fail fast here
+        instead of burning a signup. Returns True if mail flows."""
+        import random as _rnd, string as _str
+        marker = "lovprobe-" + "".join(_rnd.choices(_str.ascii_lowercase + _str.digits, k=8))
+        print(f"  📮 Mailtrap probe → {self.address} [{marker}]")
+        _tok = os.environ.get("MAILTRAP_API_TOKEN", "5a2384b6c3e7723a389fe8cd85867253")
+        _frm = os.environ.get("MAILTRAP_FROM", "")
+        if not _frm:
+            print("  ⚠️ MAILTRAP_FROM unset — skipping probe gate (set env to enforce)")
+            return True
+        try:
+            await zf.home("https://send.api.mailtrap.io/")
+        except Exception:
+            pass
+        try:
+            _r = await zf.call("POST", "https://send.api.mailtrap.io/api/send",
+                               {"from": {"email": _frm}, "to": [{"email": self.address}],
+                                "subject": marker, "text": f"deliverability probe {marker}"},
+                               {"Content-Type": "application/json",
+                                "Authorization": f"Bearer {_tok}"})
+            if _r["status"] not in (200, 201, 202):
+                print(f"  ⚠️ probe send status {_r['status']}: {str(_r['body'])[:100]} — skipping gate")
+                return True
+        except Exception as _e:
+            print(f"  ⚠️ probe send fail ({str(_e)[:80]}) — skipping gate")
+            return True
+        deadline = time.time() + timeout_seconds
+        check = 0
+        while time.time() < deadline:
+            check += 1
+            try:
+                await self.page.reload(wait_until="domcontentloaded")
+            except Exception:
+                pass
+            await self.page.wait_for_timeout(2500)
+            try:
+                labels = await self.page.evaluate("""() => [...document.querySelectorAll('button[aria-label^="View "]')]
+                    .map(b => b.getAttribute('aria-label') || '')""")
+            except Exception:
+                labels = []
+            if any(marker in (_a or "") for _a in labels):
+                print(f"  ✅ Probe landed (check #{check}) — inbox live, continuing")
+                return True
+            if check % 3 == 1:
+                print(f"  probe poll #{check}: {len(labels)} msgs, waiting...")
+            await asyncio.sleep(3)
+        print(f"  ❌ Probe never arrived — dead address, rotating mail")
+        return False
+
 
 RUNS_LOG = Path(__file__).resolve().parents[1] / "runs.log"
 
@@ -824,9 +875,34 @@ async def run_signup(args, run_attempt=1, force_src=None):
                     zxinbox = None
             if (not email or email_source != "zenvex") and "dispose" in tab_order:
                 print("API + zenvex miss, fallback to dispose.lol Gmail tab")
-                inbox = DisposeLolInbox(ctx)
-                email = await inbox.init_mailbox()
-                email_source = "dispose"
+                for _dtry in range(1, 4):
+                    inbox = DisposeLolInbox(ctx)
+                    try:
+                        email = await inbox.init_mailbox()
+                    except Exception as _ibe:
+                        print(f"  dispose init fail: {str(_ibe)[:80]}")
+                        try:
+                            await inbox.close()
+                        except Exception:
+                            pass
+                        inbox = None
+                        continue
+                    email_source = "dispose"
+                    try:
+                        if await inbox.probe_deliverability(zf):
+                            break
+                    except Exception as _pbe:
+                        print(f"  probe gate err, accepting mail: {str(_pbe)[:80]}")
+                        break
+                    try:
+                        await inbox.close()
+                    except Exception:
+                        pass
+                    inbox, email = None, None
+                    email_source = "dispose"
+                if not email:
+                    print("dispose probe gate: 3 dead addresses — aborting run")
+                    return False
             if not email:
                 print(f"forced provider {force_src} missed — aborting run")
                 return False
