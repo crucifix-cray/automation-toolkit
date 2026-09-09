@@ -69,7 +69,8 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
             raise Exception(f"no {'/'.join(opts)}")
 
         async def click_includes(*needles):
-            await tab.evaluate(f"""() => {{ const b=[...document.querySelectorAll('button')].find(x=>{{ const t=x.innerText||''; return {needles!r}.some(n=>t.includes(n)); }}); if(!b) throw new Error('no method btn'); b.click(); }}""")
+            import json as _js
+            await tab.evaluate(f"""(nds) => {{ const b=[...document.querySelectorAll('button')].find(x=>{{ const t=x.innerText||''; return nds.some(n=>t.includes(n)); }}); if(!b) throw new Error('no method btn'); b.click(); }}""", list(needles))
             await tab.wait_for_timeout(4000)
 
         if await tab.evaluate("() => document.body.innerText.includes('Re-authentication required')"):
