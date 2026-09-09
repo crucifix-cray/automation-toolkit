@@ -56,12 +56,24 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
         await tab.goto("https://lovable.dev/settings/account", timeout=40000, wait_until="domcontentloaded")
         await tab.wait_for_timeout(6000)
 
-        async def click_text(text):
-            await tab.evaluate(f"""() => {{ const b=[...document.querySelectorAll('button')].find(x=>x.innerText.trim()==={text!r}); if(!b) throw new Error('no {text}'); b.click(); }}""")
-            await tab.wait_for_timeout(2500)
+        # Bilingual clicks (Lovable renders fr for our sessions): try EN then FR.
+        async def click_text(text, fr=None):
+            opts = [text] + ([fr] if fr else [])
+            for _t in opts:
+                try:
+                    await tab.evaluate(f"""() => {{ const b=[...document.querySelectorAll('button')].find(x=>x.innerText.trim()==={_t!r}); if(!b) throw new Error('no {_t}'); b.click(); }}""")
+                    await tab.wait_for_timeout(2500)
+                    return
+                except Exception:
+                    continue
+            raise Exception(f"no {'/'.join(opts)}")
+
+        async def click_includes(*needles):
+            await tab.evaluate(f"""() => {{ const b=[...document.querySelectorAll('button')].find(x=>{{ const t=x.innerText||''; return {needles!r}.some(n=>t.includes(n)); }}); if(!b) throw new Error('no method btn'); b.click(); }}""")
+            await tab.wait_for_timeout(4000)
 
         if await tab.evaluate("() => document.body.innerText.includes('Re-authentication required')"):
-            await click_text("Reauthenticate")
+            await click_text("Reauthenticate", "Se réauthentifier")
             await tab.wait_for_timeout(4000)
             await tab.locator('input[placeholder="Email"]').fill(email)
             await tab.locator('[data-testid="auth-submit-button"]').click()
@@ -73,9 +85,8 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
         # already enabled?
         if await tab.evaluate("() => document.body.innerText.includes('Manage your 2FA methods')"):
             return {"session": num, "email": email, "success": False, "reason": "already enabled (no secret captured)"}
-        await click_text("Enable")
-        await tab.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Authenticator app')); if(!b) throw new Error('no auth method'); b.click(); }")
-        await tab.wait_for_timeout(4000)
+        await click_text("Enable", "Activer")
+        await click_includes("Authenticator app", "authentification", "Authenticator")
         if "/login" in tab.url:  # step-up kick
             await tab.locator('input[placeholder="Email"]').fill(email)
             await tab.locator('[data-testid="auth-submit-button"]').click()
@@ -83,9 +94,8 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
             await tab.locator('input[placeholder="Password"]').fill(password)
             await tab.locator('[data-testid="auth-submit-button"]').click()
             await tab.wait_for_timeout(6000)
-            await click_text("Enable")
-            await tab.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Authenticator app')); if(b) b.click(); }")
-            await tab.wait_for_timeout(4000)
+            await click_text("Enable", "Activer")
+            await click_includes("Authenticator app", "authentification", "Authenticator")
         await tab.evaluate("() => { const s=[...document.querySelectorAll('*')].find(e=>e.children.length===0&&/manual code/i.test(e.innerText||'')); const b=s?.closest('button'); if(!b) throw new Error('no manual btn'); b.click(); }")
         await tab.wait_for_timeout(2000)
         secret = totp_secret
@@ -103,9 +113,9 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
             s.call(el,code);
             el.dispatchEvent(new Event('input',{{bubbles:true}}));
             el.dispatchEvent(new Event('change',{{bubbles:true}})); }}""", code)
-        await tab.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.trim()==='Verify & Enable'); if(!b) throw new Error('no verify'); b.click(); }")
+        await tab.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>{ const t=x.innerText.trim(); return t==='Verify & Enable'||t.startsWith('Vérifier'); }); if(!b) throw new Error('no verify'); b.click(); }")
         await tab.wait_for_timeout(5000)
-        ok = await tab.evaluate("() => document.body.innerText.includes('Manage your 2FA methods')")
+        ok = await tab.evaluate("() => { const t=document.body.innerText; return t.includes('Manage your 2FA methods')||t.includes('Désactiver'); }")
         if ok:
             cfg["totp_secret"] = secret
             if live_id:
