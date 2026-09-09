@@ -40,7 +40,15 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
         await ctx.add_cookies(cookies)
         await page.goto("https://lovable.dev/dashboard", timeout=40000, wait_until="domcontentloaded")
         await page.wait_for_timeout(4000)
-        if "Log in" in await page.evaluate("() => document.body.innerText.slice(0,500)"):
+        try:
+            _dash_txt = await page.evaluate("() => document.body.innerText.slice(0,500)")
+        except Exception:
+            await page.wait_for_timeout(3000)
+            try:
+                _dash_txt = await page.evaluate("() => document.body.innerText.slice(0,500)")
+            except Exception:
+                _dash_txt = ""
+        if "Log in" in _dash_txt:
             await page.goto("https://lovable.dev/login?redirect=%2Fdashboard", timeout=40000, wait_until="domcontentloaded")
             await page.wait_for_timeout(3000)
             await page.locator('input[placeholder="Email"]').fill(email)
@@ -49,7 +57,15 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
             await page.locator('input[placeholder="Password"]').fill(password)
             await page.locator('[data-testid="auth-submit-button"]').click()
             await page.wait_for_timeout(6000)
-            if "invalid" in (await page.evaluate("() => document.body.innerText.slice(0,500)")).lower():
+            try:
+                _login_txt = await page.evaluate("() => document.body.innerText.slice(0,500)")
+            except Exception:
+                await page.wait_for_timeout(3000)
+                try:
+                    _login_txt = await page.evaluate("() => document.body.innerText.slice(0,500)")
+                except Exception:
+                    _login_txt = ""
+            if "invalid" in _login_txt.lower():
                 return {"session": num, "email": email, "success": False, "reason": "bad credentials"}
 
         tab = await ctx.new_page()
