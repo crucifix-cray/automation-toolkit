@@ -140,7 +140,7 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
             await tab.wait_for_timeout(6000)
             await click_text("Enable", "Activer")
             await click_includes("Authenticator app", "authentification", "Authenticator")
-        await tab.evaluate("() => { const s=[...document.querySelectorAll('*')].find(e=>e.children.length===0&&/manual code/i.test(e.innerText||'')); const b=s?.closest('button'); if(!b) throw new Error('no manual btn'); b.click(); }")
+        await tab.evaluate("() => { const s=[...document.querySelectorAll('*')].find(e=>e.children.length===0&&/manual code|code manuel/i.test(e.innerText||'')); const b=s?.closest('button'); if(!b) throw new Error('no manual btn'); b.click(); }")
         await tab.wait_for_timeout(2000)
         secret = totp_secret
         if not secret:
