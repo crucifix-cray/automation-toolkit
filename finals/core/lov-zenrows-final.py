@@ -183,6 +183,97 @@ class DisposeLolInbox:
         return False
 
 
+def _smtp_creds():
+    _user = os.environ.get("GMAIL_USER", "")
+    _pwd = os.environ.get("GMAIL_APP_PWD", "")
+    if not _user or not _pwd:
+        try:
+            _cfg = json.load(open(os.path.expanduser("~/.config/lovfarm/smtp.json")))
+            _user = _user or _cfg.get("gmail_user", "")
+            _pwd = _pwd or _cfg.get("gmail_app_pwd", "")
+        except Exception:
+            pass
+    return _user, _pwd
+
+
+def _smtp_send_sync(from_user, from_pwd, to_addr, subject, text):
+    import smtplib, ssl
+    from email.message import EmailMessage
+    _msg = EmailMessage()
+    _msg["From"] = from_user
+    _msg["To"] = to_addr
+    _msg["Subject"] = subject
+    _msg.set_content(text)
+    _ctx = ssl.create_default_context()
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as _s:
+        _s.starttls(context=_ctx)
+        _s.login(from_user, from_pwd.replace(" ", ""))
+        _s.send_message(_msg)
+
+
+async def probe_api_mail(zf, src, email, email_id=None, timeout_seconds=75):
+    """Probe gate for API mails (22do/temptf/tempmailhub): SMTP probe via our
+    Gmail relay, poll the provider API for the marker. True = mail flows."""
+    import random as _rnd, string as _str
+    marker = "lovprobe-" + "".join(_rnd.choices(_str.ascii_lowercase + _str.digits, k=8))
+    _user, _pwd = _smtp_creds()
+    if not _user or not _pwd:
+        print("  ⚠️ no SMTP creds — skipping probe gate")
+        return True
+    print(f"  📮 SMTP probe → {email} [{marker}]")
+    try:
+        await asyncio.to_thread(_smtp_send_sync, _user, _pwd, email, marker, f"deliverability probe {marker}")
+        print("  📤 probe sent")
+    except Exception as _e:
+        print(f"  ⚠️ probe send fail ({str(_e)[:100]}) — skipping gate")
+        return True
+    import json as _jj
+    deadline = time.time() + timeout_seconds
+    check = 0
+    _tok22 = None
+    while time.time() < deadline:
+        check += 1
+        _found = False
+        try:
+            if src == "22do":
+                if _tok22 is None:
+                    import random as _rr
+                    _uu = "".join(_rr.choices("0123456789abcdef", k=32))
+                    _tr = await zf.call("POST", "https://22.do/action/mailbox/applyToken",
+                                        {"email": email, "uuid": _uu}, {"Content-Type": "application/json"})
+                    _tj = _jj.loads(_tr["body"]) if _tr["status"] == 200 else {}
+                    _tok22 = (_tj.get("data") or {}).get("token") if _tj.get("status") else None
+                if _tok22:
+                    _mr = await zf.call("POST", "https://22.do/action/mailbox/message",
+                                        {"email": email, "lastime": 0},
+                                        {"Content-Type": "application/json", "Authorization": f"Bearer {_tok22}"})
+                    _mj = _jj.loads(_mr["body"]) if _mr["status"] == 200 else {}
+                    for _m in ((_mj.get("data") or []) if _mj.get("status") else []):
+                        if marker in str(_m.get("subject", "")):
+                            _found = True
+                            break
+            elif src == "temptf":
+                _resp = await _temptf_get(zf, "/check", {"email": email})
+                for _m in _resp.get("data", []):
+                    if marker in str(_m.get("subject", "")):
+                        _found = True
+                        break
+            elif src == "tempmailhub":
+                _r = await zf.call("GET", f"{TEMPMAILHUB_API}/emails/messages?email_id={email_id}",
+                                   None, {"Origin": "https://tempmailhub.org"})
+        except Exception as _e:
+            if check % 3 == 1:
+                print(f"  probe poll err {str(_e)[:80]}")
+        if _found:
+            print(f"  ✅ Probe landed (check #{check}) — {src} mail live, continuing")
+            return True
+        if check % 3 == 1:
+            print(f"  probe poll #{check}: waiting for marker...")
+        await asyncio.sleep(5)
+    print(f"  ❌ Probe never arrived — dead {src} address, rotating mail")
+    return False
+
+
 RUNS_LOG = Path(__file__).resolve().parents[1] / "runs.log"
 
 
@@ -937,6 +1028,38 @@ async def run_signup(args, run_attempt=1, force_src=None):
                 else:
                     print("aborting run")
                     return False
+        # Probe gate for API mails: SMTP probe must land before we spend the
+        # signup session. Fail → fresh mail (up to 3), then abort run.
+        if email_source in ("22do", "temptf", "tempmailhub"):
+            _probed = False
+            for _pq in range(3):
+                try:
+                    if await probe_api_mail(zf, email_source, email, email_id):
+                        _probed = True
+                        break
+                except Exception as _pqe:
+                    print(f"  probe gate err, accepting mail: {str(_pqe)[:80]}")
+                    _probed = True
+                    break
+                print(f"  probe failed, fresh {email_source} mail (try {_pq+2}/3)")
+                email, email_id = None, None
+                if email_source == "22do":
+                    _em22 = await create_22do_gmail(zf)
+                    if _em22 and lovable_email_available(_em22):
+                        email = _em22
+                elif email_source == "temptf":
+                    _emtf = await create_temptf_email(zf)
+                    if _emtf and lovable_email_available(_emtf):
+                        email = _emtf
+                elif email_source == "tempmailhub":
+                    _th_em, _th_id = await create_tempmailhub_email(zf)
+                    if _th_em and lovable_email_available(_th_em):
+                        email, email_id = _th_em, _th_id
+                if not email:
+                    break
+            if not _probed or not email:
+                print(f"probe gate: {email_source} dead after 3 — aborting run")
+                return False
         password = email + "K01"  # 8+ chars
         print(f"EMAIL {email} PW {password} SRC {email_source}")
 
