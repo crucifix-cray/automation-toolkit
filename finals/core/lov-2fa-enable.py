@@ -55,6 +55,33 @@ async def enable_one(pw, ctx, num, live_id=None, totp_secret=None):
         tab = await ctx.new_page()
         await tab.goto("https://lovable.dev/settings/account", timeout=40000, wait_until="domcontentloaded")
         await tab.wait_for_timeout(6000)
+        # Dead cookies render a LOGGED-OUT account page at the same URL (SSO
+        # buttons, no security section) — detect via own email text and login.
+        try:
+            _logged = await tab.evaluate(f"""() => document.body.innerText.includes({email!r})""")
+        except Exception:
+            _logged = False
+        if not _logged:
+            await tab.goto("https://lovable.dev/login?redirect=%2Fsettings%2Faccount", timeout=40000, wait_until="domcontentloaded")
+            await tab.wait_for_timeout(4000)
+            try:
+                await tab.locator('input[placeholder="Email"]').fill(email, timeout=8000)
+            except Exception:
+                _e = tab.locator('input[type="email"], input[name="email"]').first
+                await _e.wait_for(state="visible", timeout=10000)
+                await _e.fill(email)
+            await tab.locator('[data-testid="auth-submit-button"]').click()
+            await tab.wait_for_timeout(3500)
+            try:
+                await tab.locator('input[placeholder="Password"]').fill(password, timeout=8000)
+            except Exception:
+                _p = tab.locator('input[type="password"]').first
+                await _p.wait_for(state="visible", timeout=10000)
+                await _p.fill(password)
+            await tab.locator('[data-testid="auth-submit-button"]').click()
+            await tab.wait_for_timeout(6000)
+            await tab.goto("https://lovable.dev/settings/account", timeout=40000, wait_until="domcontentloaded")
+            await tab.wait_for_timeout(6000)
 
         # Bilingual clicks (Lovable renders fr for our sessions): try EN then FR.
         async def click_text(text, fr=None):
