@@ -1574,7 +1574,7 @@ def write_cli_session(session_dir: Path, tokens: dict, user: dict, cookies: list
         "user": {"accessToken": tokens["access_token"], "id": user["id"], "refreshToken": tokens.get("refresh_token"), "token": None, "tokenExpiresAt": expires_at},
     }
     (session_dir / "browser_cookies.json").write_text(json.dumps({"cookies": cookies}, indent=2))
-    for target in (session_dir / "railway_cli_config.json", cli_home / "config.json"):
+    for target in (session_dir / "config.json", session_dir / "railway_cli_config.json", cli_home / "config.json"):
         target.write_text(json.dumps(config, indent=2))
     (cli_home / "version.json").write_text(json.dumps({"last_update_check": now.isoformat(), "latest_version": None, "download_failures": 0, "skipped_version": None, "last_package_manager_spawn": None}, indent=2))
     session_payload = {"agent_session_id": str(uuid.uuid4()), "parent_pid": os.getpid(), "parent_btime": 0, "created_at": now.isoformat()}
@@ -1620,13 +1620,7 @@ async def register_cli_session(context, page, sessions_dir: Path, cloud_mode=Fal
                     tokens = await get_oauth_tokens(page)
                     print("✓ Got access and refresh tokens (cloud browser PKCE)")
                 except Exception as e3:
-                    print(f"⚠️  Cloud PKCE blocked ({e3}), creating web-only session")
-                session_dir = next_session_dir(sessions_dir)
-                session_dir.mkdir(parents=True, exist_ok=True)
-                (session_dir / "email.txt").write_text(user.get("email",""))
-                (session_dir / "browser_cookies.json").write_text(json.dumps({"cookies": cookies}, indent=2))
-                print(f"✓ Saved web session: {session_dir} (use raw IP cookies for CLI)")
-                return session_dir
+                    raise RuntimeError(f"All PKCE methods failed for {user.get('email')} (chrome: {e} / raw: {e2} / browser: {e3}) — refusing web-only save (metadata-only sessions banned)")
     else:
         tokens = await get_oauth_tokens(page)
         print("✓ Got access and refresh tokens")
