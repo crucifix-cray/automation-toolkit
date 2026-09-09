@@ -651,8 +651,13 @@ def clean_session_dir(session_dir: Path):
         try: p.unlink()
         except: pass
 
+SKIP_MEGA = os.environ.get("SKIP_MEGA", "0") == "1"
+
 def sync_to_mega(session_dir: Path):
-    """Upload session to Mega"""
+    """Upload session to Mega (SKIP_MEGA=1 disables; Mega is dead)"""
+    if SKIP_MEGA:
+        print(f"\n☁️  Mega sync skipped (SKIP_MEGA=1): {session_dir}")
+        return
     print(f"\n☁️  Syncing to Mega...")
     clean_session_dir(session_dir)
     env = os.environ.copy()
@@ -676,7 +681,17 @@ def sync_to_mega(session_dir: Path):
 
 
 def get_next_session_number():
-    """Get next available session number from Mega"""
+    """Get next available session number (local when SKIP_MEGA=1)"""
+    if SKIP_MEGA:
+        try:
+            nums = [int(d.name.split("-")[1]) for d in SESSIONS_DIR.iterdir()
+                    if d.is_dir() and d.name.startswith("session-") and d.name.split("-")[1].isdigit()]
+            nxt = max(nums) + 1 if nums else 1
+            print(f"  📊 Local sessions: {len(nums)}, next: session-{nxt}")
+            return nxt
+        except Exception as e:
+            print(f"  ⚠️  Local scan err: {e}, starting from session-1")
+            return 1
     try:
         result = subprocess.run(
             ["rclone", "lsd", f"{MEGA_REMOTE}/"],
@@ -2406,18 +2421,21 @@ CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-d
                 print(f"🔓 Released BD API lock {found_lock.name}")
         except: pass
         # push logs to mega logs folder (use ORIG_HOME)
-        try:
-            import subprocess as _sp3, os as _os3, glob as _glob
-            env3 = _os3.environ.copy()
-            env3["HOME"] = ORIG_HOME
-            env3["LD_PRELOAD"] = ""
-            env3["LD_LIBRARY_PATH"] = ""
-            for pat in ["/tmp/run_*.log", "/tmp/railway-debug-*.txt", "/tmp/turnstile-*.png", "/tmp/railway_pending_cookies.json"]:
-                for f in _glob.glob(pat):
-                    try: _sp3.run(["rclone", "copy", f, "mega:railway_sessions/logs/", "", "-v"], env=env3, capture_output=True, timeout=30)
-                    except: pass
-            print(f"📤 Pushed logs to mega:railway_sessions/logs/")
-        except: pass
+        if SKIP_MEGA:
+            print(f"📤 Log push skipped (SKIP_MEGA=1)")
+        else:
+            try:
+                import subprocess as _sp3, os as _os3, glob as _glob
+                env3 = _os3.environ.copy()
+                env3["HOME"] = ORIG_HOME
+                env3["LD_PRELOAD"] = ""
+                env3["LD_LIBRARY_PATH"] = ""
+                for pat in ["/tmp/run_*.log", "/tmp/railway-debug-*.txt", "/tmp/turnstile-*.png", "/tmp/railway_pending_cookies.json"]:
+                    for f in _glob.glob(pat):
+                        try: _sp3.run(["rclone", "copy", f, "mega:railway_sessions/logs/", "", "-v"], env=env3, capture_output=True, timeout=30)
+                        except: pass
+                print(f"📤 Pushed logs to mega:railway_sessions/logs/")
+            except: pass
         # close BD browser if still open
         try:
             if browser:
