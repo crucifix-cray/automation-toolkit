@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Audit 98 railway sessions: 10 parallel, isolated HOME each.
-Records email, created_at, whoami, project count. -> finals/railway_audit.json
+"""Audit railway sessions: 20 parallel, isolated HOME each (raw IP, no proxy).
+Records email, verified_at, whoami, project count. -> finals/railway_audit.json
+
+Usage: python3 scripts/railway_audit.py
+Each session lives in sessions/session-N with auth at .railway/config.json.
+CLI reads $HOME/.railway/config.json, so HOME=<session dir> is all that's needed.
+Refresh tokens auto-refresh expired accessTokens on whoami (verified 2026-09-09:
+107/107 OK after 11d-expired accessTokens refreshed in place).
 """
-import json, os, shutil, subprocess, sys
+import json, os, subprocess
 from concurrent.futures import ThreadPoolExecutor
 
-REPO = "/home/alan/Documents/repos/automation-toolkit"
-BASE = os.path.join(REPO, "scripts", "railways")
+REPO = "/home/alan/Documents/railways"
+BASE = os.path.join(REPO, "sessions")
 OUT = os.path.join(REPO, "finals", "railway_audit.json")
-PAR = 10
+PAR = 20
+RAILWAY = "/home/alan/.railway/bin/railway"
 
 
 def env_for(session_dir):
-    home = f"/tmp/rwaudit_{os.path.basename(session_dir)}"
-    rw = os.path.join(home, ".railway")
-    os.makedirs(rw, exist_ok=True)
-    src = os.path.join(BASE, session_dir, "config.json")
-    if os.path.exists(src):
-        shutil.copy(src, os.path.join(rw, "config.json"))
-    env = dict(os.environ, HOME=home, LD_PRELOAD="")
+    env = dict(os.environ, HOME=os.path.join(BASE, session_dir), LD_PRELOAD="")
     for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
         env.pop(k, None)
     return env
@@ -30,25 +31,21 @@ def audit_one(session_dir):
         rec["email_txt"] = open(os.path.join(BASE, session_dir, "email.txt")).read().strip()
     except Exception:
         rec["email_txt"] = ""
-    try:
-        rec["created_at"] = open(os.path.join(BASE, session_dir, "created_at.txt")).read().strip()
-    except Exception:
-        rec["created_at"] = ""
     env = env_for(session_dir)
-    if not os.path.exists(os.path.join(BASE, session_dir, "config.json")):
+    if not os.path.exists(os.path.join(BASE, session_dir, ".railway", "config.json")):
         rec.update(status="no-config", whoami="", projects=-1)
         return rec
     try:
-        w = subprocess.run(["railway", "whoami"], capture_output=True, text=True, env=env, timeout=60)
+        w = subprocess.run([RAILWAY, "whoami"], capture_output=True, text=True, env=env, timeout=60)
         rec["whoami"] = (w.stdout + w.stderr).strip().splitlines()[0][:120] if (w.stdout + w.stderr).strip() else ""
-        if w.returncode != 0 or "n последнее" in rec["whoami"]:
+        if w.returncode != 0 or "nauth" in rec["whoami"].lower() or "n последнее" in rec["whoami"]:
             rec.update(status="unauthorized", projects=-1)
             return rec
     except Exception as e:
         rec.update(status=f"whoami-err:{str(e)[:60]}", projects=-1)
         return rec
     try:
-        l = subprocess.run(["railway", "list", "--json"], capture_output=True, text=True, env=env, timeout=90)
+        l = subprocess.run([RAILWAY, "list", "--json"], capture_output=True, text=True, env=env, timeout=90)
         try:
             projs = json.loads(l.stdout) if l.stdout.strip() else []
             rec["projects"] = len(projs) if isinstance(projs, list) else 0

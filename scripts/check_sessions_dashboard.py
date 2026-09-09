@@ -20,8 +20,8 @@ from datetime import datetime
 from pathlib import Path
 from playwright.async_api import async_playwright
 
-# Default directory
-DEFAULT_SESSIONS_DIR = Path(__file__).resolve().parent / "sessions"
+# Default directory (Lovable browser sessions; Railway CLI sessions live in sessions/)
+DEFAULT_SESSIONS_DIR = Path(__file__).resolve().parent.parent / "finals" / "core" / "sessions"
 DASHBOARD_MARKERS = ["/dashboard", "/projects"]
 LOGIN_MARKERS = ["/login", "/signup", "/auth", "/sign-in"]
 

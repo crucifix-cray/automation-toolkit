@@ -13,7 +13,9 @@ Automated farm for Lovable.dev + Railway.com using remote browsers (ZenRows / On
 
 > Farm the browsers themselves: `finals/core/zenrows-kernel-final.py` (astroai.eu.cc + mail.tm) farms ZenRows API keys, `finals/core/brightdata-raw-final.py` farms BrightData. Keys pooled in `mega:chimera/zenrows` + `mega:db/browsers+proxies/*`.
 
-See [docs/SCALING-PLAN.md](./docs/SCALING-PLAN.md) and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for full pipeline.
+See [docs/archive/SCALING-PLAN.md](./docs/archive/SCALING-PLAN.md) and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for full pipeline.
+
+107 live Railway CLI sessions: [`sessions/`](sessions/) — index [`docs/SESSIONS.md`](docs/SESSIONS.md), howto [`docs/HOWTO-RAILWAY.md`](docs/HOWTO-RAILWAY.md).
 
 ## 🚀 Quick Start (Inside Railway Sandbox)
 
