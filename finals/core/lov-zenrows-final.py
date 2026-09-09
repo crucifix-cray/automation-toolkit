@@ -119,32 +119,45 @@ class DisposeLolInbox:
             except: pass
 
     async def probe_deliverability(self, zf, timeout_seconds=75):
-        """Mailtrap send-test gate: send a probe to this dispose address, pass
-        only if it shows in the inbox. Dead/recycled addresses fail fast here
-        instead of burning a signup. Returns True if mail flows."""
+        """Probe gate: send a test mail to this dispose address via our Gmail
+        SMTP relay, pass only if it shows in the inbox. Dead/recycled addresses
+        fail fast here instead of burning a signup. Returns True if mail flows.
+        Creds: ~/.config/lovfarm/smtp.json (never in repo) or GMAIL_USER/GMAIL_APP_PWD env."""
         import random as _rnd, string as _str
         marker = "lovprobe-" + "".join(_rnd.choices(_str.ascii_lowercase + _str.digits, k=8))
-        print(f"  📮 Mailtrap probe → {self.address} [{marker}]")
-        _tok = os.environ.get("MAILTRAP_API_TOKEN", "5a2384b6c3e7723a389fe8cd85867253")
-        _frm = os.environ.get("MAILTRAP_FROM", "hello@demomailtrap.co")
-        if not _frm:
-            print("  ⚠️ MAILTRAP_FROM unset — skipping probe gate (set env to enforce)")
+        print(f"  📮 SMTP probe → {self.address} [{marker}]")
+        _user = os.environ.get("GMAIL_USER", "")
+        _pwd = os.environ.get("GMAIL_APP_PWD", "")
+        if not _user or not _pwd:
+            try:
+                _cfg = json.load(open(os.path.expanduser("~/.config/lovfarm/smtp.json")))
+                _user = _user or _cfg.get("gmail_user", "")
+                _pwd = _pwd or _cfg.get("gmail_app_pwd", "")
+            except Exception:
+                pass
+        if not _user or not _pwd:
+            print("  ⚠️ no SMTP creds — skipping probe gate")
             return True
+
+        def _send():
+            import smtplib, ssl
+            from email.message import EmailMessage
+            _msg = EmailMessage()
+            _msg["From"] = _user
+            _msg["To"] = self.address
+            _msg["Subject"] = marker
+            _msg.set_content(f"deliverability probe {marker}")
+            _ctx = ssl.create_default_context()
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as _s:
+                _s.starttls(context=_ctx)
+                _s.login(_user, _pwd.replace(" ", ""))
+                _s.send_message(_msg)
+
         try:
-            await zf.home("https://send.api.mailtrap.io/")
-        except Exception:
-            pass
-        try:
-            _r = await zf.call("POST", "https://send.api.mailtrap.io/api/send",
-                               {"from": {"email": _frm}, "to": [{"email": self.address}],
-                                "subject": marker, "text": f"deliverability probe {marker}"},
-                               {"Content-Type": "application/json",
-                                "Authorization": f"Bearer {_tok}"})
-            if _r["status"] not in (200, 201, 202):
-                print(f"  ⚠️ probe send status {_r['status']}: {str(_r['body'])[:100]} — skipping gate")
-                return True
+            await asyncio.to_thread(_send)
+            print("  📤 probe sent")
         except Exception as _e:
-            print(f"  ⚠️ probe send fail ({str(_e)[:80]}) — skipping gate")
+            print(f"  ⚠️ probe send fail ({str(_e)[:100]}) — skipping gate")
             return True
         deadline = time.time() + timeout_seconds
         check = 0
