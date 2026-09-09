@@ -154,7 +154,7 @@ async def run_once():
             # One provider per run (fresh IP each run); creation is cheap, registration is not.
             import importlib.util as _ilu
             _mspec = _ilu.spec_from_file_location("mail_providers", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mail_providers.py"))
-            _mp = importlib.util.module_from_spec(_mspec)
+            _mp = _ilu.module_from_spec(_mspec)
             _mspec.loader.exec_module(_mp)
             try:
                 _rot = int(open("/tmp/zen_provider_rot.txt").read().strip())
