@@ -1,7 +1,8 @@
 # Railway Sessions Index (canonical)
 
-107 accounts, true-verified 2026-09-09 16:xx UTC via CLI create/delete canary
-(`railway init vrfy-N` -> `railway delete --yes`): **45 ok / 40 trial / 22 restricted**.
+108 accounts (session-109 farmed 2026-09-09 ~17:00 UTC), true-verified via CLI
+create/delete canary (`railway init vrfy-N` -> `railway delete --yes`):
+**46 ok / 40 trial / 22 restricted**.
 Results: `finals/railway_verify.json`. Sweep: `python3 scripts/railway_verify.py --par 8`.
 
 - **ok** = canary project created AND deleted clean. Farm/deploy here.
@@ -149,3 +150,4 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 | session-106 | y.or.hun.2.7.7@gmail.com | ok | 3 |
 | session-107 | mans.u.rk.urt.a.r.an5@gmail.com | ok | 4 |
 | session-108 | ma.ns.ur.k.ur.t.a.ran.5@gmail.com | ok | 4 |
+| session-109 | alac.a.ta.ri.k.177@gmail.com | ok | 2 |

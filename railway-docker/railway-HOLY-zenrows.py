@@ -102,7 +102,11 @@ PKCE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-.
 SESSIONS_DIR = Path(ORIG_HOME) / "Documents" / "railways" / "sessions"
 MEGA_REMOTE = "mega:railway_sessions"
 # ponytail: ZenRows Browser pool for ASN rotation (French GF, 2 keys, free tier)
+# 2026-09-09: farmed onkernel keys prepended (first 3 of finals/zenrows_onkernel_farmed.json)
 ZENROWS_WSS_POOL = [
+    f"wss://browser.zenrows.com?apikey=11d7d0ee3adf967ba7361c9139e7a7aa66251fac&proxy_country=gb",
+    f"wss://browser.zenrows.com?apikey=7213c8436771ba990ec226f68d64b3d6c1e666f3&proxy_country=gb",
+    f"wss://browser.zenrows.com?apikey=061e11620c8d64cf236ed9e2e2d486fc4172dfc0&proxy_country=gb",
     f"wss://browser.zenrows.com?apikey=1a5d93cda0d10ac0bd9ab3da3fa93019f126397a&proxy_country=gb",
     f"wss://browser.zenrows.com?apikey=a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7&proxy_country=gb",
 ]
@@ -2479,7 +2483,18 @@ async def cli_only_register(web_dir: str, sessions_dir: Path) -> int:
         print("❌ --cli: no cookies entries")
         return 1
     print(f"🔧 CLI-only: loaded {len(cookies)} cookies from {cookies_path}")
-    session_dir = await register_cli_session_local_chrome(cookies, sessions_dir)
+    try:
+        session_dir = await register_cli_session_local_chrome(cookies, sessions_dir)
+    except Exception as e:
+        print(f"⚠️  CLI-only local chrome failed ({str(e)[:150]}), trying raw IP PKCE (no browser)")
+        tokens = await get_oauth_tokens_raw(cookies)
+        print("✓ Got access and refresh tokens (raw IP PKCE)")
+        user = get_web_user(cookies)
+        print(f"✓ User: {user.get('email')} (ID: {user.get('id')})")
+        session_dir = next_session_dir(sessions_dir)
+        write_cli_session(session_dir, tokens, user, cookies)
+        email = verify_tokens(tokens, user)
+        print(f"✅ CLI verification: {email} authenticated")
     sync_to_mega(session_dir)
     return 0
 
