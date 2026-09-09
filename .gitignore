@@ -1,6 +1,6 @@
-# Local artifacts never to commit
-session-1/
-session-3/
+# Local artifacts never to commit (root only; scripts/railways sessions ARE committed)
+/session-1/
+/session-3/
 session-2/.railway/
 session-2/browser_cookies.json
 session-2/railway_cli_config.json
