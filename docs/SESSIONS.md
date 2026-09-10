@@ -1,6 +1,6 @@
 # Railway Sessions Index (canonical)
 
-51 ok accounts on disk (62 trial/restricted removed 2026-09-09 — hosted projects untouched,
+56 ok accounts on disk (62 trial/restricted removed 2026-09-09 — hosted projects untouched,
 tokens in ~/railway_tokens_backup). Full 113-record history: finals/railway_verify.json.
 Results: `finals/railway_verify.json`. Sweep: `python3 scripts/railway_verify.py --par 8`.
 
@@ -93,3 +93,8 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 | session-112 | y.or.h.un.2.7.7@gmail.com | ok | 1 |
 | session-113 | nwnjzp42432e+2y85ai8k57fs50ym@outlook.com | ok | 1 |
 | session-114 | o1jw13a5di5o@uberip.com | ok | 1 |
+| session-115 | y.a.v.as.h.u.seyi.n15@gmail.com | ok | 1 |
+| session-116 | pexxg885ejrgb+ntaflt9@outlook.com | ok | 1 |
+| session-118 | balat.ce.mr.e@gmail.com | ok | 1 |
+| session-119 | 8mdp0bw8sddn@uberip.com | ok | 1 |
+| session-120 | y.av.a.shu.s.ey.i.n15@gmail.com | ok | 1 |

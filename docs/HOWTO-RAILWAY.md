@@ -63,6 +63,14 @@ LD_PRELOAD="" python3 railway-docker/railway-HOLY-zenrows.py --cloud
 
 Takes next free number, verifies `whoami`, writes `email.txt`. Then add row to `docs/SESSIONS.md`.
 
+## Worker cells (persistent Ubuntu sandboxes)
+
+51 ok accounts each own a `cell-N` project + `cellbase` checkpoint (full stack:
+Python 3.14, patchright/playwright/camoufox/stealth/captcha, xvfb, chromium).
+Registry: `cells.json`. Build/refresh: `python3 scripts/build_cells.py --par 10`.
+Boot one live: `HOME=sessions/session-N railway sandbox create -p <project> --checkpoint cellbase`
+(sandboxes idle-destroy after ≤5min — checkpoints persist, recreate on demand).
+
 ## Rules
 
 - Never commit anything under `sessions/*/` except `email.txt` / `verified_at.txt` (enforced by `.gitignore`).

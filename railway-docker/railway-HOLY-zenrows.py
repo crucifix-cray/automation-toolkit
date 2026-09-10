@@ -109,8 +109,12 @@ ZENROWS_WSS_POOL = [
     f"wss://browser.zenrows.com?apikey=061e11620c8d64cf236ed9e2e2d486fc4172dfc0&proxy_country=gb",
     f"wss://browser.zenrows.com?apikey=8b785bbea662eb15f13f38a6df2c25b58bf84e4b&proxy_country=gb",
     f"wss://browser.zenrows.com?apikey=7ff6cb1ee1ff55ac81687b7cf3f4855ecb6b33a9&proxy_country=gb",
-    f"wss://browser.zenrows.com?apikey=1a5d93cda0d10ac0bd9ab3da3fa93019f126397a&proxy_country=gb",
-    f"wss://browser.zenrows.com?apikey=a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7&proxy_country=gb",
+    f"wss://browser.zenrows.com?apikey=6c63acdae5331d9eaea2539bcdfd5d2f8449cf47&proxy_country=gb",
+    f"wss://browser.zenrows.com?apikey=81852ea1635d7e705fc32d7be310e8f2d49cc37a&proxy_country=gb",
+    f"wss://browser.zenrows.com?apikey=736d0bae1298162bcf906f304129badfb54fcaf9&proxy_country=gb",
+    # dead (402 AUTH004, 2026-09-09) — kept out of rotation:
+    # f"wss://browser.zenrows.com?apikey=1a5d93cda0d10ac0bd9ab3da3fa93019f126397a&proxy_country=gb",
+    # f"wss://browser.zenrows.com?apikey=a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7&proxy_country=gb",
 ]
 # Keep BRD names for compat
 BRD_WSS_POOL = ZENROWS_WSS_POOL
@@ -2174,6 +2178,8 @@ async def run(use_warp=False, cloud_mode=False):
                                 # temp.tf API — instant Gmail dots
                                 try:
                                     print(f"🔄 [breaker {attempt+1}/8] Trying temp.tf Gmail (dots)...")
+                                    if os.environ.get("HOLY_SKIP_TEMPTF") == "1":
+                                        raise RuntimeError("skipped via HOLY_SKIP_TEMPTF")
                                     mailbox = TempTfInbox(context=context)
                                     await mailbox.create()
                                     print(f"🔄 temp.tf -> {mailbox.address}")
@@ -2184,6 +2190,8 @@ async def run(use_warp=False, cloud_mode=False):
                                 # dispose.lol
                                 try:
                                     print(f"🔄 [breaker {attempt+1}/8] Trying dispose.lol...")
+                                    if os.environ.get("HOLY_SKIP_DISPOSE") == "1":
+                                        raise RuntimeError("skipped via HOLY_SKIP_DISPOSE")
                                     from playwright.async_api import async_playwright as _p4
                                     import uuid as _uuid4b
                                     if "zenrows.com" in new_wss:
@@ -2217,12 +2225,18 @@ async def run(use_warp=False, cloud_mode=False):
                                     print(f"  dispose failed: {str(e2)[:60]}")
                             elif _prov == 2:
                                 # 22.do
-                                for dom2 in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
+                                _dom_list = [] if os.environ.get("HOLY_SKIP_22DO") == "1" else ["@gmail.com", "@outlook.com", "@hotmail.com"]
+                                if not _dom_list:
+                                    print("  skip 22.do breaker (HOLY_SKIP_22DO)")
+                                for dom2 in _dom_list:
                                     try:
                                         print(f"🔄 [breaker {attempt+1}/8] Trying 22.do {dom2}...")
                                         from playwright.async_api import async_playwright as _p5
                                         import uuid as _uuid5
-                                        wss_22b = new_wss.split("?")[0] + f"?sessionId={_uuid5.uuid4()}"
+                                        if "zenrows.com" in new_wss:
+                                            wss_22b = new_wss
+                                        else:
+                                            wss_22b = new_wss.split("?")[0] + f"?sessionId={_uuid5.uuid4()}"
                                         p22b = await _p5().start()
                                         b22b = await p22b.chromium.connect_over_cdp(wss_22b)
                                         ctx22b = b22b.contexts[0] if b22b.contexts else await b22b.new_context()
@@ -2247,6 +2261,8 @@ async def run(use_warp=False, cloud_mode=False):
                                 # mail.tm
                                 try:
                                     print(f"🔄 [breaker {attempt+1}/8] Trying mail.tm...")
+                                    if os.environ.get("HOLY_SKIP_MAILTM") == "1":
+                                        raise RuntimeError("skipped via HOLY_SKIP_MAILTM")
                                     mailbox = MailTmInbox(context=context)
                                     await mailbox.create()
                                     print(f"🔄 mail.tm -> {mailbox.address}")
