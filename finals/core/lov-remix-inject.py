@@ -64,21 +64,52 @@ def _del_browser(sid):
             timeout=15, capture_output=True)
 
 async def _totp_fill(page, secret):
+    # proven pattern from lov-session-refresh-totp.py: local pyotp, no 2fa.live at runtime
     import pyotp
     code = pyotp.TOTP(secret).now()
-    await page.evaluate(f"""(code) => {{
-        const el = document.querySelector('#totp-code') || [...document.querySelectorAll('input')].find(i=>i.placeholder.includes('code'));
-        const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-        s.call(el, code);
-        el.dispatchEvent(new Event('input',{{bubbles:true}}));
-        el.dispatchEvent(new Event('change',{{bubbles:true}})); }}""", code)
+    log(f"TOTP: {code}")
+    inp = page.locator('input[inputmode="numeric"], input[autocomplete="one-time-code"], input[type="text"], input:not([type])').first
+    try:
+        await inp.wait_for(state="visible", timeout=8000)
+        await inp.fill(code)
+    except Exception:
+        await page.evaluate("""(code) => {
+            const el = document.querySelector('#totp-code') || [...document.querySelectorAll('input')].find(i=>/code|token|otp|auth/i.test((i.placeholder||'')+(i.name||'')+(i.id||''))) || [...document.querySelectorAll('input')].find(i=>i.offsetParent!==null);
+            if(!el) throw new Error('no totp input found');
+            el.focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, code); }""", code)
+    await page.wait_for_timeout(1000)
+    try:
+        await page.get_by_role("button", name="Verify").click(timeout=5000)
+    except Exception:
+        await page.locator('[data-testid="auth-submit-button"]').click()
     return code
 
-async def _login(page, email, password, totp_secret=None):
+async def _safe_text(page, n=500, retries=4):
+    for _ in range(retries):
+        try:
+            return await page.evaluate(f"() => document.body.innerText.slice(0,{n})")
+        except Exception as e:
+            if "destroyed" in str(e).lower() or "navigation" in str(e).lower():
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                except Exception:
+                    pass
+                await page.wait_for_timeout(2000)
+                continue
+            raise
+    return await page.evaluate(f"() => document.body.innerText.slice(0,{n})")
+
+async def _login(page, email, password, totp_secret=None, totp_backup=None):
     """Cookies already injected by caller; full login fallback incl. TOTP."""
     await page.goto("https://lovable.dev/dashboard", timeout=40000, wait_until="domcontentloaded")
+    try:
+        await page.wait_for_load_state("networkidle", timeout=10000)
+    except Exception:
+        pass
     await page.wait_for_timeout(4000)
-    if "Log in" not in await page.evaluate("() => document.body.innerText.slice(0,500)"):
+    if "Log in" not in await _safe_text(page, 500):
         return True
     await page.goto("https://lovable.dev/login?redirect=%2Fdashboard", timeout=40000, wait_until="domcontentloaded")
     await page.wait_for_timeout(3000)
@@ -88,16 +119,25 @@ async def _login(page, email, password, totp_secret=None):
     await page.locator('input[placeholder="Password"]').fill(password)
     await page.locator('[data-testid="auth-submit-button"]').click()
     await page.wait_for_timeout(6000)
-    txt = await page.evaluate("() => document.body.innerText.slice(0,800)")
+    txt = await _safe_text(page, 800)
     if "invalid" in txt.lower():
         return False
-    if "verification code" in txt.lower() or "two-factor" in txt.lower():
+    if "verification code" in txt.lower() or "two-factor" in txt.lower() or "authenticator" in txt.lower():
         if not totp_secret:
             return False
         await _totp_fill(page, totp_secret)
-        await page.locator('[data-testid="auth-submit-button"]').click()
         await page.wait_for_timeout(6000)
-    return "Log in" not in await page.evaluate("() => document.body.innerText.slice(0,500)")
+        # primary stale? retry with backup secret (s1 proven: primary dead, backup live)
+        txt2 = await _safe_text(page, 800)
+        if (
+            totp_backup
+            and totp_backup != totp_secret
+            and ("verification code" in txt2.lower() or "two-factor" in txt2.lower() or "authenticator" in txt2.lower())
+        ):
+            log("primary TOTP rejected, trying backup secret")
+            await _totp_fill(page, totp_backup)
+            await page.wait_for_timeout(6000)
+    return "Log in" not in await _safe_text(page, 500)
 
 async def remix_one(pw, ctx, num):
     """Login -> template remix -> inject bridge -> invite. Returns result dict."""
@@ -114,7 +154,7 @@ async def remix_one(pw, ctx, num):
                     "sameSite": c.get("sameSite", "Lax") if c.get("sameSite") in ("Lax", "Strict", "None") else "Lax"}
                    for c in raw if "lovable" in c.get("domain", "")]
         await ctx.add_cookies(cookies)
-        if not await _login(page, email, password, cfg.get("totp_secret")):
+        if not await _login(page, email, password, cfg.get("totp_secret"), cfg.get("totp_secret_backup")):
             return {"session": num, "email": email, "success": False, "reason": "login failed"}
 
         # --- template pick (lovable-full-automation.py:503-548) ---
@@ -128,10 +168,22 @@ async def remix_one(pw, ctx, num):
         card = cards.nth(random.randint(0, min(count - 1, 9)))
         await card.wait_for(state="visible", timeout=10000)
         menu_btn = card.locator('button[data-button][aria-label*="More options"]')
-        await js_click(page, menu_btn, "template menu")
-        await wait(2000)
+        await menu_btn.scroll_into_view_if_needed()
         menu_dropdown = page.locator('div[role="menu"][data-open]')
-        await menu_dropdown.wait_for(state="visible", timeout=5000)
+        opened = False
+        for attempt in range(3):
+            try:
+                await menu_btn.click(timeout=5000, force=(attempt > 0))
+            except Exception:
+                await js_click(page, menu_btn, "template menu")
+            try:
+                await menu_dropdown.wait_for(state="visible", timeout=6000)
+                opened = True
+                break
+            except Exception:
+                await wait(1500)
+        if not opened:
+            return {"session": num, "email": email, "success": False, "reason": "menu never opened"}
         await wait(1000)
         await js_click(page, menu_dropdown.locator('div[role="menuitem"]:has-text("Remix")'), "Remix")
         await wait(4000)
@@ -143,16 +195,66 @@ async def remix_one(pw, ctx, num):
                 log(f"session-{num} workspace default kept")
         except Exception:
             pass
+        # agreement checkbox must be ticked or ack stays disabled (see headed stuck screenshot)
+        try:
+            cb = page.get_by_role("checkbox").first
+            if await cb.count():
+                try:
+                    if not await cb.is_checked():
+                        await cb.check(timeout=5000)
+                except Exception:
+                    try:
+                        await cb.click(timeout=5000, force=True)
+                    except Exception:
+                        pass
+                await page.wait_for_timeout(1000)
+        except Exception:
+            pass
         ack = page.locator('button[type="submit"]:has-text("Acknowledge and remix")')
         await ack.wait_for(state="visible", timeout=15000)
-        await js_click(page, ack, "Acknowledge and remix")
-        await page.wait_for_timeout(15000)
-        body = await page.evaluate("() => document.body.innerText.slice(0,3000)")
-        if "suspicious activity" in body.lower() or "RED" in body[:500]:
+        for _ in range(15):
+            try:
+                if await ack.is_enabled():
+                    break
+            except Exception:
+                pass
+            await page.wait_for_timeout(1000)
+        try:
+            await ack.scroll_into_view_if_needed()
+            await ack.click(timeout=8000)
+        except Exception:
+            await js_click(page, ack, "Acknowledge and remix")
+        await page.wait_for_timeout(5000)
+        # dialog still open = click didn't submit; retry once via keyboard+click
+        try:
+            if await ack.count() and await ack.is_visible():
+                log(f"session-{num} ack still visible, retrying")
+                await ack.focus()
+                await page.keyboard.press("Enter")
+                await page.wait_for_timeout(5000)
+        except Exception:
+            pass
+        # remix redirect can take minutes — poll for /projects/ up to ~4 min
+        for _ in range(48):
+            await page.wait_for_timeout(5000)
+            if "/projects/" in page.url:
+                break
+        try:
+            body = await _safe_text(page, 3000)
+        except Exception:
+            body = ""
+        if "suspicious activity" in body.lower() or "not allowed to create projects" in body.lower():
             return {"session": num, "email": email, "success": False, "reason": "RED flagged"}
+        if "/projects/" not in page.url:
+            return {"session": num, "email": email, "success": False, "reason": f"no redirect after remix ({page.url[:80]})"}
         project_id = page.url.split("/projects/")[-1].split("?")[0] if "/projects/" in page.url else ""
         project_link = page.url.split("?")[0] if "/projects/" in page.url else ""
         log(f"session-{num} remixed project {project_id} {project_link}")
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=20000)
+        except Exception:
+            pass
+        await page.wait_for_timeout(10000)  # let editor hydrate after remix
 
         # --- inject bridge via chat ---
         chat_input = None
@@ -168,8 +270,24 @@ async def remix_one(pw, ctx, num):
         if not chat_input:
             return {"session": num, "email": email, "success": False, "reason": "no chat input",
                     "project_id": project_id, "project_link": project_link}
-        await chat_input.click()
-        await chat_input.fill(SUBPROCESS_PROMPT)
+        try:
+            await chat_input.scroll_into_view_if_needed(timeout=10000)
+        except Exception:
+            pass
+        try:
+            await chat_input.click(timeout=10000)
+        except Exception:
+            try:
+                await chat_input.focus(timeout=10000)
+            except Exception:
+                await js_click(page, chat_input, "chat input focus")
+        try:
+            await chat_input.fill(SUBPROCESS_PROMPT, timeout=15000)
+        except Exception:
+            await page.keyboard.press("ControlOrMeta+a")
+            await page.keyboard.type(SUBPROCESS_PROMPT[:2000])
+            await page.keyboard.press("ControlOrMeta+a")
+            await page.keyboard.type(SUBPROCESS_PROMPT)
         await wait(1000)
         await js_click(page, page.locator('button[data-testid="chat-input-send"]'), "send bridge prompt")
         before = await page.locator('[data-testid="chat-item-ai_message"]').count()
@@ -286,13 +404,16 @@ async def main():
                 env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY},
                 timeout=15, capture_output=True)
 
-    try:  # pre-cleanup stale so 5 workers fit org cap
-        _ls = subprocess.check_output(["kernel", "browsers", "list", "-o", "json"],
-            env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}, text=True, timeout=30)
-        for _b in json.loads(_ls):
-            _del_browser(_b.get("session_id"))
-    except Exception as e:
-        print(f"pre-cleanup warn {e}", flush=True)
+    if os.environ.get("SKIP_PRECLEAN"):
+        print("pre-cleanup skipped (parallel sibling runs)", flush=True)
+    else:  # pre-cleanup stale so 5 workers fit org cap
+        try:
+            _ls = subprocess.check_output(["kernel", "browsers", "list", "-o", "json"],
+                env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}, text=True, timeout=30)
+            for _b in json.loads(_ls):
+                _del_browser(_b.get("session_id"))
+        except Exception as e:
+            print(f"pre-cleanup warn {e}", flush=True)
 
     queue: asyncio.Queue = asyncio.Queue()
     for _n in targets:
@@ -327,15 +448,34 @@ async def main():
                 except asyncio.QueueEmpty:
                     break
                 try:
+                    import json as _js
+
+                    _vp = {"width": 1920, "height": 1080}
                     try:
-                        ctx = await browser.new_context()
+                        _vp = _js.loads(os.environ.get("VIEWPORT", '{"width": 1920, "height": 1080}'))
+                    except Exception:
+                        pass
+                    try:
+                        try:
+                            ctx = await browser.new_context(viewport=_vp)
+                        except Exception:
+                            ctx = await browser.new_context()
                     except Exception:
                         _del_browser(sid)
                         cdp_ws, sid = await asyncio.to_thread(_new_browser)
                         async with lock:
                             owned.append(sid)
                         browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=30000)
-                        ctx = await browser.new_context()
+                        try:
+                            ctx = await browser.new_context(viewport=_vp)
+                        except Exception:
+                            ctx = await browser.new_context()
+                    try:
+                        _pg = await ctx.new_page()
+                        await _pg.set_viewport_size(_vp)
+                        await _pg.close()
+                    except Exception:
+                        pass
                     try:
                         res = await remix_one(pw, ctx, num)
                     finally:
