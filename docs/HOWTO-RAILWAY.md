@@ -76,3 +76,11 @@ Boot one live: `HOME=sessions/session-N railway sandbox create -p <project> --ch
 - Never commit anything under `sessions/*/` except `email.txt` / `verified_at.txt` (enforced by `.gitignore`).
 - Never `git add -f` a token file. History already contains old tokens (see `docs/CLEANUP.md`).
 - Raw IP first for checks; proxied/ZenRows egress only for farming (flag avoidance).
+
+## Tor-separated CLI (multi-exit)
+
+CLI ignores *PROXY env — use torsocks: `scripts/tor_cli.sh session-N -- whoami`.
+Port rotates by session number (9051/9053/9054/9250/9050), `-i` isolates a
+fresh exit circuit per call (verified distinct exits). Needs local tor with
+`SocksPort 9051..9054` in `~/.config/opencode-tor/torrc`. Slower than raw;
+use for identity separation, raw IP for bulk speed.
