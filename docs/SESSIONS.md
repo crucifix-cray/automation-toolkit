@@ -38,7 +38,7 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 5. Never commit tokens. Never farm dup emails (78/79 share one workspace — parallel
    creates collide with 1-project-per-30s rate wall).
 
-## Accounts (ok on disk)
+## Accounts (ok on disk — deploys restricted on touched accounts, writes frozen)
 
 | session | email | status | projects |
 |---|---|---|---|
@@ -86,10 +86,6 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 | session-120 | y.av.a.shu.s.ey.i.n15@gmail.com | ok | 1 |
 | session-121 | hamadasa.ji94@gmail.com | ok | 1 |
 | session-122 | tanfu686574+ogcwrplnac79fkqn8@outlook.com | ok | 1 |
-| session-123 | wpbb587wmm2z@uberip.com | ok | 1 |
-| session-124 | i392qet7433s@uberip.com | ok | 1 |
 | session-125 | ki.ttysantosna@gmail.com | ok | 1 |
 | session-126 | nnkowkw2861b+r7bhet10@hotmail.com | ok | 1 |
-| session-127 | dacl20gbawv5@uberip.com | ok | 1 |
-| session-128 | pkdzqcorxct6@uberip.com | ok | 1 |
 | session-129 | sha.neoadjaron@gmail.com | ok | 1 |

@@ -96,6 +96,13 @@
   "volume": "81c94794-e927-4da9-8815-727a91278e49"
  },
  {
+  "session": "session-117",
+  "project": "a051d114-56fa-4a2f-8f34-c54d41af9688",
+  "status": "ready",
+  "volume": "32a1da14-b04a-4e77-a46e-040f95ca952d",
+  "out": "ing previously unselected package mesa-libgallium:amd64.\nPreparing to unpack .../141-mesa-libgallium_25.2.8-0ubuntu0.24.04.2_amd64.deb ...\nUnpacking mesa-libgallium:amd64 (25.2.8-0ubuntu0.24.04.2) ..."
+ },
+ {
   "session": "session-118",
   "project": "3bdf5278-6202-4c56-9571-200c9cf6fbf1",
   "status": "ready",
@@ -112,6 +119,65 @@
   "project": "fe14ac77-f236-479c-b181-0d56d9dd57e0",
   "status": "ready",
   "volume": "95564060-e11c-4ed7-b1f9-e21ca5b804c2"
+ },
+ {
+  "session": "session-121",
+  "project": "952f63c9-e466-4672-91ab-766ee0a4c82c",
+  "status": "ready",
+  "volume": "f5ba143c-e619-4f2e-bb37-75ea42400873",
+  "out": "/archive.ubuntu.com/ubuntu noble-updates/main amd64 python3-setuptools all 68.1.2-2ubuntu1.2 [397 kB]\nGet:199 http://archive.ubuntu.com/ubuntu noble/universe amd64 python3-wheel all 0.42.0-2 [53.1 kB]"
+ },
+ {
+  "session": "session-122",
+  "project": "785d6e95-d76a-4273-8fd1-7cf8a03103f2",
+  "status": "ready",
+  "volume": "1435df58-5dbe-413b-8a1c-87b9fb041e5f",
+  "out": "inutils (2.42-4ubuntu2.10) ...\nSelecting previously unselected package libc-dev-bin.\nPreparing to unpack .../042-libc-dev-bin_2.39-0ubuntu8.8_amd64.deb ...\nUnpacking libc-dev-bin (2.39-0ubuntu8.8) ..."
+ },
+ {
+  "session": "session-123",
+  "project": "fa2ebc10-7518-44ef-b32e-a80b83bdc56a",
+  "status": "deploy-fail",
+  "out": "FAILED"
+ },
+ {
+  "session": "session-124",
+  "project": "437d7bd2-a9f2-46d8-90fe-5ef56169a0b0",
+  "status": "deploy-fail",
+  "out": "FAILED"
+ },
+ {
+  "session": "session-125",
+  "project": "4f4d5960-ad6f-4a58-ab53-221473a8e11e",
+  "status": "ready",
+  "volume": "1f169b51-1284-4899-bc8f-60d2db1a7d6c",
+  "out": ""
+ },
+ {
+  "session": "session-126",
+  "project": "1895bb20-94f8-4dcb-91b7-36159268f251",
+  "status": "ready",
+  "volume": "0143bd27-c33e-4856-9b60-efa29c4a53a7",
+  "out": ") ...\nSelecting previously unselected package libllvm20:amd64.\nPreparing to unpack .../133-libllvm20_1%3a20.1.2-0ubuntu1~24.04.3_amd64.deb ...\nUnpacking libllvm20:amd64 (1:20.1.2-0ubuntu1~24.04.3) ..."
+ },
+ {
+  "session": "session-127",
+  "project": "f11b0ce6-1871-46c7-bd87-baf0965ca4fa",
+  "status": "deploy-fail",
+  "out": "FAILED"
+ },
+ {
+  "session": "session-128",
+  "project": "745ed007-a11a-4cad-bf3d-d0d240d477d4",
+  "status": "deploy-fail",
+  "out": "FAILED"
+ },
+ {
+  "session": "session-129",
+  "project": "6a56dd49-585f-4f01-9110-bfd2465b5c09",
+  "status": "ready",
+  "volume": "cc9548e5-1f56-4a84-9226-56554860d258",
+  "out": ") ...\nSelecting previously unselected package libllvm20:amd64.\nPreparing to unpack .../133-libllvm20_1%3a20.1.2-0ubuntu1~24.04.3_amd64.deb ...\nUnpacking libllvm20:amd64 (1:20.1.2-0ubuntu1~24.04.3) ..."
  },
  {
   "session": "session-13",
