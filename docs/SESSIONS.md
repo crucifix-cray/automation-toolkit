@@ -38,7 +38,7 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 5. Never commit tokens. Never farm dup emails (78/79 share one workspace — parallel
    creates collide with 1-project-per-30s rate wall).
 
-## Accounts (ok only — 62 trial/restricted removed 2026-09-09, tokens in backup)
+## Accounts (ok only — wave 2026-09-10: mass deploys trigger trial/restricted walls; NO new creates/deploys until cooldown)
 
 | session | email | status | projects |
 |---|---|---|---|
@@ -55,7 +55,6 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 | session-36 | jda.ka5408@gmail.com | ok | 3 |
 | session-43 | y.amlavigne@gmail.com | ok | 3 |
 | session-53 | feicfi.nsh@gmail.com | ok | 2 |
-| session-74 | qnwa3u7em0a3@emalupe.com | ok | 3 |
 | session-75 | gianprecin.io@gmail.com | ok | 3 |
 | session-76 | jaden.kamisa@gmail.com | ok | 3 |
 | session-77 | ellako.aasantoaa@gmail.com | ok | 4 |
@@ -64,7 +63,6 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 | session-82 | katec.larizze@gmail.com | ok | 3 |
 | session-83 | mun.ozkaia54@gmail.com | ok | 3 |
 | session-84 | ji.lleaponteras@gmail.com | ok | 4 |
-| session-85 | mdq9ev0wg4fd@emalupe.com | ok | 4 |
 | session-86 | lkri.sha39@gmail.com | ok | 3 |
 | session-87 | ingr.idelrod@gmail.com | ok | 4 |
 | session-88 | breefins.h@gmail.com | ok | 3 |
@@ -76,25 +74,12 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 | session-94 | ell.izabetharagones@gmail.com | ok | 3 |
 | session-95 | danic.asenatubis@gmail.com | ok | 4 |
 | session-96 | jaspe.rmolay@gmail.com | ok | 3 |
-| session-97 | qd1t8martppn@emalupe.com | ok | 3 |
-| session-98 | z0xuce04ifaz@emalupe.com | ok | 3 |
-| session-99 | 9d1l7zfcgq3g@emalupe.com | ok | 4 |
-| session-101 | m8t4ie0jr2on@emalupe.com | ok | 2 |
-| session-102 | pe9iitck2bes@emalupe.com | ok | 3 |
-| session-103 | nxmvyb2qrk9x@emalupe.com | ok | 3 |
-| session-104 | reurwi18fmne@emalupe.com | ok | 3 |
-| session-105 | 18wvl2niigwd@emalupe.com | ok | 3 |
 | session-106 | y.or.hun.2.7.7@gmail.com | ok | 3 |
 | session-107 | mans.u.rk.urt.a.r.an5@gmail.com | ok | 4 |
 | session-108 | ma.ns.ur.k.ur.t.a.ran.5@gmail.com | ok | 4 |
 | session-109 | alac.a.ta.ri.k.177@gmail.com | ok | 0 |
-| session-110 | jvshlta2718q+70x5oz396@outlook.com | ok | 1 |
-| session-111 | ja.nicebunagna@gmail.com | ok | 1 |
 | session-112 | y.or.h.un.2.7.7@gmail.com | ok | 1 |
-| session-113 | nwnjzp42432e+2y85ai8k57fs50ym@outlook.com | ok | 1 |
-| session-114 | o1jw13a5di5o@uberip.com | ok | 1 |
 | session-115 | y.a.v.as.h.u.seyi.n15@gmail.com | ok | 1 |
 | session-116 | pexxg885ejrgb+ntaflt9@outlook.com | ok | 1 |
 | session-118 | balat.ce.mr.e@gmail.com | ok | 1 |
-| session-119 | 8mdp0bw8sddn@uberip.com | ok | 1 |
 | session-120 | y.av.a.shu.s.ey.i.n15@gmail.com | ok | 1 |

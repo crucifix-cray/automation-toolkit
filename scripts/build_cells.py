@@ -30,7 +30,9 @@ def load_registry():
 
 
 def save_registry(reg):
-    json.dump(sorted(reg.values(), key=lambda c: c["session"]), open(REG, "w"), indent=1)
+    tmp = str(REG) + ".tmp"
+    json.dump(sorted(reg.values(), key=lambda c: c["session"]), open(tmp, "w"), indent=1)
+    os.replace(tmp, REG)
 
 
 def env_for(sdir):
