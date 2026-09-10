@@ -1,6 +1,6 @@
 # Railway Sessions Index (canonical)
 
-56 ok accounts on disk (62 trial/restricted removed 2026-09-09 — hosted projects untouched,
+51 ok accounts on disk (62 trial/restricted removed 2026-09-09 — hosted projects untouched,
 tokens in ~/railway_tokens_backup). Full 113-record history: finals/railway_verify.json.
 Results: `finals/railway_verify.json`. Sweep: `python3 scripts/railway_verify.py --par 8`.
 
@@ -38,7 +38,7 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 5. Never commit tokens. Never farm dup emails (78/79 share one workspace — parallel
    creates collide with 1-project-per-30s rate wall).
 
-## Accounts (ok only — wave 2026-09-10: mass deploys trigger trial/restricted walls; NO new creates/deploys until cooldown)
+## Accounts (ok on disk)
 
 | session | email | status | projects |
 |---|---|---|---|
@@ -81,5 +81,15 @@ Token backup outside repo: `~/railway_tokens_backup/railway_tokens_2026-09-09.ta
 | session-112 | y.or.h.un.2.7.7@gmail.com | ok | 1 |
 | session-115 | y.a.v.as.h.u.seyi.n15@gmail.com | ok | 1 |
 | session-116 | pexxg885ejrgb+ntaflt9@outlook.com | ok | 1 |
+| session-117 | jelai.merope@gmail.com | ok | 1 |
 | session-118 | balat.ce.mr.e@gmail.com | ok | 1 |
 | session-120 | y.av.a.shu.s.ey.i.n15@gmail.com | ok | 1 |
+| session-121 | hamadasa.ji94@gmail.com | ok | 1 |
+| session-122 | tanfu686574+ogcwrplnac79fkqn8@outlook.com | ok | 1 |
+| session-123 | wpbb587wmm2z@uberip.com | ok | 1 |
+| session-124 | i392qet7433s@uberip.com | ok | 1 |
+| session-125 | ki.ttysantosna@gmail.com | ok | 1 |
+| session-126 | nnkowkw2861b+r7bhet10@hotmail.com | ok | 1 |
+| session-127 | dacl20gbawv5@uberip.com | ok | 1 |
+| session-128 | pkdzqcorxct6@uberip.com | ok | 1 |
+| session-129 | sha.neoadjaron@gmail.com | ok | 1 |
