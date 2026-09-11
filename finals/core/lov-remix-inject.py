@@ -257,16 +257,38 @@ async def remix_one(pw, ctx, num):
         await page.wait_for_timeout(10000)  # let editor hydrate after remix
 
         # --- inject bridge via chat ---
-        chat_input = None
-        for sel in ['div[contenteditable="true"][role="textbox"]', 'div[contenteditable="true"]',
-                    '.ProseMirror[contenteditable="true"]', '[data-testid="chat-input"]', 'textarea[placeholder*="Ask"]']:
+        # The input sits BELOW the fold after the AI response: scroll the
+        # chat column to bottom first, else the box never hydrates.
+        for _scroll_try in range(3):
             try:
-                cand = page.locator(sel).first
-                await cand.wait_for(state="visible", timeout=8000)
-                chat_input = cand
-                break
+                await page.evaluate("""() => {
+                    const els = [...document.querySelectorAll('*')];
+                    const col = els.filter(e => e.scrollHeight > e.clientHeight + 200)
+                        .sort((a, b) => (b.clientHeight - a.clientHeight))[0];
+                    (col || document.scrollingElement).scrollTo(
+                        0, (col || document.scrollingElement).scrollHeight);
+                }""")
             except Exception:
-                continue
+                pass
+            try:
+                await page.keyboard.press("End")
+            except Exception:
+                pass
+            await page.wait_for_timeout(2500)
+            chat_input = None
+            for sel in ['div[contenteditable="true"][role="textbox"]', 'div[contenteditable="true"]',
+                        '.ProseMirror[contenteditable="true"]', '[data-testid="chat-input"]', 'textarea[placeholder*="Ask"]',
+                        '[contenteditable="true"]', 'textarea']:
+                try:
+                    cand = page.locator(sel).first
+                    await cand.wait_for(state="visible", timeout=5000)
+                    chat_input = cand
+                    break
+                except Exception:
+                    continue
+            if chat_input:
+                break
+            log(f"chat input not yet rendered (scroll try {_scroll_try+1}/3)")
         if not chat_input:
             return {"session": num, "email": email, "success": False, "reason": "no chat input",
                     "project_id": project_id, "project_link": project_link}
