@@ -1,15 +1,11 @@
-# Railway live sessions: tokens stay LOCAL, index stays TRACKED.
-# Tracked per session: email.txt, created_at.txt (no secrets).
-# Ignored per session: everything auth (CLI config, cookies, caches).
-sessions/*/.railway/
+# Railway live sessions: FULLY TRACKED (owner decision 2026-09-11 — next AI needs
+# tokens+cellkeys from GitHub to operate all 51 accounts).
+# Tracked per session: .railway/, railway_cli_config.json, railway_cli_sessions/,
+# .ssh/ (cellkey), email.txt. Still ignored: cookie dumps, caches, venvs.
 sessions/*/browser_cookies.json
-sessions/*/railway_cli_config.json
-sessions/*/railway_cli_sessions/
-sessions/*/config.json
 sessions/*/.cache/
 sessions/*/.local/
 sessions/*/.config/
-sessions/*/.ssh/
 sessions/*/.venv/
 sessions/*/node_modules/
 # Template leftovers (deploy experiments copied into early sessions)
@@ -25,7 +21,7 @@ sessions/*/check-lovable-api.sh
 credit_accounts/
 gabrielgreen14/
 
-# Global auth/secret patterns (any depth)
+# Global auth/secret patterns (any depth) — EXCEPT sessions/ (see top).
 .railway/
 browser_cookies.json
 railway_cli_config.json
@@ -33,6 +29,13 @@ railway_cli_config.json
 rclone.conf
 *TOKEN*.json
 *token*.json
+!sessions/*/.railway/
+!sessions/*/.railway/**
+!sessions/*/railway_cli_config.json
+!sessions/*/railway_cli_sessions/
+!sessions/*/railway_cli_sessions/**
+!sessions/*/.ssh/
+!sessions/*/.ssh/**
 
 # Python / caches
 __pycache__/

@@ -1,0 +1,62 @@
+{
+  "activeSandbox": "868ea9fa-3b9f-4dd6-bb75-d32dda5ff18c",
+  "codeAgents": null,
+  "editor": null,
+  "linkedFunctions": null,
+  "projects": {
+    "/home/alan/Documents/railways": {
+      "environment": "511b8f41-4563-49a2-ac33-654a22960959",
+      "environmentName": "production",
+      "name": "holy-c2e8c0",
+      "project": "e441fb25-67e0-4b24-a227-2d0dd0c2a0cf",
+      "projectPath": "/home/alan/Documents/railways",
+      "service": null
+    },
+    "/tmp/cellwork/session-121": {
+      "environment": "ad99fe5f-5599-4498-bf70-8617070430de",
+      "environmentName": "production",
+      "name": "cell-121",
+      "project": "952f63c9-e466-4672-91ab-766ee0a4c82c",
+      "projectPath": "/tmp/cellwork/session-121",
+      "service": null
+    },
+    "/tmp/cellwork/session-121-svc": {
+      "environment": "ad99fe5f-5599-4498-bf70-8617070430de",
+      "environmentName": "production",
+      "name": "cell-121",
+      "project": "952f63c9-e466-4672-91ab-766ee0a4c82c",
+      "projectPath": "/tmp/cellwork/session-121-svc",
+      "service": "b563df97-28f1-4a24-9cc3-e5ad08a099cc"
+    },
+    "/tmp/rvwork/session-121": {
+      "environment": "43ea9d30-99bf-460e-a04e-c8078eb7eef4",
+      "environmentName": "production",
+      "name": "vrfy-121-38332",
+      "project": "1126dd37-9b2d-4940-8ea6-eae663bad3bd",
+      "projectPath": "/tmp/rvwork/session-121",
+      "service": null
+    }
+  },
+  "sandboxTemplates": null,
+  "sandboxes": [
+    {
+      "createdAt": "2026-09-10T10:52:08.975+00:00",
+      "environmentId": "511b8f41-4563-49a2-ac33-654a22960959",
+      "id": "adf897e5-4ec7-4c27-93cc-52d3f9ce8be7",
+      "projectId": "e441fb25-67e0-4b24-a227-2d0dd0c2a0cf"
+    },
+    {
+      "createdAt": "2026-09-10T11:06:10.417+00:00",
+      "environmentId": "ad99fe5f-5599-4498-bf70-8617070430de",
+      "id": "868ea9fa-3b9f-4dd6-bb75-d32dda5ff18c",
+      "projectId": "952f63c9-e466-4672-91ab-766ee0a4c82c"
+    }
+  ],
+  "user": {
+    "accessToken": "fWmIcxrBG8GsekwyAI1oCrSedFNcMdE3fCIK9cnWrlq",
+    "id": "636cd364-40d2-4aa7-866c-194b3437188e",
+    "refreshToken": "j33FWoYAaiD4tP6v1c7IDAp5VRECqo-LA5zQylkSuk-",
+    "token": null,
+    "tokenExpiresAt": 1789129675
+  }
+}

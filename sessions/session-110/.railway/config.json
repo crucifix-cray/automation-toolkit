@@ -1,0 +1,104 @@
+{
+  "activeSandbox": "40849f69-1de3-4141-9769-9eed1ac0a854",
+  "codeAgents": null,
+  "editor": null,
+  "linkedFunctions": null,
+  "projects": {
+    "/home/alan/Documents/railways": {
+      "environment": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "environmentName": "production",
+      "name": "cell-110",
+      "project": "b31f2b7b-f832-4892-a079-4d3137dc22f8",
+      "projectPath": "/home/alan/Documents/railways",
+      "service": null
+    },
+    "/tmp/cellwork/110-svc": {
+      "environment": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "environmentName": "production",
+      "name": "cell-110",
+      "project": "b31f2b7b-f832-4892-a079-4d3137dc22f8",
+      "projectPath": "/tmp/cellwork/110-svc",
+      "service": "6fad50a6-dc18-4c2b-99f9-ef3e6f58dad7"
+    },
+    "/tmp/cellwork/session-110-svc": {
+      "environment": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "environmentName": "production",
+      "name": "cell-110",
+      "project": "b31f2b7b-f832-4892-a079-4d3137dc22f8",
+      "projectPath": "/tmp/cellwork/session-110-svc",
+      "service": "6fad50a6-dc18-4c2b-99f9-ef3e6f58dad7"
+    },
+    "/tmp/rvwork/session-110": {
+      "environment": "c1293eda-5eab-4e65-8eaa-6d2b3ce005e3",
+      "environmentName": "production",
+      "name": "vrfy-110-71091",
+      "project": "1bc15af1-f8b5-4806-bc9f-497bdba4b9e6",
+      "projectPath": "/tmp/rvwork/session-110",
+      "service": null
+    }
+  },
+  "sandboxTemplates": [
+    {
+      "baseImageDigest": null,
+      "createdAt": "2026-09-10T00:33:11.580844271+00:00",
+      "environmentId": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "id": "83d7536f3e97cd4f34b3c7ad4298ff4562649ab026ffea60d0a21c17f46bf408",
+      "instructions": [
+        "uv python install 3.14",
+        "uv pip install --system --break-system-packages patchright playwright camoufox playwright-stealth playwright-captcha",
+        "apt-get update && apt-get install -y xvfb curl unzip",
+        "python3.14 -m patchright install chromium --with-deps"
+      ],
+      "name": "cellbase"
+    },
+    {
+      "baseImageDigest": null,
+      "createdAt": "2026-09-10T00:33:26.898046418+00:00",
+      "environmentId": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "id": "7ab39e2fee8b3bfe28bc2b86a350ed2236c90598cf9d7eb2d15478eeb2b01cfb",
+      "instructions": [
+        "echo hello"
+      ],
+      "name": "t1"
+    }
+  ],
+  "sandboxes": [
+    {
+      "createdAt": "2026-09-09T16:22:46.043+00:00",
+      "environmentId": "887f23b5-44ab-4634-ab4c-aaaf7d0a9ece",
+      "id": "b1ced2ac-8700-4396-a210-591ac6ccc262",
+      "projectId": "bfdb71a8-3558-4699-b7bb-89a97d1ab04a"
+    },
+    {
+      "createdAt": "2026-09-10T00:30:16.867+00:00",
+      "environmentId": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "id": "89568737-48bc-4f77-8256-fe2870d241ce",
+      "projectId": "b31f2b7b-f832-4892-a079-4d3137dc22f8"
+    },
+    {
+      "createdAt": "2026-09-10T00:34:26.922+00:00",
+      "environmentId": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "id": "b4b45644-1545-4984-9022-cc29a3bc1140",
+      "projectId": "b31f2b7b-f832-4892-a079-4d3137dc22f8"
+    },
+    {
+      "createdAt": "2026-09-10T00:53:34.796+00:00",
+      "environmentId": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "id": "18f86418-9ca8-461f-92a7-31cc0ef48163",
+      "projectId": "b31f2b7b-f832-4892-a079-4d3137dc22f8"
+    },
+    {
+      "createdAt": "2026-09-10T00:53:54.443+00:00",
+      "environmentId": "fcc4b577-8c50-49c0-8ce2-2668bbb893f3",
+      "id": "40849f69-1de3-4141-9769-9eed1ac0a854",
+      "projectId": "b31f2b7b-f832-4892-a079-4d3137dc22f8"
+    }
+  ],
+  "user": {
+    "accessToken": "3bO8YI_0rRaJgr6D1mI8RbEbULRC80xAsER2qLfGSqr",
+    "id": "13d5d22d-3c8b-448a-8073-0f7792e60193",
+    "refreshToken": "aqrYhXHhF177cIWirdKRmdjV8fpgtSaaWOQXu-pI9Th",
+    "token": null,
+    "tokenExpiresAt": 1789129628
+  }
+}
