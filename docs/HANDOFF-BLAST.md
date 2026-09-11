@@ -27,7 +27,7 @@ Lovable N (2..51) → Railway cells `avail[:50]` = session-13,16,23,25,26,28,30,
   (`Project ID` / `clone source` in `/app/work/remix-<lov>.log`), NOT Mega.
 
 ## Resume (run in /home/alan/Documents/railways, raw IP, LD_PRELOAD="")
-1. `tail -3 /tmp/fonts.log` → if incomplete: `LD_PRELOAD="" nohup python3 -u /tmp/fonts_roll.py > /tmp/fonts.log 2>&1 &`
+1. `tail -3 /tmp/fonts.log` → if incomplete: `LD_PRELOAD="" nohup python3 -u scripts/fonts_rollout.py > /tmp/fonts.log 2>&1 &`
 2. After fonts 51/51: `LD_PRELOAD="" nohup python3 -u scripts/reship_relaunch.py --par 2 > /tmp/reship_X.log 2>&1 &`
    (kills orphans, pipes fresh script2 from repo, GTK+fonts verify, setsid relaunch)
 3. Wait 20 min, then per cell:
