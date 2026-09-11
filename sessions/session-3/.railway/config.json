@@ -1,0 +1,61 @@
+{
+  "projects": {
+    "/tmp": {
+      "projectPath": "/tmp",
+      "name": "test-restricted-session-23",
+      "project": "f142e4f3-db51-48a0-8122-13b46d65c116",
+      "environment": "ccea51a1-8d59-45f9-9919-0472f1c51341",
+      "environmentName": "production",
+      "service": null
+    },
+    "/tmp/cellwork/session-23": {
+      "projectPath": "/tmp/cellwork/session-23",
+      "name": "cell-23",
+      "project": "5aa2cb0a-0ab4-4a80-9fad-61a441dbc406",
+      "environment": "45255d80-a3ed-4d9c-af1f-0888a5198512",
+      "environmentName": "production",
+      "service": null
+    },
+    "/tmp/cellwork/session-23-svc": {
+      "projectPath": "/tmp/cellwork/session-23-svc",
+      "name": "cell-23",
+      "project": "5aa2cb0a-0ab4-4a80-9fad-61a441dbc406",
+      "environment": "45255d80-a3ed-4d9c-af1f-0888a5198512",
+      "environmentName": "production",
+      "service": "e9a64328-6e1a-435e-a4d1-097082d77fcd"
+    },
+    "/tmp/rvwork/session-23": {
+      "projectPath": "/tmp/rvwork/session-23",
+      "name": "vrfy-23-67930",
+      "project": "78379946-73c1-4fb2-8e69-1eec80c018cd",
+      "environment": "7fa75a16-2492-4276-a2b5-03422d253508",
+      "environmentName": "production",
+      "service": null
+    }
+  },
+  "user": {
+    "id": "12eb6027-d817-4bbd-b1ae-9d5f4719a265",
+    "token": null,
+    "accessToken": "-5R5BSdJU9-apg42J9tl6f8lS06eOJZL0CgVLQ1Y6_A",
+    "refreshToken": "ul0uMriMAKqAsYSVV5qFv_ErVioueKhMLq4qg6-J5Yq",
+    "tokenExpiresAt": 1789150136
+  },
+  "editor": null,
+  "linkedFunctions": null,
+  "sandboxes": [
+    {
+      "id": "62e5fc64-8df7-47c7-8249-220be17d6731",
+      "environmentId": "45255d80-a3ed-4d9c-af1f-0888a5198512",
+      "projectId": "5aa2cb0a-0ab4-4a80-9fad-61a441dbc406",
+      "createdAt": "2026-09-10T00:39:41.903+00:00"
+    },
+    {
+      "id": "fe685569-5c31-41db-ab50-97c90eeb5ef1",
+      "environmentId": "45255d80-a3ed-4d9c-af1f-0888a5198512",
+      "projectId": "5aa2cb0a-0ab4-4a80-9fad-61a441dbc406",
+      "createdAt": "2026-09-10T00:50:15.442+00:00"
+    }
+  ],
+  "activeSandbox": "fe685569-5c31-41db-ab50-97c90eeb5ef1",
+  "sandboxTemplates": null
+}

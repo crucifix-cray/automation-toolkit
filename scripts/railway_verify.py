@@ -10,11 +10,12 @@ import argparse, json, os, re, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-REPO = Path("/home/alan/Documents/railways")
-BASE = REPO / "sessions"
-OUT = REPO / "finals" / "railway_verify.json"
+REPO = Path("/home/alae/Documents/railways")
+# ponytail: handle both layouts — new is REPO/session-* (no sessions/ subdir), old is REPO/sessions/session-*
+BASE = REPO / "sessions" if (REPO / "sessions").is_dir() else REPO
+OUT = Path("/home/alae/Documents/repos/automation-toolkit/finals/railway_verify.json")
 WORK = Path("/tmp/rvwork")
-RAILWAY = "/home/alan/.railway/bin/railway"
+RAILWAY = "/home/alae/.railway/bin/railway"
 
 
 def env_for(sdir):

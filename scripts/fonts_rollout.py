@@ -1,6 +1,7 @@
 import json, subprocess, os
 from concurrent.futures import ThreadPoolExecutor
-REPO = '/home/alan/Documents/railways'
+REPO = '/home/alae/Documents/repos/automation-toolkit'
+# ponytail: cells.json + services.json live in repo root, sessions in repo/sessions
 cells = sorted(json.load(open(REPO + '/cells.json')), key=lambda c: int(c['session'].split('-')[1]))
 svc = {c['session']: c for c in json.load(open(REPO + '/services.json'))}
 avail = [(c['session'], c['project'], c['env'], f"cell-{c['session'].split('-')[1]}") for c in cells

@@ -1,56 +1,48 @@
 {
-  "activeSandbox": "bd34927f-0bc9-4e29-a97a-aff696c3eef4",
+  "activeSandbox": "ad5f8192-bf33-4ad8-b157-dfe692737b4c",
   "codeAgents": null,
   "editor": null,
   "linkedFunctions": null,
   "projects": {
-    "/tmp": {
-      "environment": "b1a41dc5-15f7-4393-9de1-43c46b915113",
+    "/tmp/cellwork/session-109": {
+      "environment": "a203c84e-8eae-4f44-a4c6-726248b53d58",
       "environmentName": "production",
-      "name": "test-restricted-session-36",
-      "project": "19f4a578-797a-4ecf-b457-c10814155387",
-      "projectPath": "/tmp",
+      "name": "cell-109",
+      "project": "8ada0b8e-9074-4d78-a98d-1dd6409c7e00",
+      "projectPath": "/tmp/cellwork/session-109",
       "service": null
     },
-    "/tmp/cellwork/session-36": {
-      "environment": "309a0c78-d21d-4352-aeb9-c405b67ab863",
+    "/tmp/cellwork/session-109-svc": {
+      "environment": "a203c84e-8eae-4f44-a4c6-726248b53d58",
       "environmentName": "production",
-      "name": "cell-36",
-      "project": "657a3afb-096c-40c1-9dab-6f881da6dad6",
-      "projectPath": "/tmp/cellwork/session-36",
-      "service": null
+      "name": "cell-109",
+      "project": "8ada0b8e-9074-4d78-a98d-1dd6409c7e00",
+      "projectPath": "/tmp/cellwork/session-109-svc",
+      "service": "51e47946-390e-4a77-ad5e-f93be0df9221"
     },
-    "/tmp/cellwork/session-36-svc": {
-      "environment": "309a0c78-d21d-4352-aeb9-c405b67ab863",
+    "/tmp/rvwork/session-109": {
+      "environment": "41037544-d353-4082-b730-14b4c6e9e9ca",
       "environmentName": "production",
-      "name": "cell-36",
-      "project": "657a3afb-096c-40c1-9dab-6f881da6dad6",
-      "projectPath": "/tmp/cellwork/session-36-svc",
-      "service": "a700ead9-eab8-4981-925f-a916153db20c"
-    },
-    "/tmp/rvwork/session-36": {
-      "environment": "244dba72-941c-4944-9705-013c8674c1de",
-      "environmentName": "production",
-      "name": "vrfy-36-67937",
-      "project": "8dd8bf3e-c58f-46f3-a608-baca77357551",
-      "projectPath": "/tmp/rvwork/session-36",
+      "name": "vrfy-109-69922",
+      "project": "76a121aa-6069-482d-936e-6b830e1ccbb1",
+      "projectPath": "/tmp/rvwork/session-109",
       "service": null
     }
   },
   "sandboxTemplates": null,
   "sandboxes": [
     {
-      "createdAt": "2026-09-10T00:41:06.593+00:00",
-      "environmentId": "309a0c78-d21d-4352-aeb9-c405b67ab863",
-      "id": "bd34927f-0bc9-4e29-a97a-aff696c3eef4",
-      "projectId": "657a3afb-096c-40c1-9dab-6f881da6dad6"
+      "createdAt": "2026-09-10T00:46:24.051+00:00",
+      "environmentId": "a203c84e-8eae-4f44-a4c6-726248b53d58",
+      "id": "ad5f8192-bf33-4ad8-b157-dfe692737b4c",
+      "projectId": "8ada0b8e-9074-4d78-a98d-1dd6409c7e00"
     }
   ],
   "user": {
-    "accessToken": "zd0No283epHEyp7sIdGtE9NkCltEuIMjHZyUk6tgyI_",
-    "id": "b4571deb-b72f-448d-9d7d-338fca07ad19",
-    "refreshToken": "EuPLA4FZ8ckhbKXSXW4bmmGfraMuOxSSMw8HNT5x7zZ",
+    "accessToken": "dEPu_JLKs6X74_PhHlVWj0UvwX7NJhW-mqhNRczY4Rk",
+    "id": "0a571c01-dd54-44fe-a2fe-1ad094d43e87",
+    "refreshToken": "3PcDR9cOrniplctV8H3gRYIn8UpCCMgQFIjMbpNNlHC",
     "token": null,
-    "tokenExpiresAt": 1789123205
+    "tokenExpiresAt": 1789129625
   }
 }

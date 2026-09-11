@@ -1,0 +1,55 @@
+{
+  "projects": {
+    "/tmp": {
+      "projectPath": "/tmp",
+      "name": "test-restricted-session-25",
+      "project": "8ed9cde8-7dfb-4fa4-afef-e2dcd6b5652c",
+      "environment": "a31028df-d38f-4752-964d-c8765ccf6840",
+      "environmentName": "production",
+      "service": null
+    },
+    "/tmp/cellwork/session-25": {
+      "projectPath": "/tmp/cellwork/session-25",
+      "name": "cell-25",
+      "project": "c61a3755-4902-4d69-a914-a445ced57faf",
+      "environment": "82c52816-dcfd-4824-bcb4-b43af1babbfa",
+      "environmentName": "production",
+      "service": null
+    },
+    "/tmp/cellwork/session-25-svc": {
+      "projectPath": "/tmp/cellwork/session-25-svc",
+      "name": "cell-25",
+      "project": "c61a3755-4902-4d69-a914-a445ced57faf",
+      "environment": "82c52816-dcfd-4824-bcb4-b43af1babbfa",
+      "environmentName": "production",
+      "service": "c917f7c9-0044-4763-b54e-c1daf1725804"
+    },
+    "/tmp/rvwork/session-25": {
+      "projectPath": "/tmp/rvwork/session-25",
+      "name": "vrfy-25-67931",
+      "project": "a3e2d41c-7c32-4590-83c3-2c8b262a69d0",
+      "environment": "b1d55876-1a41-4ada-86f0-99c044c7496e",
+      "environmentName": "production",
+      "service": null
+    }
+  },
+  "user": {
+    "id": "87daaf28-04c6-413d-8315-eaf3a804a950",
+    "token": null,
+    "accessToken": "u6YVlxL05TwCAq99Fefo6CYgay-IpgYD2L6rZ84KCF6",
+    "refreshToken": "v1uzFuwGVm_MiN5GxmgPDQsblMahQffgEjxgNUUqKPP",
+    "tokenExpiresAt": 1789150139
+  },
+  "editor": null,
+  "linkedFunctions": null,
+  "sandboxes": [
+    {
+      "id": "0ecbdc8e-72a5-4589-a2ca-f3658dbb88ec",
+      "environmentId": "82c52816-dcfd-4824-bcb4-b43af1babbfa",
+      "projectId": "c61a3755-4902-4d69-a914-a445ced57faf",
+      "createdAt": "2026-09-10T00:39:41.467+00:00"
+    }
+  ],
+  "activeSandbox": "0ecbdc8e-72a5-4589-a2ca-f3658dbb88ec",
+  "sandboxTemplates": null
+}
