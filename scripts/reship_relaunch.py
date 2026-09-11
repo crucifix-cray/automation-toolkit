@@ -72,7 +72,7 @@ for c in cells:
     if not c.get("project") or svc.get(c["session"], {}).get("status") != "ready":
         continue
     if c.get("env"):
-        avail.append((c["session"], c["project"], c["env"], f"cell-{c['session'].split('-')[1]}"))
+        avail.append((c["session"], c["project"], c["env"], svc.get(c["session"], {}).get("service") or f"cell-{c['session'].split('-')[1]}"))
 lovs = [int(x) for x in a.only.split(",")] if a.only else list(range(2, 52))
 pairs = list(zip(lovs, avail[:len(lovs)]))
 print(f"reship+relaunch {len(pairs)} cells x{a.par}", flush=True)

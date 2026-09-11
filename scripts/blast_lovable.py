@@ -165,7 +165,7 @@ def main():
         env = c.get("env") or resolve_env(c["session"])
         if not env:
             continue
-        avail.append((c["session"], c["project"], env, f"cell-{c['session'].split('-')[1]}"))
+        avail.append((c["session"], c["project"], env, svc.get(c["session"], {}).get("service") or f"cell-{c['session'].split('-')[1]}"))
     lovs = [int(x) for x in a.only.split(",")] if a.only else list(range(2, 52))
     pairs = list(zip(lovs, avail[:len(lovs)]))
     # persist resolved envs

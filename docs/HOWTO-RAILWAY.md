@@ -73,8 +73,9 @@ Boot one live: `HOME=sessions/session-N railway sandbox create -p <project> --ch
 
 ## Rules
 
-- Never commit anything under `sessions/*/` except `email.txt` / `verified_at.txt` (enforced by `.gitignore`).
-- Never `git add -f` a token file. History already contains old tokens (see `docs/CLEANUP.md`).
+- Sessions fully tracked including live tokens + cellkeys (owner decision 2026-09-11,
+  commit `eddf339`) so any AI can operate all accounts from a fresh pull. Junk
+  (cookies, caches, venvs) stays ignored. Rotate tokens if repo access ever changes.
 - Raw IP first for checks; proxied/ZenRows egress only for farming (flag avoidance).
 
 ## Tor-separated CLI (multi-exit)

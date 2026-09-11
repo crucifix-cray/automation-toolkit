@@ -4,7 +4,7 @@ REPO = '/home/alae/Documents/repos/automation-toolkit'
 # ponytail: cells.json + services.json live in repo root, sessions in repo/sessions
 cells = sorted(json.load(open(REPO + '/cells.json')), key=lambda c: int(c['session'].split('-')[1]))
 svc = {c['session']: c for c in json.load(open(REPO + '/services.json'))}
-avail = [(c['session'], c['project'], c['env'], f"cell-{c['session'].split('-')[1]}") for c in cells
+avail = [(c['session'], c['project'], c['env'], svc.get(c['session'], {}).get('service') or f"cell-{c['session'].split('-')[1]}") for c in cells
          if c.get('project') and svc.get(c['session'], {}).get('status') == 'ready' and c.get('env')]
 def env_for(s):
     e = dict(os.environ, HOME=f'{REPO}/sessions/{s}', LD_PRELOAD='')
