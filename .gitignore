@@ -58,10 +58,3 @@ opencode backups/sessions/
 # OnKernel sessions contain API keys + Clerk cookies (onk-api.py / onk-org-reset.py) - never commit.
 finals/sessions/onk_*.json
 finals/sessions/latest_onk.json
-# Nested farm/session dumps (any depth): never track creds/cookies/keys
-sessions/**/config.json
-sessions/**/cookies.json
-sessions/**/totp*.json
-sessions/**/farm_sessions/
-sessions/**/.ssh/
-sessions/**/.railway/
