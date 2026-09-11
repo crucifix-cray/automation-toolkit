@@ -63,6 +63,59 @@ def _del_browser(sid):
             env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY},
             timeout=15, capture_output=True)
 
+async def _dismiss_overlays(page):
+    """Kill cookie-consent / popup banners that crop or cover inputs."""
+    try:
+        await page.evaluate("""() => {
+            const btns = [...document.querySelectorAll('button')];
+            for (const b of btns) {
+                const t = (b.innerText || '').trim().toLowerCase();
+                if (['ok', 'accept', 'accept all', 'got it', 'agree', 'allow all'].includes(t)) {
+                    const r = b.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) { b.click(); }
+                }
+            }
+        }""")
+    except Exception:
+        pass
+
+
+async def _uncrop(page, locator, tag="el"):
+    """Scroll element fully into view and verify it isn't covered.
+    Returns True when clickable."""
+    try:
+        await locator.scroll_into_view_if_needed(timeout=8000)
+    except Exception:
+        pass
+    try:
+        await page.evaluate("""(el) => {
+            el.scrollIntoView({block: 'center', inline: 'center'});
+        }""", await locator.element_handle())
+    except Exception:
+        pass
+    await page.wait_for_timeout(800)
+    try:
+        info = await locator.evaluate("""(el) => {
+            const r = el.getBoundingClientRect();
+            const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+            const top = document.elementFromPoint(cx, cy);
+            const inside = top && (top === el || el.contains(top) || top.contains(el));
+            return {x: r.x, y: r.y, w: r.width, h: r.height,
+                    vw: window.innerWidth, vh: window.innerHeight,
+                    covered: !inside};
+        }""")
+        if info and info.get("covered"):
+            log(f"{tag} covered by overlay, retrying dismiss")
+            await _dismiss_overlays(page)
+            await page.wait_for_timeout(800)
+            return False
+        if info and (info.get("w", 0) < 5 or info.get("h", 0) < 5):
+            return False
+        return True
+    except Exception:
+        return True  # can't prove otherwise — try the click anyway
+
+
 async def _totp_fill(page, secret):
     # proven pattern from lov-session-refresh-totp.py: local pyotp, no 2fa.live at runtime
     import pyotp
@@ -287,7 +340,10 @@ async def remix_one(pw, ctx, num):
                 except Exception:
                     continue
             if chat_input:
-                break
+                await _dismiss_overlays(page)
+                if await _uncrop(page, chat_input, "chat input"):
+                    break
+                chat_input = None  # covered — retry scroll+dismiss round
             log(f"chat input not yet rendered (scroll try {_scroll_try+1}/3)")
         if not chat_input:
             return {"session": num, "email": email, "success": False, "reason": "no chat input",
