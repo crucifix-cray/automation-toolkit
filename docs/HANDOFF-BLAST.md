@@ -12,7 +12,9 @@ Keeper source: `https://lovable.dev/projects/9941886d-d66f-4be6-8c77-5517809a36b
 Lovable N (2..51) → Railway cells `avail[:50]` = session-1..50 (was session-13,16,23,25,26,28,30,31,32,35,
 36,43,53,75,76,77,80,81,82,83,84,86,87,88,89,90,91,92,93,94,95,96,106,107,108,109,110,
 111,112,113,115,116,117,118,120,121,122,125,126,129 — see scripts/blast_lovable.py).
-**session-51 (was session-130) left out** (51st, no service). 123/124/127/128 restricted, 5 has no service.
+**session-51 in blast** (all 51 have services; registries reconciled 2026-09-11).
+Old dirs (53..130) removed — dead tokens, backup at `~/railway_tokens_backup/`.
+Restricted ex-123/124/127/128 removed earlier, same backup dir.
 
 ## State when handed off
 - `scripts/reship_relaunch.py --par 2` full clean pass: check `/tmp/reship_clean2.log` tail.

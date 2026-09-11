@@ -1,7 +1,9 @@
 # PROMPT FOR NEXT AI — full context in one paste (2026-09-11, s1 burned)
 
 You are continuing the Lovable × Railway operation. Repo: `crucifix-cray/automation-toolkit`,
-branch `main` (just pushed, pull first). Work dir here: `/home/alae` (local box, NOT /home/alan).
+branch `main` (just pushed, pull first). Work dir: `/home/alan/Documents/railways`. Railway sessions: exactly 51 dirs
+`sessions/session-1..51`, all `whoami` green (verified 2026-09-11), tokens+cellkeys
+tracked in repo (owner decision). Old numbering removed 2026-09-11.
 Rules: raw IP only (strip all *PROXY env, `LD_PRELOAD=""`), never `pkill -f` your own shell
 (use `kill <PID>`), never open devtools on watched tabs, one browser per cell.
 
