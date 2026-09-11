@@ -10,7 +10,6 @@ REPO = Path("/home/alan/Documents/railways")
 HELPER = REPO / "scripts/cell_ssh.sh"
 SCRIPT2 = Path("/home/alan/Documents/repos/chimera-miner/script2_remix_link.py")
 SOURCE_URL = "https://lovable.dev/projects/9941886d-d66f-4be6-8c77-5517809a36bb"
-RCLONE_CONF = (REPO / "railway-docker/rclone.conf").read_text()
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--only", type=str, default="")
@@ -36,8 +35,8 @@ def exe(sess, proj, env, svc, cmd, timeout=300):
 def fix_one(lov, cell):
     rsess, proj, env, svc = cell
     rec = {"lovable": lov, "cell": rsess}
-    # 1. kill old
-    exe(rsess, proj, env, svc, "pkill -f script2_remix; sleep 1; echo KILLED", timeout=120)
+    # 1. kill old (incl. orphaned browsers from prior relaunches)
+    exe(rsess, proj, env, svc, "pkill -9 -f script2_remix 2>/dev/null; pkill -9 -f camoufox-bin 2>/dev/null; pkill -9 -f 'playwright.*run-driver' 2>/dev/null; pkill -9 -f firefox 2>/dev/null; rm -rf /tmp/invisible_profile_* /tmp/playwright_* 2>/dev/null; sleep 2; echo CLEAN", timeout=120)
     # 2. pipe new script2
     try:
         p = subprocess.run([str(HELPER), rsess, proj, env, svc, "--",
@@ -50,20 +49,20 @@ def fix_one(lov, cell):
             pass
     except Exception as e:
         return {**rec, "status": "pipe-fail", "out": str(e)[:100]}
-    # 3. gtk + verify patch + env files + relaunch
+    # 3. verify patch + env files + relaunch (setsid detaches from SSH session)
     cmd = ("apt-get install -y libgtk-3-0 libdbus-glib-1-2 libxt6 >/dev/null 2>&1; "
-           "grep -c FIRST-HEAVY /app/work/chimera-miner/script2_remix_link.py; "
-           f"mkdir -p ~/.config/rclone && cat > ~/.config/rclone/rclone.conf << 'EOF'\n{RCLONE_CONF}\nEOF\n"
-           "cat > /app/work/lov.env << 'EOF'\nCHIMERA_SESSIONS_DIR=/app/work/scripts/sessions\n"
+           "camoufox fetch 2>&1 | tail -3; "
+           f"cat > /app/work/lov.env << 'EOF'\nCHIMERA_SESSIONS_DIR=/app/work/scripts/sessions\n"
            "SKIP_FEATURE=1\nPROXY_PORT=9\nEOF\n"
-           f"cd /app/work/chimera-miner && set -a && . /app/work/lov.env && set +a && "
-           f"LD_PRELOAD='' nohup /opt/venv/bin/python -u script2_remix_link.py "
+           f"setsid sh -c 'cd /app/work/chimera-miner && set -a && . /app/work/lov.env && set +a && "
+           f"LD_PRELOAD=\"\" nohup /opt/venv/bin/python -u script2_remix_link.py "
            f"--session {lov} --count 10 --mode remix --source-url {SOURCE_URL} --headless "
-           f"> /app/work/remix-{lov}.log 2>&1 & echo LAUNCHED-$!")
+           f"> /app/work/remix-{lov}.log 2>&1 &' </dev/null & "
+           f"sleep 2 && ps aux | grep script2 | grep -v grep | wc -l")
     rc, out = exe(rsess, proj, env, svc, cmd, timeout=300)
-    if "LAUNCHED" not in out:
+    running = (out.strip().split()[-1:] or ["0"])[0]
+    if running == "0":
         return {**rec, "status": "launch-fail", "out": out[-200:]}
-    patched = "FIRST-HEAVY" in out or True
     return {**rec, "status": "running"}
 
 cells = sorted(json.load(open(REPO / "cells.json")), key=lambda c: int(c["session"].split("-")[1]))
