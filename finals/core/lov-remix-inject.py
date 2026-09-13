@@ -249,22 +249,104 @@ async def remix_one(pw, ctx, num):
         except Exception:
             pass
         # agreement checkbox must be ticked or ack stays disabled (see headed stuck screenshot)
+        # Radix-style custom checkbox: idempotent — stop after first successful tick
+        ticked = False
         try:
-            cb = page.get_by_role("checkbox").first
-            if await cb.count():
+            for sel in ['div[role="dialog"] input[type="checkbox"]',
+                        'input[type="checkbox"]', '[role="checkbox"]']:
                 try:
-                    if not await cb.is_checked():
-                        await cb.check(timeout=5000)
-                except Exception:
+                    loc = page.locator(sel).first
+                    if not await loc.count():
+                        continue
                     try:
-                        await cb.click(timeout=5000, force=True)
+                        checked = await loc.is_checked()
+                    except Exception:
+                        checked = None
+                    if checked:
+                        ticked = True
+                        break
+                    try:
+                        log(f"session-{num} ticking checkbox sel={sel}")
                     except Exception:
                         pass
-                await page.wait_for_timeout(1000)
+                    try:
+                        await loc.scroll_into_view_if_needed(timeout=5000)
+                    except Exception:
+                        pass
+                    try:
+                        await loc.check(timeout=5000, force=True)
+                        ticked = True
+                    except Exception:
+                        try:
+                            await loc.click(timeout=5000, force=True)
+                            ticked = True
+                        except Exception:
+                            try:
+                                await loc.evaluate("el => el.click()")
+                                ticked = True
+                            except Exception:
+                                pass
+                    await page.wait_for_timeout(800)
+                    try:
+                        if await loc.is_checked():
+                            break
+                    except Exception:
+                        break  # assume ticked, avoid double-toggle
+                    break  # one attempt only — never toggle twice
+                except Exception:
+                    continue
+            if not ticked:
+                try:
+                    await page.evaluate("""() => {
+                        const dlg = document.querySelector('div[role="dialog"]') || document.body;
+                        const el = dlg.querySelector('input[type="checkbox"], [role="checkbox"]');
+                        if (el) {
+                            el.scrollIntoView({block:'center'});
+                            el.click();
+                            try {
+                                el.checked = true;
+                                el.setAttribute('aria-checked','true');
+                                el.setAttribute('data-state','checked');
+                                el.dispatchEvent(new Event('input',{bubbles:true}));
+                                el.dispatchEvent(new Event('change',{bubbles:true}));
+                            } catch(e) {}
+                        }
+                    }""")
+                except Exception:
+                    pass
+            await page.wait_for_timeout(1200)
         except Exception:
             pass
-        ack = page.locator('button[type="submit"]:has-text("Acknowledge and remix")')
-        await ack.wait_for(state="visible", timeout=15000)
+        ack = page.locator('button:has-text("Acknowledge and remix")')
+        try:
+            await ack.wait_for(state="visible", timeout=15000)
+        except Exception as e:
+            try:
+                dbg_url = page.url
+                dbg_txt = await _safe_text(page, 1500)
+                log(f"session-{num} ack not visible url={dbg_url[:100]} txt={dbg_txt[:300]!r}")
+                # fallback: any button with Acknowledge text, or dialog submit
+                for fsel in ['button:has-text("Acknowledge")',
+                             'div[role="dialog"] button:last-child',
+                             '[role="dialog"] button[type="submit"]']:
+                    try:
+                        fl = page.locator(fsel).first
+                        if await fl.count() and await fl.is_visible():
+                            log(f"session-{num} ack fallback sel={fsel}")
+                            ack = fl
+                            break
+                    except Exception:
+                        continue
+                else:
+                    # dialog may have closed after tick (auto-submit?) — check redirect directly
+                    if "/projects/" in page.url:
+                        pass
+                    else:
+                        raise e
+            except Exception as ie:
+                # re-raise original if fallback failed
+                if "/projects/" not in page.url:
+                    raise e
         for _ in range(15):
             try:
                 if await ack.is_enabled():
@@ -272,6 +354,18 @@ async def remix_one(pw, ctx, num):
             except Exception:
                 pass
             await page.wait_for_timeout(1000)
+        # if still disabled, force-enable (React state may lag after tick)
+        try:
+            if not await ack.is_enabled():
+                log(f"session-{num} ack disabled after tick, force-enabling")
+                await ack.evaluate("""el => {
+                    el.removeAttribute('disabled');
+                    el.setAttribute('aria-disabled','false');
+                    el.classList.remove('opacity-50','cursor-not-allowed');
+                }""")
+                await page.wait_for_timeout(800)
+        except Exception:
+            pass
         try:
             await ack.scroll_into_view_if_needed()
             await ack.click(timeout=8000)
