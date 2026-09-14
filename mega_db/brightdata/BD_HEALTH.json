@@ -1,0 +1,69 @@
+{
+  "checked_at": "2026-08-31T22:21:06.475178",
+  "total": 12,
+  "healthy": 0,
+  "suspended": 10,
+  "results": {
+    "acc1": {
+      "customer": "hl_709648b2",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_709648b2-zone-scraping_browser1:gt3c86orms1c@brd.superproxy.io:9222"
+    },
+    "acc10": {
+      "customer": "hl_e895b201",
+      "status": "TIMEOUT",
+      "wss": "wss://brd-customer-hl_e895b201-zone-scraping_browser1:b65xwy1jycfq@brd.superproxy.io:9222"
+    },
+    "acc11": {
+      "customer": "hl_7e8d5d40",
+      "status": "TIMEOUT",
+      "wss": "wss://brd-customer-hl_7e8d5d40-zone-scraping_browser1:to0nqcophe4h@brd.superproxy.io:9222"
+    },
+    "acc12": {
+      "customer": "hl_76276a19",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_76276a19-zone-scraping_browser1:yv0s6mr3xrgt@brd.superproxy.io:9222"
+    },
+    "acc2": {
+      "customer": "hl_834743cb",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_834743cb-zone-scraping_browser1:q7k1y7ug1v69@brd.superproxy.io:9222"
+    },
+    "acc3": {
+      "customer": "hl_3496e863",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_3496e863-zone-scraping_browser1:9glc7ho0mx9w@brd.superproxy.io:9222"
+    },
+    "acc4": {
+      "customer": "hl_faaefe91",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_faaefe91-zone-scraping_browser1:1e6cx8umg6ax@brd.superproxy.io:9222"
+    },
+    "acc5": {
+      "customer": "hl_caa3da41",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_caa3da41-zone-scraping_browser1:ur2v4xcy072v@brd.superproxy.io:9222"
+    },
+    "acc6": {
+      "customer": "hl_93561405",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_93561405-zone-scraping_browser1:g3jqlqtsjtkc@brd.superproxy.io:9222"
+    },
+    "acc7": {
+      "customer": "hl_9a778bf1",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_9a778bf1-zone-scraping_browser1:ft5y6mo4jngz@brd.superproxy.io:9222"
+    },
+    "acc8": {
+      "customer": "hl_19c80b8e",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_19c80b8e-zone-scraping_browser1:o3o5s908y9sh@brd.superproxy.io:9222"
+    },
+    "acc9": {
+      "customer": "hl_6b1ebf5c",
+      "status": "SUSPENDED",
+      "wss": "wss://brd-customer-hl_6b1ebf5c-zone-scraping_browser1:fkfbdid0zyi4@brd.superproxy.io:9222"
+    }
+  },
+  "healthy_list": []
+}
