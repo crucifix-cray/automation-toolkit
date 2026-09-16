@@ -4,18 +4,22 @@ Railway miner runner - uses ZenRows to load Lovable session and inject miner
 """
 import asyncio
 import json
+import sys
 from pathlib import Path
 from playwright.async_api import async_playwright
 
 ZENROWS_KEY = '11d7d0ee3adf967ba7361c9139e7a7aa66251fac'
 BRIDGE_URL = 'wss://chimera-bridge-production-0ef2.up.railway.app'
-SESSION_NUM = 3
+BACKOFF = [10, 30, 60, 120]  # seconds between reconnect attempts
+# ponytail: fixed 4-step backoff, ceiling = ~3min total wait; upgrade to
+# infinite retry with jitter only if ZenRows flaps longer than that.
+SESSION_NUM = sys.argv[1] if len(sys.argv) > 1 else __import__('os').environ.get('SESSION_NUM', 3)
 
-async def main():
+async def run_once(session_num):
     print('🚀 Starting Lovable miner on Railway with ZenRows...')
     
     # Load session files
-    session_dir = Path(f'scripts/sessions/session-{SESSION_NUM}')
+    session_dir = Path(f'scripts/sessions/session-{session_num}')
     with open(session_dir / 'config.json') as f:
         config = json.load(f)
     with open(session_dir / 'cookies.json') as f:
@@ -45,7 +49,7 @@ async def main():
         if '/login' in url:
             print('❌ Cookies expired - need to run rescue mode first')
             await browser.close()
-            return
+            return False
         
         # Get first project
         print('📋 Finding project...')
@@ -54,7 +58,9 @@ async def main():
         try:
             # Get first project URL and navigate directly
             project_link = page.locator('a[href*="/projects/"]').first
-            await project_link.wait_for(timeout=10000)
+            # ponytail: attached-state only — we just need the href for goto,
+            # visibility is irrelevant and flaky across ZenRows viewports.
+            await project_link.wait_for(timeout=10000, state="attached")
             project_href = await project_link.get_attribute('href')
             project_url = f'https://lovable.dev{project_href}' if project_href.startswith('/') else project_href
             
@@ -88,24 +94,32 @@ async def main():
                 await preview_page.reload()
                 await preview_page.wait_for_timeout(5000)
                 
-                # Check if WebContainer is ready
+                # Check if WebContainer doc bridge is ready (same as script3)
                 try:
                     check_result = await preview_page.evaluate('''() => {
-                        const logs = [];
-                        if (typeof window !== 'undefined') logs.push('window OK');
-                        if (typeof document !== 'undefined') logs.push('document OK');
-                        return logs.join(', ');
+                        if (window.doc && typeof window.doc === 'function') {
+                            return 'READY';
+                        }
+                        // Also check for other Lovable sandbox indicators
+                        if (window.webcontainer || window.lovable) {
+                            return 'PARTIAL';
+                        }
+                        return 'NOT_READY';
                     }''')
+                    
                     print(f'   Attempt {attempt+1}/10: {check_result}')
                     
-                    # Look for console messages indicating ready
-                    ready = True  # Assume ready after a few checks
-                    if attempt >= 2:
-                        print('🎯 Sandbox appears ready! Injecting miner...')
+                    if check_result == 'READY':
+                        print('🎯 Sandbox ready! (window.doc function exists)')
+                        ready = True
+                        break
+                    elif check_result == 'PARTIAL' and attempt >= 3:
+                        print('🎯 Sandbox partially ready, proceeding...')
+                        ready = True
                         break
                         
                 except Exception as e:
-                    print(f'   Attempt {attempt+1}/10: Still loading... {str(e)[:40]}')
+                    print(f'   Attempt {attempt+1}/10: Error - {str(e)[:40]}')
                 
                 await preview_page.wait_for_timeout(35000)  # 40s between checks
             
@@ -120,6 +134,15 @@ async def main():
                     }}''')
                     print(f'✅ {inject_result}')
                     print(f'   Command: {miner_cmd[:80]}...')
+                    # ponytail: console.log does NOT execute shell — ceiling is
+                    # log-only until a real exec path (WebContainer terminal /
+                    # xterm API in preview) is confirmed; probe below reports it.
+                    exec_probe = await preview_page.evaluate('''() => {
+                        const hasXterm = !!document.querySelector('.xterm, canvas.xterm-link-layer');
+                        const hasWc = typeof window !== 'undefined' && !!window.WebContainer;
+                        return JSON.stringify({hasXterm, hasWc});
+                    }''')
+                    print(f'   🔎 exec-path probe: {exec_probe} (no xterm/WebContainer = NOT actually running)')
                 except Exception as e:
                     print(f'⚠️  Injection error: {e}')
                 
@@ -143,12 +166,33 @@ async def main():
                 print('❌ Sandbox never became ready')
                 
         except Exception as e:
-            print(f'❌ Error: {e}')
+            print(f'❌ Attempt failed: {e}')
             import traceback
             traceback.print_exc()
+            raise
         finally:
-            await browser.close()
+            try:
+                await browser.close()
+            except Exception:
+                pass
             print('👋 Browser closed')
+    return True
+
+async def main():
+    session_num = SESSION_NUM
+    for attempt, wait in enumerate([0] + BACKOFF):
+        if attempt:
+            print(f'🔁 Retry {attempt}/{len(BACKOFF)} after {wait}s backoff...')
+            await asyncio.sleep(wait)
+        try:
+            result = await run_once(session_num)
+            print('🏁 Runner finished successfully' if result
+                  else '🏁 Runner finished: cookies expired, rescue needed - NOT mining')
+            return
+        except Exception as e:
+            print(f'⚠️  Run failed ({type(e).__name__}): {str(e)[:120]}')
+    print(f'❌ All {len(BACKOFF) + 1} attempts failed - giving up')
+    sys.exit(1)
 
 if __name__ == '__main__':
     asyncio.run(main())
