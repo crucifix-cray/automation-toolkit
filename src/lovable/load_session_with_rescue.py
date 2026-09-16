@@ -25,8 +25,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
 SESSIONS_DIR = REPO_ROOT / "scripts" / "sessions"
 
-# Default Kernel API key
+# Default API keys
 DEFAULT_KERNEL_KEY = os.environ.get("KERNEL_API_KEY", "sk_f0a9980a-d5e6-fc2e-869e-ce2143c00595.HZD7XmkCxPGjvbgur-zL2qIa8sEQfXmdDgolE-XXAOk")
+DEFAULT_ZENROWS_KEY = os.environ.get("ZENROWS_API_KEY", "11d7d0ee3adf967ba7361c9139e7a7aa66251fac")
 
 
 async def _safe_text(page, n=500, retries=4):
@@ -135,7 +136,7 @@ async def _rescue_login(page, context, email, password, totp_secret, totp_backup
 
 
 async def load_session(session_num: str, target_url: str = "https://lovable.dev/dashboard", 
-                       headless: bool = True, use_kernel: bool = False):
+                       headless: bool = True, use_kernel: bool = False, use_zenrows: bool = False):
     """Load session with automatic rescue mode if cookies expired."""
     
     session_dir = SESSIONS_DIR / f"session-{session_num}"
@@ -167,6 +168,7 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
     print(f"🔄 Loading session-{session_num} ({email})")
     print(f"   Target: {target_url}")
     print(f"   Headless: {headless}")
+    print(f"   Mode: {'ZenRows CDP' if use_zenrows else 'OnKernel CDP' if use_kernel else 'Local'}")
     print(f"   Rescue mode: ✅ ENABLED (with 2FA + backup TOTP)")
     
     # Load cookies
@@ -178,7 +180,52 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
     # Setup browser
     from playwright.async_api import async_playwright
     
-    if use_kernel:
+    if use_zenrows:
+        print("   🌐 Using ZenRows CDP browser...")
+        zenrows_wss = f"wss://browser.zenrows.com?apikey={DEFAULT_ZENROWS_KEY}&proxy_country=us"
+        print(f"   ZenRows WSS: {zenrows_wss[:60]}...")
+        
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(zenrows_wss, timeout=30000)
+            context = browser.contexts[0] if browser.contexts else await browser.new_context()
+            await context.add_cookies(cookies)
+            page = await context.new_page()
+            
+            # Try to load target URL
+            await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(4000)
+            
+            # Check if cookies worked or need rescue
+            current_url = page.url
+            body_text = await _safe_text(page, 500)
+            
+            if "/login" in current_url or "/auth" in current_url or "Log in" in body_text:
+                # Cookies expired - trigger rescue
+                success = await _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir)
+                if success:
+                    # Retry target URL with fresh cookies
+                    await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
+                    await page.wait_for_timeout(2000)
+                    print(f"\n✅ Session loaded successfully at: {page.url}")
+                else:
+                    print(f"\n❌ Rescue failed - could not re-login")
+                    await browser.close()
+                    return False
+            else:
+                print(f"\n✅ Cookies still valid! Loaded at: {page.url}")
+            
+            print("\n🌐 Browser session active. Press Ctrl+C to close.")
+            
+            # Keep browser open
+            try:
+                await asyncio.sleep(36000)  # 10 hours
+            except KeyboardInterrupt:
+                print("\n⚠️  Closing browser...")
+            
+            await browser.close()
+            return True
+    
+    elif use_kernel:
         print("   🌐 Using OnKernel CDP browser...")
         out = subprocess.check_output(
             ["kernel", "browsers", "create", "--stealth", "--timeout", "1200", "-o", "json"],
@@ -292,13 +339,14 @@ def main():
                        help="Target URL to load (default: dashboard)")
     parser.add_argument("--headed", action="store_true", help="Show browser window")
     parser.add_argument("--kernel", action="store_true", help="Use OnKernel CDP browser")
+    parser.add_argument("--zenrows", action="store_true", help="Use ZenRows CDP browser")
     
     args = parser.parse_args()
     
     headless = not args.headed
     
     try:
-        success = asyncio.run(load_session(args.session, args.url, headless, args.kernel))
+        success = asyncio.run(load_session(args.session, args.url, headless, args.kernel, args.zenrows))
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
         print("\n⚠️  Interrupted by user")

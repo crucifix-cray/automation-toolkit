@@ -21,8 +21,8 @@ See [docs/archive/SCALING-PLAN.md](./docs/archive/SCALING-PLAN.md) and [docs/ARC
 
 ```bash
 # Inside sandbox (1GB, headless) — no WARP install needed
-export ZENROWS_API_KEY=a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7
-export KERNEL_API_KEY=sk_729ff0c8-... # fallback
+export ZENROWS_API_KEY=11d7d0ee3adf967ba7361c9139e7a7aa66251fac  # WORKING (2026-09-15)
+export KERNEL_API_KEY=sk_729ff0c8-... # fallback (currently blocked: org limit 5/5)
 export BRD_WSS="wss://brd-customer-hl_...@brd.superproxy.io:9222"
 
 # Lovable: 1 account (ZenRows GB + dispose.lol) — proven 100% in P0
@@ -61,8 +61,8 @@ automation-toolkit/
 ## 🔑 Key Features
 
 ### Remote Browser Pool (no local WARP)
-- **ZenRows Browser Cloud** `wss://browser.zenrows.com?apikey=...&proxy_country=gb/gf` — GB 86.141.244.43 BT verified, GF 109.222.170.164 FR, no `Forbidden` trap, no `navigate_domains_limit`
-- **OnKernel (Kernel)** `sk_729...` `kernel browsers create --stealth --timeout 600` — 8GiB jfk, headful fallback when ZenRows 402/AUTH004, self-farms ZenRows via astroai.eu.cc
+- **ZenRows Browser Cloud** `wss://browser.zenrows.com?apikey=...&proxy_country=gb/gf/us` — **WORKING KEY: `11d7d0ee3adf967ba7361c9139e7a7aa66251fac`** (anhtha.nhbamot13@gmail.com) — GB 86.141.244.43 BT verified, GF 109.222.170.164 FR, US residential, no `Forbidden` trap, no `navigate_domains_limit`, **39 total keys farmed** (see CONSOLIDATED_zenrows.json)
+- **OnKernel (Kernel)** `sk_729...` `kernel browsers create --stealth --timeout 600` — 8GiB jfk, headful fallback when ZenRows 402/AUTH004, **BLOCKED: org limit 5/5 concurrent sessions** (2026-09-15)
 - **BrightData** `hl_...` `wss://brd.superproxy.io:9222` — 5k credits/mo, `?sessionId` ASN rotation, `window.__nativeSetter` bypass for password trap, 1 domain/session limit
 
 ### Lovable / Railway
@@ -87,8 +87,9 @@ automation-toolkit/
 
 ```bash
 # Remote browsers (Railway sandbox — no WARP)
-ZENROWS_API_KEY=a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7 # GB primary
-KERNEL_API_KEY=sk_729ff0c8-8973-8dcb-9c53-7288178dbc13.jO62-M4NtqELqARSxGY1Ar7BPyjSIU6OhdoHMjdt0Ow
+ZENROWS_API_KEY=11d7d0ee3adf967ba7361c9139e7a7aa66251fac # WORKING (anhtha.nhbamot13@gmail.com, 2026-09-15)
+# OLD KEY (depleted): a71406ecf7cfd8ae0aec54b2d1bf11aa92c917e7
+KERNEL_API_KEY=sk_729ff0c8-8973-8dcb-9c53-7288178dbc13.jO62-M4NtqELqARSxGY1Ar7BPyjSIU6OhdoHMjdt0Ow # BLOCKED 5/5
 BRD_WSS=wss://brd-customer-hl_ebbbb858-zone-scraping_browser1:...@brd.superproxy.io:9222
 CHIMERA_SESSIONS_DIR=/home/alan/Documents/automation-toolkit/scripts/sessions
 CHIMERA_MINER_DIR=/home/alan/Documents/repos/chimera-miner
