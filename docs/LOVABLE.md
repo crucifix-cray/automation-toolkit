@@ -1,41 +1,58 @@
 # Lovable accounts (canonical)
 
-51 accounts, all TOTP. Farmed by Script 1 track (other machine).
+**36 unique** 2FA accounts (deduped from 51 session dirs).
 
-## Sessions
+`scripts/sessions/session-N/` — one dir per email.
+Per session: `config.json` (`email`, `password`, `totp_secret`, optional `totp_secret_backup`, `2fa_live_id`) + `cookies.json`.
 
-`scripts/sessions/session-N/` (N = 1..51) + `scripts/sessions/invites.json`.
-Per session `config.json`: `email`, `password`, `totp_secret`,
-`totp_secret_backup`, `2fa_live_id`, `cookies.json` alongside.
-Status fields (`verified`, `status`, `last_revived_at`) maintained by Script 1 —
-do not hand-edit, read only.
+Login: cookies first; fallback email → password → `pyotp.TOTP(totp_secret)` (local, not 2fa.live API).
 
-## Pipeline (chimera-miner repo)
+## Index
 
-- Script 2 `script2_remix_link.py` (project creator): 10 remixes per account,
-  one account per Railway cell (`sessions/session-N` Railway CLI session feeds
-  cell N). `SKIP_FEATURE=1` on 0-credit accounts. Invites → Mega DB.
-- Script 3 `script3_launch_miner.py` (miner): injects worker via window.doc
-  bridge into `*.lovableproject.com` previews. Honors `MINER_CMD` override.
-- Shared DB: `mega:chimera/database.json` (Mega lock on all writes).
+| session | email |
+|---|---|
+| session-1 | alexandermay706@gmail.com |
+| session-2 | altonlehman16@gmail.com |
+| session-4 | dakarihickmanhickman@gmail.com |
+| session-6 | daxtonharper8@gmail.com |
+| session-7 | emmalinerivers9@gmail.com |
+| session-8 | emonkhanireht56@gmail.com |
+| session-9 | fletcherjakobs@gmail.com |
+| session-11 | jakesparosam@gmail.com |
+| session-16 | joellampard07@gmail.com |
+| session-20 | johngriffin62w@gmail.com |
+| session-25 | johnpeter08541@gmail.com |
+| session-26 | josephgrant651@gmail.com |
+| session-27 | julianhiramqwr@gmail.com |
+| session-28 | kristinenorris08@gmail.com |
+| session-29 | lenasolids546@gmail.com |
+| session-30 | liamantoine31@gmail.com |
+| session-31 | mariepeterson749@gmail.com |
+| session-32 | nyomiparra12@gmail.com |
+| session-33 | roce.sisla@gmail.com |
+| session-34 | rosaliabarrett81@gmail.com |
+| session-35 | samsonarifalo0@gmail.com |
+| session-37 | zakarmmusa832@gmail.com |
+| session-38 | simpsonjessicamarie.0@gmail.com |
+| session-39 | lovgraukipb6b@souss.dev |
+| session-40 | lov6020lpeic9@souss.dev |
+| session-41 | jamesmanalodat.e@gmail.com |
+| session-42 | na.thanrolutenasa@gmail.com |
+| session-43 | lovohqhzhno7q@souss.dev |
+| session-44 | tra.nariumkill@gmail.com |
+| session-45 | lovwsrj0lswqa@souss.dev |
+| session-46 | lovbvxh2yu05l@souss.dev |
+| session-47 | lov484vnilli1@souss.dev |
+| session-48 | lovuu5qwethzg@souss.dev |
+| session-49 | lovtx66imf0z1@souss.dev |
+| session-50 | hellolakanhernand.ez@gmail.com |
+| session-51 | lovv2ubbdli1c@souss.dev |
 
-## Remix flow (NEW Lovable UI — only working flow)
+## Pipeline
 
-Deep-link `{project}?view=more&subview=settings-general` → wait
-`button[name=General]` → pill Remix inside `section#preview-panel`
-(`get_by_role(button, name="Remix", exact=True)`, plain click) → dialog
-`form[data-testid="remix-dialog-content"]` (prefilled name, submit directly,
-45s wait) → new `/projects/<id>` → Share invite → Mega DB.
-Never match `base-ui-*` ids; verify dialog title (Remix/Move/Transfer pills
-look identical); never accept source URL as success.
+- Script 1 (2FA rescue): `src/lovable/session_refresh.py` / `load_session_with_rescue.py` — **pyotp TOTP**
+- Script 2: `chimera-miner/script2_remix_link.py --browser kernel|zenrows` — sends **`prompts/Build a debug terminal.txt`** (never trivial `say 'a'`). Built-in re-login is email+pwd only — **no OTP**.
+- Script 3: `chimera-miner/script3_launch_miner.py` + `miner_injector.py` (mine via `/__shell`)
 
-## Login/TOTP
+**Notes (2026-09-19):** session-1 Lovable **disabled** — skip. session-2 cookies revived. Pilot paused mid-script2.
 
-Cookies first; fallback email → Continue → password →
-`pyotp.TOTP(totp_secret)` → Verify, else `totp_secret_backup`.
-Secrets local-only. Mark red only on proven-bad credentials, never infra flakes.
-
-## Run envs
-
-`CHIMERA_SESSIONS_DIR`, `HEADLESS=1` (script3), `SKIP_FEATURE=1` (script2),
-`MINER_CMD`, `PROXY_PORT=9` forces direct. Proxy env unset + `LD_PRELOAD=''`.
