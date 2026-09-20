@@ -1,25 +1,5 @@
 [
   {
-    "name": "USER_COUNTRY",
-    "value": "US",
-    "domain": "lovable.dev",
-    "path": "/",
-    "expires": 1789512356.605992,
-    "httpOnly": false,
-    "secure": true,
-    "sameSite": "Lax"
-  },
-  {
-    "name": "USER_CURRENCY",
-    "value": "USD",
-    "domain": "lovable.dev",
-    "path": "/",
-    "expires": 1789512356.606309,
-    "httpOnly": false,
-    "secure": true,
-    "sameSite": "Lax"
-  },
-  {
     "name": "LOCALE",
     "value": "en",
     "domain": "lovable.dev",
@@ -40,31 +20,11 @@
     "sameSite": "Lax"
   },
   {
-    "name": "__dpl",
-    "value": "b6e94675b9f75f4b5ccd8556acaa5dda0408aa837878103c94e5c2062e18ea25",
-    "domain": "lovable.dev",
-    "path": "/",
-    "expires": 1788993982.611731,
-    "httpOnly": false,
-    "secure": true,
-    "sameSite": "Lax"
-  },
-  {
-    "name": "__cf_bm",
-    "value": "U9vCQ0feRyveYHKLSvZIu9SQNc9lIlyY.13sU8nOgpI-1788907556.5311058-1.0.1.1-vrWcBrMh9Hsb52owbqetxDlhxO3GJOxr6HS.SS8RswBRvdrStTgcebkaUNn1sK0ADYpp_IjbAcHD8D1K77iTnHJE4S0LRposzhkcY_g4NsOiR_uEBl50GyzKcxs_cZpB",
-    "domain": ".lovable.dev",
-    "path": "/",
-    "expires": 1788909356.606412,
-    "httpOnly": true,
-    "secure": true,
-    "sameSite": "None"
-  },
-  {
     "name": "rl_anonymous_id",
     "value": "RS_ENC_v3_IjJmY2M4OGYzLWJmOTktNGNiNS1iYzc0LTNmNGEwY2ZlNjFmNyI%3D",
     "domain": ".lovable.dev",
     "path": "/",
-    "expires": 1820443584,
+    "expires": 1821467996,
     "httpOnly": false,
     "secure": false,
     "sameSite": "Lax"
@@ -73,16 +33,6 @@
     "name": "__cuid",
     "value": "46050757-7744-425e-96f0-adfc4c9b6b7b",
     "domain": "lovable.dev",
-    "path": "/",
-    "expires": 1823467585,
-    "httpOnly": false,
-    "secure": false,
-    "sameSite": "Lax"
-  },
-  {
-    "name": "__cuid",
-    "value": "46050757-7744-425e-96f0-adfc4c9b6b7b",
-    "domain": ".lovable.dev",
     "path": "/",
     "expires": 1823467585,
     "httpOnly": false,
@@ -124,9 +74,59 @@
     "value": "SphMnKy5nHY4Rwc0WQKplqwCDqv1:bf3e3234737ac8e95e4d",
     "domain": "lovable.dev",
     "path": "/",
-    "expires": 1791499584.789631,
+    "expires": 1792523996.805899,
     "httpOnly": false,
     "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "USER_COUNTRY",
+    "value": "US",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1790536794.233974,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "USER_CURRENCY",
+    "value": "USD",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1790536794.234077,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__dpl",
+    "value": "ec4d5ac0fd989e1034bfe25f0917bf9d48628a722a79aa99bfb94af829ace190",
+    "domain": "lovable.dev",
+    "path": "/",
+    "expires": 1790018394.234089,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__cf_bm",
+    "value": "e0gk2Y2d9ZJj37l.y9vqv.Sdfotq0oKKePmrvA7luqk-1789931994.1598983-1.0.1.1-UlRzuSf.mcE47XV7zAUGlsRQjd8EB15b2IvFHxt5KTrMc.LBT_rJzRdcQ1Emz0ceMEKWlFyhZhzwR.aHi4noPK.fel0wrXXyx1bh5ynokhzxjacZWI2oyJj8E6RA_y3I",
+    "domain": ".lovable.dev",
+    "path": "/",
+    "expires": 1789933794.2341,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "__cuid",
+    "value": "fe99e14eee594d99af174ae40324e683",
+    "domain": ".lovable.dev",
+    "path": "/",
+    "expires": 1824491996,
+    "httpOnly": false,
+    "secure": false,
     "sameSite": "Lax"
   },
   {
@@ -134,17 +134,7 @@
     "value": "free",
     "domain": "lovable.dev",
     "path": "/",
-    "expires": 1791499584.812314,
-    "httpOnly": false,
-    "secure": true,
-    "sameSite": "Lax"
-  },
-  {
-    "name": "lovable-flag-plan",
-    "value": "eyJ1aWQiOiJTcGhNbkt5NW5IWTRSd2MwV1FLcGxxd0NEcXYxIiwid29ya3NwYWNlX2lkIjoiYmYzZTMyMzQ3MzdhYzhlOTVlNGQiLCJwbGFuIjoiZnJlZSIsImlhdCI6MTc4ODkwNzU4NX0.EjsaTddOEC89LkXdaP_dKjiR6XmRGTyBG_5I6X5rxng",
-    "domain": "lovable.dev",
-    "path": "/",
-    "expires": 1788907885.193386,
+    "expires": 1792523996.82461,
     "httpOnly": false,
     "secure": true,
     "sameSite": "Lax"
