@@ -27,7 +27,7 @@ SESSIONS_DIR = REPO_ROOT / "scripts" / "sessions"
 
 # Default API keys
 DEFAULT_KERNEL_KEY = os.environ.get("KERNEL_API_KEY", "sk_f0a9980a-d5e6-fc2e-869e-ce2143c00595.HZD7XmkCxPGjvbgur-zL2qIa8sEQfXmdDgolE-XXAOk")
-DEFAULT_ZENROWS_KEY = os.environ.get("ZENROWS_API_KEY", "11d7d0ee3adf967ba7361c9139e7a7aa66251fac")
+DEFAULT_ZENROWS_KEY = os.environ.get("ZENROWS_API_KEY", "7213c8436771ba990ec226f68d64b3d6c1e666f3")
 
 
 async def _safe_text(page, n=500, retries=4):
@@ -69,6 +69,187 @@ async def _totp_fill(page, secret):
     except Exception:
         await page.locator('[data-testid="auth-submit-button"]').click()
     return code
+
+
+async def _save_full_state(context, page, session_dir):
+    """Save cookies + localStorage + IndexedDB (Firebase refresh token) to disk.
+    This is the FULL session state — restoring all three avoids re-login."""
+    # 1. Cookies (existing behavior)
+    fresh_cookies = await context.cookies()
+    with open(session_dir / "cookies.json", "w") as f:
+        json.dump(fresh_cookies, f, indent=2)
+    print(f"   ✅ Saved {len(fresh_cookies)} cookies")
+    # 2. localStorage
+    try:
+        ls_data = await page.evaluate("""() => {
+            const out = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                out[k] = localStorage.getItem(k);
+            }
+            return out;
+        }""")
+        with open(session_dir / "localstorage.json", "w") as f:
+            json.dump(ls_data, f, indent=2)
+        print(f"   ✅ Saved localStorage ({len(ls_data)} keys)")
+    except Exception as e:
+        print(f"   ⚠️  localStorage save failed: {e}")
+    # 3. IndexedDB — Firebase auth (access + refresh token)
+    try:
+        idb_data = await page.evaluate("""async () => {
+            return new Promise((resolve) => {
+                try {
+                    const req = indexedDB.open('firebaseLocalStorageDb');
+                    req.onsuccess = () => {
+                        const db = req.result;
+                        const stores = Array.from(db.objectStoreNames);
+                        if (!stores.length) { resolve([]); return; }
+                        const tx = db.transaction(stores, 'readonly');
+                        const out = [];
+                        let pending = stores.length;
+                        stores.forEach(sn => {
+                            try {
+                                const rq = tx.objectStore(sn).getAll();
+                                rq.onsuccess = () => {
+                                    rq.result.forEach(r => out.push({store: sn, key: r.fkey || r.key, value: r.value}));
+                                    if (--pending === 0) resolve(out);
+                                };
+                                rq.onerror = () => { if (--pending === 0) resolve(out); };
+                            } catch(e) { if (--pending === 0) resolve(out); }
+                        });
+                    };
+                    req.onerror = () => resolve([]);
+                } catch(e) { resolve([]); }
+            });
+        }""")
+        with open(session_dir / "indexeddb.json", "w") as f:
+            json.dump(idb_data, f, indent=2)
+        has_refresh = any(
+            r.get("value", {}).get("stsTokenManager", {}).get("refreshToken")
+            for r in idb_data if isinstance(r.get("value"), dict)
+        )
+        print(f"   ✅ Saved IndexedDB ({len(idb_data)} records, refresh_token={'YES' if has_refresh else 'MISSING'})")
+    except Exception as e:
+        print(f"   ⚠️  IndexedDB save failed: {e}")
+
+
+async def _load_full_state(context, page, session_dir, target_url="https://lovable.dev"):
+    """Restore cookies + localStorage + IndexedDB before navigating.
+    Must visit the domain once before injecting storage."""
+    # 1. Cookies (existing behavior — caller already does add_cookies, skip if done)
+    # 2. localStorage
+    ls_file = session_dir / "localstorage.json"
+    if ls_file.exists():
+        try:
+            with open(ls_file) as f:
+                ls_data = json.load(f)
+            # Need a page on the domain first
+            await page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
+            await page.evaluate("(data) => { for (const [k, v] of Object.entries(data)) { try { localStorage.setItem(k, v); } catch(e) {} } }", ls_data)
+            print(f"   ✅ Restored localStorage ({len(ls_data)} keys)")
+        except Exception as e:
+            print(f"   ⚠️  localStorage restore failed: {e}")
+    # 3. IndexedDB — Firebase auth
+    idb_file = session_dir / "indexeddb.json"
+    if idb_file.exists():
+        try:
+            with open(idb_file) as f:
+                idb_data = json.load(f)
+            if idb_data:
+                # Ensure we're on the domain
+                if "lovable.dev" not in page.url:
+                    await page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
+                restored = await page.evaluate("""(records) => {
+                    return new Promise((resolve) => {
+                        try {
+                            const delReq = indexedDB.deleteDatabase('firebaseLocalStorageDb');
+                            delReq.onsuccess = delReq.onerror = delReq.onblocked = () => {
+                                const openReq = indexedDB.open('firebaseLocalStorageDb');
+                                openReq.onupgradeneeded = () => {
+                                    openReq.result.createObjectStore('firebaseLocalStorage', {keyPath: 'fkey'});
+                                };
+                                openReq.onsuccess = () => {
+                                    const db = openReq.result;
+                                    const tx = db.transaction('firebaseLocalStorage', 'readwrite');
+                                    const store = tx.objectStore('firebaseLocalStorage');
+                                    let done = 0;
+                                    if (!records.length) { resolve(0); return; }
+                                    records.forEach(r => {
+                                        try {
+                                            const putReq = store.put({fkey: r.key, value: r.value});
+                                            putReq.onsuccess = putReq.onerror = () => { if (++done === records.length) resolve(done); };
+                                        } catch(e) { if (++done === records.length) resolve(done); }
+                                    });
+                                };
+                                openReq.onerror = () => resolve(-1);
+                            };
+                        } catch(e) { resolve(-1); }
+                    });
+                }""", idb_data)
+                print(f"   ✅ Restored IndexedDB ({restored} records)")
+        except Exception as e:
+            print(f"   ⚠️  IndexedDB restore failed: {e}")
+
+
+async def _refresh_firebase_token(page):
+    """If Firebase access token expired but refresh token exists, mint a new one.
+    Returns True if token is fresh (or was refreshed), False if no refresh possible."""
+    try:
+        result = await page.evaluate("""async () => {
+            return new Promise((resolve) => {
+                try {
+                    const req = indexedDB.open('firebaseLocalStorageDb');
+                    req.onsuccess = () => {
+                        const db = req.result;
+                        const tx = db.transaction('firebaseLocalStorage', 'readwrite');
+                        const store = tx.objectStore('firebaseLocalStorage');
+                        const getAll = store.getAll();
+                        getAll.onsuccess = async () => {
+                            for (const r of getAll.result) {
+                                const v = r.value;
+                                if (v && v.stsTokenManager && v.stsTokenManager.refreshToken) {
+                                    const now = Date.now();
+                                    const exp = v.stsTokenManager.expirationTime || 0;
+                                    if (exp > now + 60000) { resolve({status: 'fresh', exp}); return; }
+                                    // Expired — use refresh token to mint new access token
+                                    try {
+                                        const resp = await fetch(
+                                            'https://securetoken.googleapis.com/v1/token?key=' + v.apiKey,
+                                            {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                             body: 'grant_type=refresh_token&refresh_token=' + v.stsTokenManager.refreshToken});
+                                        const data = await resp.json();
+                                        if (data.access_token) {
+                                            v.stsTokenManager.accessToken = data.access_token;
+                                            v.stsTokenManager.expirationTime = Date.now() + (parseInt(data.expires_in || '3600') * 1000);
+                                            if (data.refresh_token) v.stsTokenManager.refreshToken = data.refresh_token;
+                                            store.put({fkey: r.fkey, value: v});
+                                            resolve({status: 'refreshed', exp: v.stsTokenManager.expirationTime});
+                                        } else { resolve({status: 'refresh_failed', detail: JSON.stringify(data).slice(0,200)}); }
+                                    } catch(e) { resolve({status: 'refresh_error', detail: String(e).slice(0,200)}); }
+                                    return;
+                                }
+                            }
+                            resolve({status: 'no_token'});
+                        };
+                        getAll.onerror = () => resolve({status: 'db_error'});
+                    };
+                    req.onerror = () => resolve({status: 'db_open_failed'});
+                } catch(e) { resolve({status: 'error', detail: String(e).slice(0,200)}); }
+            });
+        }""")
+        status = result.get("status", "unknown")
+        if status == "fresh":
+            print(f"   ✅ Firebase token fresh (expires {result.get('exp')})")
+            return True
+        elif status == "refreshed":
+            print(f"   ✅ Firebase token REFRESHED without re-login (new expiry {result.get('exp')})")
+            return True
+        else:
+            print(f"   ⚠️  Firebase token status: {status} {result.get('detail', '')}")
+            return False
+    except Exception as e:
+        print(f"   ⚠️  Firebase refresh check failed: {e}")
+        return False
 
 
 async def _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir):
@@ -119,12 +300,9 @@ async def _rescue_login(page, context, email, password, totp_secret, totp_backup
         # Check if login succeeded
         final_txt = await _safe_text(page, 500)
         if "Log in" not in final_txt:
-            # Save fresh cookies
-            fresh_cookies = await context.cookies()
-            cookies_file = session_dir / "cookies.json"
-            with open(cookies_file, "w") as f:
-                json.dump(fresh_cookies, f, indent=2)
-            print(f"   ✅ Rescue successful! Saved {len(fresh_cookies)} fresh cookies")
+            # Save FULL state: cookies + localStorage + IndexedDB (Firebase refresh token)
+            await _save_full_state(context, page, session_dir)
+            print(f"   ✅ Rescue successful! Full session state saved")
             return True
         else:
             print("   ❌ Login failed - still on login page")
@@ -190,29 +368,43 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             context = browser.contexts[0] if browser.contexts else await browser.new_context()
             await context.add_cookies(cookies)
             page = await context.new_page()
-            
+
+            # Restore full state (localStorage + IndexedDB/Firebase) before navigating
+            await _load_full_state(context, page, session_dir)
+
             # Try to load target URL
             await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
             await page.wait_for_timeout(4000)
-            
+
             # Check if cookies worked or need rescue
             current_url = page.url
             body_text = await _safe_text(page, 500)
-            
+
             if "/login" in current_url or "/auth" in current_url or "Log in" in body_text:
-                # Cookies expired - trigger rescue
-                success = await _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir)
-                if success:
-                    # Retry target URL with fresh cookies
+                # Step 1: Try Firebase silent refresh (no credentials needed)
+                print("   🔄 Cookies stale — trying Firebase silent refresh first...")
+                if await _refresh_firebase_token(page):
+                    await _save_full_state(context, page, session_dir)
                     await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
                     await page.wait_for_timeout(2000)
-                    print(f"\n✅ Session loaded successfully at: {page.url}")
+                    print(f"\n✅ Session revived via Firebase refresh at: {page.url}")
                 else:
-                    print(f"\n❌ Rescue failed - could not re-login")
-                    await browser.close()
-                    return False
+                    # Step 2: Full rescue with credentials
+                    success = await _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir)
+                    if success:
+                        # Retry target URL with fresh cookies
+                        await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
+                        await page.wait_for_timeout(2000)
+                        print(f"\n✅ Session loaded successfully at: {page.url}")
+                    else:
+                        print(f"\n❌ Rescue failed - could not re-login")
+                        await browser.close()
+                        return False
             else:
                 print(f"\n✅ Cookies still valid! Loaded at: {page.url}")
+                # Proactively refresh Firebase token + save full state while we're here
+                await _refresh_firebase_token(page)
+                await _save_full_state(context, page, session_dir)
             
             print("\n🌐 Browser session active. Press Ctrl+C to close.")
             
@@ -242,29 +434,43 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             context = browser.contexts[0] if browser.contexts else await browser.new_context()
             await context.add_cookies(cookies)
             page = await context.new_page()
-            
+
+            # Restore full state (localStorage + IndexedDB/Firebase) before navigating
+            await _load_full_state(context, page, session_dir)
+
             # Try to load target URL
             await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
             await page.wait_for_timeout(4000)
-            
+
             # Check if cookies worked or need rescue
             current_url = page.url
             body_text = await _safe_text(page, 500)
-            
+
             if "/login" in current_url or "/auth" in current_url or "Log in" in body_text:
-                # Cookies expired - trigger rescue
-                success = await _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir)
-                if success:
-                    # Retry target URL with fresh cookies
+                # Step 1: Try Firebase silent refresh (no credentials needed)
+                print("   🔄 Cookies stale — trying Firebase silent refresh first...")
+                if await _refresh_firebase_token(page):
+                    await _save_full_state(context, page, session_dir)
                     await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
                     await page.wait_for_timeout(2000)
-                    print(f"\n✅ Session loaded successfully at: {page.url}")
+                    print(f"\n✅ Session revived via Firebase refresh at: {page.url}")
                 else:
-                    print(f"\n❌ Rescue failed - could not re-login")
-                    await browser.close()
-                    return False
+                    # Step 2: Full rescue with credentials
+                    success = await _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir)
+                    if success:
+                        # Retry target URL with fresh cookies
+                        await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
+                        await page.wait_for_timeout(2000)
+                        print(f"\n✅ Session loaded successfully at: {page.url}")
+                    else:
+                        print(f"\n❌ Rescue failed - could not re-login")
+                        await browser.close()
+                        return False
             else:
                 print(f"\n✅ Cookies still valid! Loaded at: {page.url}")
+                # Proactively refresh Firebase token + save full state while we're here
+                await _refresh_firebase_token(page)
+                await _save_full_state(context, page, session_dir)
             
             print("\n🌐 Browser session active. Press Ctrl+C to close.")
             print(f"   Live view: {kernel_data.get('browser_live_view_url', 'N/A')}")
@@ -294,29 +500,43 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             )
             await context.add_cookies(cookies)
             page = await context.new_page()
-            
+
+            # Restore full state (localStorage + IndexedDB/Firebase) before navigating
+            await _load_full_state(context, page, session_dir)
+
             # Try to load target URL
             await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
             await page.wait_for_timeout(4000)
-            
+
             # Check if cookies worked or need rescue
             current_url = page.url
             body_text = await _safe_text(page, 500)
-            
+
             if "/login" in current_url or "/auth" in current_url or "Log in" in body_text:
-                # Cookies expired - trigger rescue
-                success = await _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir)
-                if success:
-                    # Retry target URL with fresh cookies
+                # Step 1: Try Firebase silent refresh (no credentials needed)
+                print("   🔄 Cookies stale — trying Firebase silent refresh first...")
+                if await _refresh_firebase_token(page):
+                    await _save_full_state(context, page, session_dir)
                     await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
                     await page.wait_for_timeout(2000)
-                    print(f"\n✅ Session loaded successfully at: {page.url}")
+                    print(f"\n✅ Session revived via Firebase refresh at: {page.url}")
                 else:
-                    print(f"\n❌ Rescue failed - could not re-login")
-                    await browser.close()
-                    return False
+                    # Step 2: Full rescue with credentials
+                    success = await _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir)
+                    if success:
+                        # Retry target URL with fresh cookies
+                        await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
+                        await page.wait_for_timeout(2000)
+                        print(f"\n✅ Session loaded successfully at: {page.url}")
+                    else:
+                        print(f"\n❌ Rescue failed - could not re-login")
+                        await browser.close()
+                        return False
             else:
                 print(f"\n✅ Cookies still valid! Loaded at: {page.url}")
+                # Proactively refresh Firebase token + save full state while we're here
+                await _refresh_firebase_token(page)
+                await _save_full_state(context, page, session_dir)
             
             print("\n🌐 Browser session active. Press Ctrl+C to close.")
             
