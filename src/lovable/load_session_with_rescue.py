@@ -135,16 +135,26 @@ async def _save_full_state(context, page, session_dir):
 
 async def _load_full_state(context, page, session_dir, target_url="https://lovable.dev"):
     """Restore cookies + localStorage + IndexedDB before navigating.
-    Must visit the domain once before injecting storage."""
+    Must visit the domain once before injecting storage.
+    Uses short timeouts — never blocks more than 20s per step."""
+    NAV_TIMEOUT = 15000  # 15s max per navigation, fail fast
     # 1. Cookies (existing behavior — caller already does add_cookies, skip if done)
-    # 2. localStorage
+    # 2. localStorage — navigate with short timeout, skip if slow
     ls_file = session_dir / "localstorage.json"
     if ls_file.exists():
         try:
             with open(ls_file) as f:
                 ls_data = json.load(f)
-            # Need a page on the domain first
-            await page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
+            # Need a page on the domain first — short timeout, fail fast
+            try:
+                await page.goto(target_url, timeout=NAV_TIMEOUT, wait_until="commit")
+            except Exception as nav_e:
+                print(f"   ⚠️  Nav to domain timed out (OK, continuing): {str(nav_e)[:60]}")
+                # Try once more with just commit (fastest load state)
+                try:
+                    await page.goto(target_url, timeout=NAV_TIMEOUT, wait_until="commit")
+                except Exception:
+                    pass
             await page.evaluate("(data) => { for (const [k, v] of Object.entries(data)) { try { localStorage.setItem(k, v); } catch(e) {} } }", ls_data)
             print(f"   ✅ Restored localStorage ({len(ls_data)} keys)")
         except Exception as e:
@@ -156,9 +166,12 @@ async def _load_full_state(context, page, session_dir, target_url="https://lovab
             with open(idb_file) as f:
                 idb_data = json.load(f)
             if idb_data:
-                # Ensure we're on the domain
+                # Ensure we're on the domain — short timeout
                 if "lovable.dev" not in page.url:
-                    await page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
+                    try:
+                        await page.goto(target_url, timeout=NAV_TIMEOUT, wait_until="commit")
+                    except Exception:
+                        pass
                 restored = await page.evaluate("""(records) => {
                     return new Promise((resolve) => {
                         try {
@@ -406,14 +419,6 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
                 await _refresh_firebase_token(page)
                 await _save_full_state(context, page, session_dir)
             
-            print("\n🌐 Browser session active. Press Ctrl+C to close.")
-            
-            # Keep browser open
-            try:
-                await asyncio.sleep(36000)  # 10 hours
-            except KeyboardInterrupt:
-                print("\n⚠️  Closing browser...")
-            
             await browser.close()
             return True
     
@@ -472,15 +477,7 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
                 await _refresh_firebase_token(page)
                 await _save_full_state(context, page, session_dir)
             
-            print("\n🌐 Browser session active. Press Ctrl+C to close.")
-            print(f"   Live view: {kernel_data.get('browser_live_view_url', 'N/A')}")
-            
-            # Keep browser open
-            try:
-                await asyncio.sleep(36000)  # 10 hours
-            except KeyboardInterrupt:
-                print("\n⚠️  Closing browser...")
-            
+            print(f"\n✅ Session-{session_num} rescue complete. Live view: {kernel_data.get('browser_live_view_url', 'N/A')}")
             await browser.close()
             return True
     
@@ -537,14 +534,6 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
                 # Proactively refresh Firebase token + save full state while we're here
                 await _refresh_firebase_token(page)
                 await _save_full_state(context, page, session_dir)
-            
-            print("\n🌐 Browser session active. Press Ctrl+C to close.")
-            
-            # Keep browser open
-            try:
-                await asyncio.sleep(36000)  # 10 hours
-            except KeyboardInterrupt:
-                print("\n⚠️  Closing browser...")
             
             await browser.close()
             return True
