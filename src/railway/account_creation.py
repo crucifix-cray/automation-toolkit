@@ -99,7 +99,7 @@ RAILWAY_GRAPHQL = "https://backboard.railway.com/graphql/v2"
 RAILWAY_SCOPES = "openid email profile offline_access workspace:admin project:admin ssh_keys"
 PKCE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
 
-SESSIONS_DIR = Path(ORIG_HOME) / "Documents" / "railways" / "sessions"
+SESSIONS_DIR = Path(ORIG_HOME) / "Documents" / "railways"
 MEGA_REMOTE = "mega:railway_sessions"
 # ponytail: ZenRows Browser pool for ASN rotation (French GF, 2 keys, free tier)
 # 2026-09-09: farmed onkernel keys prepended (first 3 of finals/zenrows_onkernel_farmed.json)
@@ -691,14 +691,39 @@ def sync_to_mega(session_dir: Path):
 
 
 def get_next_session_number():
-    """Get next available session number (local when SKIP_MEGA=1)"""
+    """Get next available session number (local when SKIP_MEGA=1).
+
+    Parallel-safe: flock + exclusive mkdir so concurrent --kernel workers
+    never collide on the same session-N directory.
+    """
+    import fcntl
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    lock_path = SESSIONS_DIR / ".session_num.lock"
+
+    def _reserve_local() -> int:
+        with open(lock_path, "a+") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            nums = []
+            for d in SESSIONS_DIR.iterdir():
+                if d.is_dir() and d.name.startswith("session-"):
+                    parts = d.name.split("-")
+                    if len(parts) == 2 and parts[1].isdigit():
+                        nums.append(int(parts[1]))
+            n = (max(nums) + 1) if nums else 1
+            while True:
+                cand = SESSIONS_DIR / f"session-{n}"
+                try:
+                    cand.mkdir()
+                    (cand / ".reserved").write_text(
+                        f"pid={os.getpid()} t={time.time()}\n")
+                    print(f"  📊 Reserved session-{n} (local lock)")
+                    return n
+                except FileExistsError:
+                    n += 1
+
     if SKIP_MEGA:
         try:
-            nums = [int(d.name.split("-")[1]) for d in SESSIONS_DIR.iterdir()
-                    if d.is_dir() and d.name.startswith("session-") and d.name.split("-")[1].isdigit()]
-            nxt = max(nums) + 1 if nums else 1
-            print(f"  📊 Local sessions: {len(nums)}, next: session-{nxt}")
-            return nxt
+            return _reserve_local()
         except Exception as e:
             print(f"  ⚠️  Local scan err: {e}, starting from session-1")
             return 1
@@ -1612,6 +1637,155 @@ def write_cli_session(session_dir: Path, tokens: dict, user: dict, cookies: list
     (session_dir / "created_at.txt").write_text(now.isoformat())
     print(f"✓ Saved CLI session: {session_dir} / .railway/config.json")
 
+
+def create_and_verify_service(session_dir: Path) -> dict:
+    """Create Railway project + empty service. Success = account is MADE.
+
+    Health gate (fleet): empty service create must succeed. Saves IDs into
+    session dir. Raises RuntimeError on failure (caller retries whole flow).
+    """
+    import shutil as _shutil
+
+    railway = _shutil.which("railway") or str(Path(ORIG_HOME) / ".railway/bin/railway")
+    env = os.environ.copy()
+    env["HOME"] = str(session_dir)
+    env["LD_PRELOAD"] = ""
+    for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
+              "ALL_PROXY", "all_proxy", "RAILWAY_TOKEN"):
+        env.pop(k, None)
+
+    work = Path("/tmp/rvwork") / session_dir.name
+    work.mkdir(parents=True, exist_ok=True)
+    sid = session_dir.name.replace("session-", "") or "x"
+    meta = {"session": session_dir.name, "verified": False}
+
+    def _run(args, timeout=120):
+        p = subprocess.run(
+            args, env=env, cwd=str(work),
+            capture_output=True, text=True, timeout=timeout)
+        out = ((p.stdout or "") + "\n" + (p.stderr or "")).strip()
+        return p.returncode, out
+
+    print(f"\n🧪 Service verify for {session_dir.name}...")
+    rc, out = _run([railway, "whoami"], timeout=60)
+    print(f"  whoami: {(out.splitlines() or [''])[0][:120]}")
+    if rc != 0 or "Logged in" not in out:
+        raise RuntimeError(f"service-verify whoami failed: {out[:300]}")
+
+    pname = f"cell-{sid}-{secrets.token_hex(3)}"
+    rc, out = _run([railway, "init", "--name", pname, "--json"], timeout=120)
+    print(f"  init {pname}: {out[:240]}")
+    if rc != 0:
+        lo = out.lower()
+        if any(x in lo for x in ("banned", "suspended", "forbidden", "restricted", "trial", "payment")):
+            raise RuntimeError(f"service-verify init blocked: {out[:300]}")
+        raise RuntimeError(f"service-verify init failed: {out[:300]}")
+
+    project_id = None
+    try:
+        data = json.loads(out) if out.strip().startswith("{") else {}
+        project_id = data.get("id") or data.get("projectId")
+    except Exception:
+        pass
+    if not project_id:
+        m = re.search(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", out)
+        project_id = m.group(0) if m else None
+
+    sname = f"hlth-{sid}"
+    rc, out = _run([railway, "add", "--service", sname, "--json"], timeout=120)
+    print(f"  add service {sname}: {out[:300]}")
+    if rc != 0:
+        raise RuntimeError(f"service-verify add failed: {out[:300]}")
+
+    service_id = None
+    environment_id = None
+    try:
+        data = json.loads(out) if out.strip().startswith("{") else {}
+        service_id = data.get("id") or data.get("serviceId")
+        environment_id = data.get("environmentId") or data.get("environment_id")
+    except Exception:
+        pass
+
+    # Refresh IDs from linked CLI config
+    cfg_path = session_dir / ".railway" / "config.json"
+    try:
+        cfg = json.loads(cfg_path.read_text())
+        projects = cfg.get("projects") or {}
+        for _k, v in projects.items():
+            if isinstance(v, dict):
+                project_id = project_id or v.get("project")
+                environment_id = environment_id or v.get("environment")
+                service_id = service_id or v.get("service")
+                if v.get("name"):
+                    meta["project_name"] = v.get("name")
+        cfg["verified"] = True
+        cfg["verified_at"] = datetime.now(timezone.utc).isoformat()
+        cfg_path.write_text(json.dumps(cfg, indent=2))
+    except Exception as e:
+        print(f"  ⚠️  config patch soft: {e}")
+
+    if not project_id or not service_id:
+        # Still require service create succeeded (rc==0 above); try status
+        rc2, out2 = _run([railway, "status"], timeout=60)
+        print(f"  status: {out2[:300]}")
+        if rc2 != 0:
+            raise RuntimeError(f"service-verify status failed after add: {out2[:300]}")
+
+    meta.update({
+        "verified": True,
+        "email": (session_dir / "email.txt").read_text().strip()
+            if (session_dir / "email.txt").exists() else "",
+        "railway_project_id": project_id,
+        "environment_id": environment_id,
+        "service_id": service_id,
+        "service_name": sname,
+        "project_name": meta.get("project_name") or pname,
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+    })
+    (session_dir / "verified.json").write_text(json.dumps(meta, indent=2))
+    print(f"✅ SERVICE OK — account MADE: {session_dir.name}")
+    print(f"   project={project_id} service={service_id} env={environment_id}")
+    return meta
+
+
+def start_onkernel_browser(proxy_name: str = "") -> dict:
+    """Create OnKernel stealth browser; return {cdp_ws_url, session_id, ...}."""
+    key = os.environ.get("KERNEL_API_KEY", "")
+    if not key:
+        raise RuntimeError("KERNEL_API_KEY required for --kernel")
+    import shlex
+    px = f" --proxy-name {shlex.quote(proxy_name)}" if proxy_name else ""
+    cmd = f"kernel browsers create --stealth --timeout 900{px} --start-url https://railway.com -o json"
+    env = {**os.environ, "KERNEL_API_KEY": key}
+    last = "unknown"
+    for t in range(3):
+        try:
+            out = subprocess.check_output(cmd, shell=True, env=env, text=True, timeout=90)
+            data = json.loads(out)
+            print(f"🌐 OnKernel browser: {data.get('session_id')} live={str(data.get('browser_live_view_url',''))[:60]}")
+            return data
+        except Exception as e:
+            last = str(e)[:200]
+            print(f"  OnKernel create try {t+1}/3 failed: {last}")
+            time.sleep(15)
+    raise RuntimeError(f"OnKernel browser create failed: {last}")
+
+
+def delete_onkernel_browser(session_id: str) -> None:
+    if not session_id:
+        return
+    key = os.environ.get("KERNEL_API_KEY", "")
+    try:
+        subprocess.run(
+            f"kernel browsers delete {session_id}",
+            shell=True, env={**os.environ, "KERNEL_API_KEY": key},
+            timeout=20, capture_output=True)
+        print(f"🗑️  OnKernel browser deleted: {session_id}")
+    except Exception as e:
+        print(f"  OnKernel delete soft-fail: {e}")
+
+
 def verify_tokens(tokens: dict, user: dict) -> str:
     request = urllib.request.Request(
         RAILWAY_GRAPHQL,
@@ -1678,12 +1852,27 @@ async def register_cli_session_local_chrome(bd_cookies: list[dict], sessions_dir
 # MAIN EXECUTION
 # ============================================================================
 async def run(use_warp=False, cloud_mode=False):
-    """Run single account creation — cloud uses Bright Data Browser API"""
+    """Run single account creation — cloud uses Bright Data / ZenRows / OnKernel CDP."""
+    global BRD_WSS, BRD_WSS_POOL
     warp_started = False
     browser = None
     mailbox = None
+    kernel_sid = None
     # cloud: force no warp, use BD WSS pool + fresh browser per run, ASN rotation
     headless = True
+    if cloud_mode and globals().get("KERNEL_MODE"):
+        # OnKernel browser cloud → CDP WSS (same connect_over_cdp path)
+        try:
+            kb = start_onkernel_browser(
+                proxy_name=str(globals().get("KERNEL_PROXY") or ""))
+            kernel_sid = kb.get("session_id")
+            BRD_WSS = kb["cdp_ws_url"]
+            BRD_WSS_POOL = [BRD_WSS]
+            os.environ["BRD_WSS"] = BRD_WSS
+            print(f"☁️  OnKernel CDP ready (session={kernel_sid})")
+        except Exception as e:
+            print(f"❌ OnKernel browser bootstrap failed: {e}")
+            raise
     if cloud_mode:
         use_warp = False
         import subprocess as _sp, uuid as _uuid
@@ -1697,7 +1886,6 @@ async def run(use_warp=False, cloud_mode=False):
         except: pass
         # ponytail: rotate ASN per run via pool file + API lock (so parallel cells don't clash)
         # if BRD_WSS was passed via env for 1:1, use only that one (don't rotate, skip locks)
-        global BRD_WSS, BRD_WSS_POOL
         passed_wss = os.environ.get("BRD_WSS")
         passed_base = passed_wss
         is_one_to_one = bool(passed_base)
@@ -2355,9 +2543,21 @@ async def run(use_warp=False, cloud_mode=False):
                 sync_to_mega(session_dir)
                 
                 print(f"\n{'='*60}")
-                print(f"✅ SUCCESS! Account created: {mailbox.address}")
+                print(f"✅ Account signup OK: {mailbox.address}")
                 print(f"📁 Session: {session_dir}")
                 print(f"{'='*60}\n")
+                # Gate: empty Ubuntu/service create must succeed or account is NOT made
+                try:
+                    create_and_verify_service(session_dir)
+                except Exception as sve:
+                    print(f"❌ Service verify FAILED: {sve}")
+                    try:
+                        import shutil as _sh
+                        _sh.rmtree(session_dir, ignore_errors=True)
+                        print(f"🧹 Removed incomplete session {session_dir}")
+                    except Exception:
+                        pass
+                    raise RuntimeError(f"service-not-ready: {sve}") from sve
                 # ponytail: cloud — verify via raw IP isolated HOME (not RAILWAY_CONFIG_DIR)
                 if cloud_mode:
                     try:
@@ -2367,50 +2567,21 @@ async def run(use_warp=False, cloud_mode=False):
                         # raw IP verify (no BD proxy, uses sandbox egress)
                         r = subprocess.run(["railway", "whoami"], env=env, capture_output=True, text=True, timeout=15)
                         print(f"🔧 CLI whoami (raw IP, HOME={session_dir}): {r.stdout.strip() or r.stderr.strip()}")
-                        r2 = subprocess.run(["railway", "status"], env=env, capture_output=True, text=True, timeout=15)
-                        print(f"🔧 CLI status: {r2.stdout.strip()[:400] or r2.stderr.strip()[:400]}")
-                        # sandbox ban check - init project then create sandbox then destroy
-                        try:
-                            print(f"🧪 Testing sandbox (ban check)...")
-                            import uuid as _su
-                            pname = f"holy-{_su.uuid4().hex[:6]}"
-                            r_init = subprocess.run(["railway", "init", "--name", pname, "--json"], env=env, capture_output=True, text=True, timeout=30)
-                            print(f"🧪 init {pname}: {r_init.stdout.strip()[:300] or r_init.stderr.strip()[:300]}")
-                            if r_init.returncode == 0:
-                                r4 = subprocess.run(["railway", "sandbox", "create"], env=env, capture_output=True, text=True, timeout=60)
-                                out4 = (r4.stdout + r4.stderr).strip()[:600]
-                                print(f"🧪 sandbox create: {out4}")
-                                if "banned" in out4.lower() or "suspended" in out4.lower():
-                                    print(f"⚠️  Possible ban/limit detected")
-                                else:
-                                    try:
-                                        subprocess.run(["railway", "sandbox", "destroy", "--yes"], env=env, capture_output=True, text=True, timeout=30)
-                                        print(f"🧹 sandbox destroyed (test ok)")
-                                    except: pass
-                                # cleanup project
-                                try:
-                                    subprocess.run(["railway", "project", "delete", "--yes"], env=env, capture_output=True, text=True, timeout=30)
-                                except: pass
-                            else:
-                                print(f"⚠️  init failed - possible ban: {r_init.stderr.strip()[:300]}")
-                        except Exception as e3:
-                            print(f"⚠️  sandbox test skipped: {e3}")
-                        # also push to mega via raw IP (use ORIG_HOME for rclone config)
+                        # optional mega push
                         clean_session_dir(session_dir)
                         env2 = os.environ.copy()
                         env2["HOME"] = ORIG_HOME
                         env2["LD_PRELOAD"] = ""
                         env2["LD_LIBRARY_PATH"] = ""
-                        subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "", "-v"], env=env2, capture_output=True, timeout=300)
-                        print(f"☁️  Pushed {session_dir.name} to mega:railway_sessions via raw IP")
+                        if not SKIP_MEGA:
+                            subprocess.run(["rclone", "copy", str(session_dir), f"mega:railway_sessions/{session_dir.name}", "", "-v"], env=env2, capture_output=True, timeout=300)
+                            print(f"☁️  Pushed {session_dir.name} to mega:railway_sessions via raw IP")
                         # cancer cells: persistent - reuse project from ban check to avoid 1 per 30s limit
                         if 'CLI_CELLS' in globals() and CLI_CELLS > 0:
                             for ci in range(CLI_CELLS):
                                 try:
                                     print(f"🧬 Spawning persistent cancer cell {ci+1}/{CLI_CELLS}...")
-                                    # wait for project rate limit (1 per 30s) - ban check just created one
                                     await asyncio.sleep(35)
-                                    # create persistent service in new acc
                                     import tempfile, pathlib as _pl
                                     tmpd = tempfile.mkdtemp()
                                     df = _pl.Path(tmpd) / "Dockerfile"
@@ -2422,24 +2593,21 @@ RUN pip install playwright || pip install playwright --break-system-packages
 RUN playwright install --with-deps chromium
 RUN curl https://rclone.org/install.sh | bash
 RUN curl -fsSL https://railway.app/install.sh | sh
-RUN mkdir -p /root/.config/rclone && printf "[mega]\\ntype = mega\\nuser = emilypeterson30@mail.findmeghana.org\\npass = AIjpeMEdPQWNTQHR6YYDYjcEoGFSOGHASO5DjwkHcXUW7iDLFg\\nsession_id = YHpE8zZFzThFIYjGGm44xFcyUGl1YWtCWlE4_HnRwxFodO1IlI4aFoyFUg\\nmaster_key = s6SFGB0f4UZk7VYPwK/k3A==\\n" > /root/.config/rclone/rclone.conf
 WORKDIR /app
 RUN git clone https://github.com/crucifix-cray/automation-toolkit.git /app/toolkit
 CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-docker/railway-HOLY-cloud.py --cloud --cells {CLI_CELLS}{depth_arg}"
 ''')
-                                    # deploy as new service via railway up (reuse project) - fully backgrounded
                                     try:
                                         subprocess.Popen(["railway", "up", "--service", f"cancer-{ci}", "-y", "--detach"], cwd=tmpd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                                         print(f"  🧬 Persistent cell {ci+1} deploy: backgrounded")
                                     except Exception as e:
                                         print(f"  🧬 Persistent cell {ci+1} deploy err: {e}")
-                                    # parent cooloff 5s then rerun itself (don't block)
                                     print(f"  ❄️  Cooloff 5s then parent reruns...")
                                     await asyncio.sleep(5)
                                 except Exception as ce:
                                     print(f"  cell spawn failed: {ce}")
                     except Exception as e:
-                        print(f"⚠️  CLI verify failed: {e}")
+                        print(f"⚠️  post-verify cloud extras failed: {e}")
             except Exception as e:
                 print(f"\n⚠️  OAuth/Session registration failed: {e}")
                 print(f"✅ But account IS created! Email: {mailbox.address}")
@@ -2466,6 +2634,12 @@ CMD bash -c "LD_PRELOAD='' BRD_WSS='{wss_val}' python3 -u /app/toolkit/railway-d
             debug_file.write_text(f"Email: {mailbox.address}\nError: {str(e)}\n{traceback.format_exc()}")
             print(f"💾 Debug info saved: {debug_file}")
     finally:
+        # Cleanup OnKernel browser if used
+        try:
+            if kernel_sid:
+                delete_onkernel_browser(kernel_sid)
+        except Exception:
+            pass
         # Cleanup: release BD API lock so next cell finds it free
         try:
             if cloud_mode and 'found_lock' in locals() and found_lock is not None:
@@ -2559,15 +2733,26 @@ if __name__ == "__main__":
     parser.add_argument("--cli", type=str, default=None, metavar="PATH", help="CLI-only: resume a web session dir (loads browser_cookies.json) and register Railway CLI PKCE only, no re-login. Writes next free session dir.")
     parser.add_argument("--cells", type=int, default=0, metavar="N", help="Cancer mode: after success, spawn N new sandboxes each running Holy --cloud --cells N (exponential)")
     parser.add_argument("--depth", type=int, default=0, metavar="D", help="Demo depth: stop after current Mega sessions + D (0=unlimited till 500)")
+    parser.add_argument("--kernel", action="store_true",
+                        help="Use OnKernel CDP browser (KERNEL_API_KEY required)")
+    parser.add_argument("--kernel-proxy", type=str, default="",
+                        help="OnKernel proxy name (optional)")
+    parser.add_argument("--until-service", action="store_true", default=True,
+                        help="Retry whole flow until service verify succeeds (default on)")
+    parser.add_argument("--once", action="store_true",
+                        help="Do not retry on service failure")
     args = parser.parse_args()
 
     # expose to run() via globals (used inside)
     CLI_TARGET_DOMAIN = args.domain
     CLI_RECOVERY_EMAIL = args.recov
-    CLOUD_MODE = args.cloud or args.cloud_no_c or os.environ.get("BRD_WSS") is not None
+    KERNEL_MODE = bool(args.kernel)
+    KERNEL_PROXY = args.kernel_proxy or ""
+    CLOUD_MODE = args.cloud or args.cloud_no_c or KERNEL_MODE or os.environ.get("BRD_WSS") is not None
     CLOUD_NO_C = args.cloud_no_c
     CLI_CELLS = 0 if args.cloud_no_c else args.cells
     CLI_DEPTH = args.depth
+    UNTIL_SERVICE = args.until_service and not args.once
 
     if args.cli:
         print("="*60)
@@ -2580,14 +2765,19 @@ if __name__ == "__main__":
 
     print("="*60)
     print("🏆 THE HOLY RAILWAY ACCOUNT CREATOR — 22.do Pool 🏆")
-    if CLOUD_MODE:
-        print("☁️  CLOUD MODE — Bright Data Browser API")
+    if KERNEL_MODE:
+        print("☁️  KERNEL MODE — OnKernel CDP browser")
+    elif CLOUD_MODE:
+        print("☁️  CLOUD MODE — Bright Data / ZenRows Browser API")
     print("="*60)
     print(f"📁 Sessions directory: {SESSIONS_DIR}")
     print(f"☁️  Mega remote: {MEGA_REMOTE}")
     print(f"🔁 WARP: {'ENABLED' if use_warp else 'DISABLED'}")
-    if CLOUD_MODE:
-        print(f"🌐 Cloud WSS: {BRD_WSS[:40]}***")
+    print(f"🧪 Gate: service create+verify (retry={'ON' if UNTIL_SERVICE else 'OFF'})")
+    if KERNEL_MODE:
+        print(f"🌐 OnKernel: KEY set={bool(os.environ.get('KERNEL_API_KEY'))} proxy={KERNEL_PROXY or '-'}")
+    elif CLOUD_MODE:
+        print(f"🌐 Cloud WSS: {str(BRD_WSS)[:40]}***")
     print(f"📧 22.do handlers: {len(HANDLERS)} (random/pool)" + (f" — enforced: {args.domain or args.recov}" if (args.domain or args.recov) else ""))
     if args.recov:
         print(f"♻️  Recovery mode: {args.recov} → https://22.do/inbox/#/{args.recov}")
@@ -2650,4 +2840,26 @@ if __name__ == "__main__":
                 __import__('time').sleep(2)
             except: pass
     else:
-        asyncio.run(run(use_warp=use_warp, cloud_mode=CLOUD_MODE))
+        attempt = 0
+        while True:
+            attempt += 1
+            print(f"\n🔁 Attempt {attempt} (until service OK={UNTIL_SERVICE})")
+            try:
+                asyncio.run(run(use_warp=use_warp, cloud_mode=CLOUD_MODE))
+                # success if a verified.json appeared recently
+                made = sorted(
+                    SESSIONS_DIR.glob("session-*/verified.json"),
+                    key=lambda p: p.stat().st_mtime, reverse=True)
+                if made:
+                    print(f"\n🎉 MADE account with service: {made[0].parent.name}")
+                    print(made[0].read_text()[:500])
+                    break
+                if not UNTIL_SERVICE:
+                    break
+                print("⚠️  No verified.json — retrying whole process...")
+            except Exception as e:
+                print(f"⚠️  Attempt {attempt} failed: {e}")
+                if not UNTIL_SERVICE:
+                    raise
+            print("🔄 Cooloff 8s then retry...")
+            time.sleep(8)
