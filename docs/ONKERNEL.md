@@ -30,32 +30,43 @@ API-verified: `GET/POST https://api.onkernel.com/proxies` → mobile US availabl
 | `onk_1790080303_183512.json` | pion.tkowskiheffley84@gmail.com | `sk_dbb4caaf-ddbc-1` | unlocked |
 | `onk_1790080310_184023.json` | grosjeanpretz.548@gmail.com | `sk_ee2acef6-c7d9-0` | unlocked |
 
-## Railway spreader plan (fixed pool → 1k)
+## Railway spreader plan (100-wide → 1k)
+
+**Do 100 browsers — not on this laptop.** Spread workers across the verified Railway
+fleet (`Documents/railways/session-1..44`). Local host only orchestrates / ships jobs;
+Playwright+CDP clients run **on Railway sandboxes**, using Batch B OnK keys + unique
+mobile-US proxies.
 
 | Knob | Value |
 |---|---|
-| OnK accounts | **10** (Batch B only) |
-| Target shape | 10 keys × 10 browsers × 10 waves → ~1k |
-| **Host-safe `--par`** | **≤20** on this 15 GiB box (see run notes) |
+| OnK accounts | **10** Batch B (`tag=unlocked`) |
+| Concurrent browsers | **100** (spread on Railway fleet, not local) |
+| Fleet workers | **44** Railway sessions (grow as new MADE land) |
+| Binding sketch | ~2–3 OnK browser slots per Railway worker → ~100 total |
+| Waves to ~1k | reuse same 10 OnK keys across waves |
 | Proxy | unique `mobile-us-<hex>` per browser, `type=mobile`, `country=us` |
-| Orchestrator | `src/railway/farm_onk_1k.py` |
+| Orchestrator (local thin) | `src/railway/farm_onk_1k.py` — **must dispatch to Railway**, not spawn 100 local Playwright |
+| OnK pool files | `finals/sessions/onk_*.json` (+ cookies/storage) |
 
 ```bash
-cd /home/alae/Documents/repos/automation-toolkit
-# SAFE default for 15Gi host — do NOT use --par 100 locally
-LD_PRELOAD="" python3 src/railway/farm_onk_1k.py --target 1000 --par 20
+# WRONG on 15Gi laptop — OOM (see run notes)
+# LD_PRELOAD="" python3 src/railway/farm_onk_1k.py --target 1000 --par 100
+
+# RIGHT: spread --par 100 across Railway session-* workers (impl TBD / in progress)
+# each Railway sandbox runs a thin farm worker with 1–3 OnK browsers
 ```
 
-Logs: `/home/alae/onk-rail-1k/job_NNNN.log` + `farm_master.log` + `summary.json`.
-Verified Railways: `/home/alae/Documents/railways/session-*` (**44** goods; farm stopped
-2026-09-22 with **0 new MADE** this run).
+Logs (when local probe only): `/home/alae/onk-rail-1k/`. Verified Railways stay at
+`/home/alae/Documents/railways/session-*` (**44** goods as of stop).
 
 ### Run notes — 2026-09-22 (stopped)
 
-- `--par 100` / `--par 40` **OOM’d** the 15 GiB host (~50 local Playwright clients → RAM wall).
-- `mail.tm` hit **HTTP 429** under load; 22.do OTP path still reached on some jobs.
-- Kill farm: `pkill -9 -f farm_onk_1k; pkill -9 -f 'railway/account_creation.py'`.
-- Next attempt: `--par 20`, watch `free -h`, scale only if available mem stays >4 GiB.
+- Local `--par 100` / `--par 40` **OOM’d** the 15 GiB host — proved why spread must be
+  on Railway, not localhost.
+- `mail.tm` **HTTP 429** under blast; prefer 22.do primary.
+- Kill leftover local clients: `pkill -9 -f farm_onk_1k; pkill -9 -f 'railway/account_creation.py'`.
+- Next: ship farm workers onto `session-1..44`, target **100** concurrent OnK browsers
+  fleet-wide, then wave toward 1k.
 
 ## Optional: farm more OnK (paused)
 

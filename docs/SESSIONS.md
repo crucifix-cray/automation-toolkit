@@ -4,7 +4,9 @@ Live verified tokens: `/home/alae/Documents/railways/session-*` (**44**, renumbe
 2026-09-22 after create-service verify; 61 trial/bad culled).
 
 OnKernel browser pool for farming: **Batch B only** — see [ONKERNEL.md](ONKERNEL.md)
-(10 `tag=unlocked` keys, cookies + `__refresh_*`). Host-safe farm width: **`--par 20`**.
+(10 `tag=unlocked` keys, cookies + `__refresh_*`).
+
+**100-wide farm:** spread across these Railway sessions (workers), not the laptop.
 
 Use: `HOME=/home/alae/Documents/railways/session-N LD_PRELOAD='' railway whoami`
 
@@ -57,9 +59,9 @@ Use: `HOME=/home/alae/Documents/railways/session-N LD_PRELOAD='' railway whoami`
 
 ## Farm next
 
-```bash
-# host-safe width on 15Gi box (par 40/100 OOM'd)
-LD_PRELOAD="" python3 src/railway/farm_onk_1k.py --target 1000 --par 20
+```text
+100 concurrent OnK browsers → spread on session-1..44 (Railway sandboxes)
+Local laptop = orchestrator only (local --par 100 OOMs — do not)
 ```
 
 See [ONKERNEL.md](ONKERNEL.md). Tokens stay local under `Documents/railways/` (not this

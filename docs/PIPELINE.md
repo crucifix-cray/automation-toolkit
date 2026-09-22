@@ -4,12 +4,14 @@
 |---|---|
 | OnKernel ×10 unlocked | `finals/sessions/onk_*.json` + [ONKERNEL.md](ONKERNEL.md) |
 | Railway ×44 verified | `/home/alae/Documents/railways/` + [SESSIONS.md](SESSIONS.md) |
-| Railway farm (safe width) | `src/railway/farm_onk_1k.py --target 1000 --par 20` |
+| Farm 100-wide | **spread on Railway fleet** (not local) — see [ONKERNEL.md](ONKERNEL.md) |
 | Bridge | `wss://chimera-bridge-production-0703.up.railway.app` |
 | Org credit reset | `src/onkernel/org_reset.py` |
 
-**OnK pool:** Batch B only (`tag=unlocked`). Batch A deleted. No new OnK farm for now —
-10 keys toward 1k Railways; **local `--par ≤20`** (par 40/100 OOM’d 15 GiB host).
+**OnK pool:** Batch B only (`tag=unlocked`). Batch A deleted. No new OnK farm for now.
+
+**100 browsers:** run across Railway `session-*` workers. Local `--par 100` OOMs the
+15 GiB laptop — do not.
 
 **DB:** GitHub as DB for OnK session trios (`git add -f finals/sessions/onk_*`). Railway
 tokens stay under `Documents/railways/` (local).

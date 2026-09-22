@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Farm N Railway accounts via OnKernel CDP + fresh mobile-US proxy per browser.
 
-Batch B pool = 10 unlocked keys. Goal shape is 10×10 browsers × waves → 1k, but on a
-15Gi host keep --par <=20 (par 40/100 OOM'd 2026-09-22). See docs/ONKERNEL.md.
+Batch B = 10 unlocked keys. Target concurrency = 100 browsers, but MUST run spread
+across the Railway fleet (session-*), not as 100 local Playwright on a 15Gi laptop
+(OOM 2026-09-22). See docs/ONKERNEL.md.
 
-Usage:
-  python3 src/railway/farm_onk_1k.py --target 1000 --par 20
+Usage (local probe only — keep --par small):
+  python3 src/railway/farm_onk_1k.py --target 1000 --par 10
 """
 from __future__ import annotations
 
@@ -202,7 +203,7 @@ def worker(job_id: int, key_row: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--target", type=int, default=1000)
-    ap.add_argument("--par", type=int, default=20)
+    ap.add_argument("--par", type=int, default=10)
     ap.add_argument("--keys-glob", action="append", default=None)
     ap.add_argument("--max-jobs", type=int, default=0)
     args = ap.parse_args()

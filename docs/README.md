@@ -2,7 +2,7 @@
 
 | Doc | Covers |
 |---|---|
-| `ONKERNEL.md` | **Canonical OnK DB** — Batch B 10 `tag=unlocked`; farm `--par ≤20` on 15Gi host |
+| `ONKERNEL.md` | **Canonical OnK DB** — Batch B 10 unlocked; **100 browsers spread on Railway fleet** |
 | `SESSIONS.md` | Railway verified pool — **44** under `Documents/railways/session-*` |
 | `PIPELINE.md` | Quickstart paths (OnK + Railway + bridge) |
 | `SCALING-PLAN.md` | 100→1k→10k→40k roadmap (Railway-only, remote CDP) |
