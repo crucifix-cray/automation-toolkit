@@ -940,25 +940,54 @@ async def sign_in_to_railway(page, mailbox):
         except:
             pass
     
-    # Wait for Continue button to enable — active Turnstile handling every 0.5s
-    continue_btn = page.get_by_role("button", name="Continue with Email", exact=True)
-    print("⏳ Waiting for Continue button to enable (active CF handling)...")
+    # Wait for email-submit only — NEVER "Continue with Google" (same dialog, listed first)
+    continue_btn = page.locator('form[name="Email Login"] button[type="submit"]').first
+    continue_btn_fallback = page.get_by_role("button", name="Continue with Email", exact=True)
+    print("⏳ Waiting for Continue with Email (form submit) to enable...")
 
     async def cont_enabled():
-        try:
-            if await continue_btn.is_enabled(timeout=800):
-                return True
-        except Exception:
-            pass
+        for btn in (continue_btn, continue_btn_fallback):
+            try:
+                if await btn.is_enabled(timeout=800):
+                    return True
+            except Exception:
+                pass
         return False
 
     try:
         solved = await _handle_turnstile(page, cont_enabled, total_seconds=80)
         if solved:
-            print("✅ Continue button enabled — clicking NOW...")
+            print("✅ Continue with Email enabled — clicking form submit NOW...")
             await page.wait_for_timeout(500)
-            await continue_btn.click(timeout=5000)
-            print("✅ Clicked 'Continue with Email'")
+            clicked = False
+            for btn, label in (
+                (continue_btn, "form[name=Email Login] button[type=submit]"),
+                (continue_btn_fallback, "Continue with Email exact"),
+            ):
+                try:
+                    # refuse Google if locator somehow widened
+                    txt = ((await btn.inner_text()) or "").strip().lower()
+                    if "google" in txt or "github" in txt or "sso" in txt:
+                        print(f"  skip wrong btn: {txt[:40]}")
+                        continue
+                    await btn.click(timeout=5000)
+                    print(f"✅ Clicked email submit via {label}")
+                    clicked = True
+                    break
+                except Exception as ce:
+                    print(f"  click try {label}: {ce}")
+            if not clicked:
+                # last resort JS: only the email form submit
+                ok = await page.evaluate("""() => {
+                  const f = document.querySelector('form[name="Email Login"]');
+                  const b = f && f.querySelector('button[type="submit"]');
+                  if (!b) return false;
+                  b.click();
+                  return true;
+                }""")
+                if not ok:
+                    raise RuntimeError("email submit button not clickable")
+                print("✅ Clicked email submit via JS form")
         else:
             # put a debug screenshot before breaker rotates
             screenshot_path = f"/tmp/turnstile-timeout-{int(time.time())}.png"
@@ -1007,7 +1036,8 @@ async def sign_in_to_railway(page, mailbox):
             print("  ✅ Pressed Enter inside iframe")
         except Exception:
             pass
-        for pat in (r"verif", r"continue", r"submit", r"confirm", r"^log"):
+        # NEVER match "Continue with Google" — only Magic/OTP verify actions
+        for pat in (r"^verify$", r"^submit$", r"^confirm$", r"^continue$"):
             try:
                 await magic_frame.get_by_role(
                     "button", name=re.compile(pat, re.I)).first.click(timeout=2000)
@@ -1015,14 +1045,7 @@ async def sign_in_to_railway(page, mailbox):
                 break
             except Exception:
                 continue
-        for pat in (r"verif", r"continue", r"submit", r"confirm"):
-            try:
-                await page.get_by_role(
-                    "button", name=re.compile(pat, re.I)).first.click(timeout=2000)
-                print(f"  ✅ Clicked page button /{pat}/")
-                break
-            except Exception:
-                continue
+        # do NOT click page-level "Continue*" here — that hits Google on the Railway dialog
     except Exception as e:
         print(f"  ⚠️  iframe method failed: {e}")
     if not filled:
