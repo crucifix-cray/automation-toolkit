@@ -1,19 +1,15 @@
-# Pipeline quickstart (2026-09-19)
-
-Canonical handoff: `/home/alae/Documents/repos/chimera-miner/HANDOFF.md`
+# Pipeline quickstart (2026-09-22)
 
 | What | Where |
 |---|---|
-| Lovable ×36 | `scripts/sessions/` + [LOVABLE.md](LOVABLE.md) |
-| Railway ×68 | `/home/alae/Documents/railways/` + [SESSIONS.md](SESSIONS.md) |
+| OnKernel ×10 unlocked | `finals/sessions/onk_*.json` + [ONKERNEL.md](ONKERNEL.md) |
+| Railway ×44 verified | `/home/alae/Documents/railways/` + [SESSIONS.md](SESSIONS.md) |
+| Railway farm (100-wide) | `src/railway/farm_onk_1k.py --target 1000 --par 100` |
 | Bridge | `wss://chimera-bridge-production-0703.up.railway.app` |
-| Rescue (2FA/TOTP) | `src/lovable/session_refresh.py <N>` (cwd = repo root) |
-| Script2 | `chimera-miner/script2_remix_link.py --mode template --browser kernel\|zenrows` |
-| Script2 prompt | `prompts/Build a debug terminal.txt` (`/__shell` bridge) — **required**, no trivial chat |
-| Script3 | `chimera-miner/script3_launch_miner.py --mode full` on Railway **service** |
+| Org credit reset | `src/onkernel/org_reset.py` |
 
-Order: rescue → script2 (OnKernel/ZenRows) → script3. Parallel after one green pilot.
+**OnK pool:** Batch B only (`tag=unlocked`). Batch A deleted. No new OnK farm for now —
+`10 keys × 10 browsers = 100` concurrent, ×10 waves → ~1k Railways.
 
-**DB:** GitHub `chimera-miner/data/database.json` (`CHIMERA_DB_BACKEND=github`). No Mega.
-
-**Pilot paused:** session-2 cookies OK; script2 remixed `84633151-…` but sent trivial `say 'a'` (bug — now patched to use `Build a debug terminal.txt`). Script3 not started. See HANDOFF.
+**DB:** GitHub as DB for OnK session trios (`git add -f finals/sessions/onk_*`). Railway
+tokens stay under `Documents/railways/` (local).

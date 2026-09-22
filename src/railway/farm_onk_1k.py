@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Farm N Railway accounts via OnKernel CDP + fresh mobile-US proxy per browser.
 
+Batch B pool = 10 unlocked keys. Target shape: 10 keys × 10 browsers = 100 concurrent
+(--par 100), round-robin keys; repeat waves toward --target 1000. See docs/ONKERNEL.md.
+
 Usage:
-  python3 src/railway/farm_onk_1k.py --target 1000 --par 10
+  python3 src/railway/farm_onk_1k.py --target 1000 --par 100
 """
 from __future__ import annotations
 
@@ -238,7 +241,7 @@ def main() -> int:
                 key_row = keys[(submitted - 1) % len(keys)]
                 fut = ex.submit(worker, submitted, key_row)
                 futs[fut] = submitted
-                time.sleep(1.5)
+                time.sleep(8)  # gentle stagger — avoid host thrash
             if not futs:
                 break
             # wait for any completion
