@@ -149,8 +149,8 @@ def worker(job_id: int, key_row: dict) -> dict:
         sys.executable, str(SCRIPT),
         "--kernel",
         "--kernel-proxy", proxy_name,
-        "--once",
         "--no-warp",
+        # until-service (default): retry whole run() with new OnKernel browser
     ]
     ok = False
     session_name = ""
@@ -160,21 +160,16 @@ def worker(job_id: int, key_row: dict) -> dict:
             lf.flush()
             p = subprocess.run(
                 cmd, env=env, cwd=str(REPO),
-                stdout=lf, stderr=subprocess.STDOUT, timeout=900,
+                stdout=lf, stderr=subprocess.STDOUT, timeout=3600,
             )
             ok = p.returncode == 0
         text = log.read_text(errors="replace")
-        # require a concrete MADE session line (avoid inflated ok on races)
         import re as _re
         m = _re.search(r"MADE account with service:\s*(session-\d+)", text)
         if m:
             session_name = m.group(1)
-            vpath = Path.home().parent / "alae" / "Documents" / "railways" / session_name / "verified.json"
-            # ORIG_HOME may differ; resolve via absolute known path
             vpath = Path("/home/alae/Documents/railways") / session_name / "verified.json"
-            ok = vpath.is_file()
-        elif "SERVICE OK" in text:
-            ok = True
+            ok = vpath.is_file() and "No new verified.json" not in text
         else:
             ok = False
     except Exception as e:
