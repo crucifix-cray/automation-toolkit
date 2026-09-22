@@ -990,14 +990,39 @@ async def sign_in_to_railway(page, mailbox):
         magic_frame = page.frame_locator('iframe[src*="auth.magic.link"], iframe[src*="magic"]')
         inputs = magic_frame.locator('input[type="text"], input[type="tel"], input[inputmode="numeric"]')
         await inputs.first.wait_for(state="visible", timeout=15000)
-        for i, digit in enumerate(code[:6]):
-            await inputs.nth(i).fill(digit)
-            await asyncio.sleep(0.15)
+        # prefer pasting full code into first box (Magic auto-advances)
+        try:
+            await inputs.first.click(timeout=3000)
+            await inputs.first.fill("")
+            await page.keyboard.type(code[:6], delay=80)
+        except Exception:
+            for i, digit in enumerate(code[:6]):
+                await inputs.nth(i).fill(digit)
+                await asyncio.sleep(0.12)
         print("  ✅ Filled OTP (iframe method)")
         filled = True
-        # press Enter inside iframe to submit
-        await inputs.last.press("Enter")
-        print("  ✅ Pressed Enter inside iframe")
+        # submit — Enter often hangs; don't fail the fill if it does
+        try:
+            await inputs.last.press("Enter", timeout=2500)
+            print("  ✅ Pressed Enter inside iframe")
+        except Exception:
+            pass
+        for pat in (r"verif", r"continue", r"submit", r"confirm", r"^log"):
+            try:
+                await magic_frame.get_by_role(
+                    "button", name=re.compile(pat, re.I)).first.click(timeout=2000)
+                print(f"  ✅ Clicked iframe button /{pat}/")
+                break
+            except Exception:
+                continue
+        for pat in (r"verif", r"continue", r"submit", r"confirm"):
+            try:
+                await page.get_by_role(
+                    "button", name=re.compile(pat, re.I)).first.click(timeout=2000)
+                print(f"  ✅ Clicked page button /{pat}/")
+                break
+            except Exception:
+                continue
     except Exception as e:
         print(f"  ⚠️  iframe method failed: {e}")
     if not filled:
