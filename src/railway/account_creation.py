@@ -691,75 +691,34 @@ def sync_to_mega(session_dir: Path):
 
 
 def get_next_session_number():
-    """Get next available session number (local when SKIP_MEGA=1).
+    """Get next available session number.
 
-    Parallel-safe: flock + exclusive mkdir so concurrent --kernel workers
-    never collide on the same session-N directory.
+    Parallel-safe always: flock + exclusive mkdir (local dirs are source of truth
+    for numbering even when Mega sync is enabled).
     """
     import fcntl
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     lock_path = SESSIONS_DIR / ".session_num.lock"
 
-    def _reserve_local() -> int:
-        with open(lock_path, "a+") as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-            nums = []
-            for d in SESSIONS_DIR.iterdir():
-                if d.is_dir() and d.name.startswith("session-"):
-                    parts = d.name.split("-")
-                    if len(parts) == 2 and parts[1].isdigit():
-                        nums.append(int(parts[1]))
-            n = (max(nums) + 1) if nums else 1
-            while True:
-                cand = SESSIONS_DIR / f"session-{n}"
-                try:
-                    cand.mkdir()
-                    (cand / ".reserved").write_text(
-                        f"pid={os.getpid()} t={time.time()}\n")
-                    print(f"  📊 Reserved session-{n} (local lock)")
-                    return n
-                except FileExistsError:
-                    n += 1
-
-    if SKIP_MEGA:
-        try:
-            return _reserve_local()
-        except Exception as e:
-            print(f"  ⚠️  Local scan err: {e}, starting from session-1")
-            return 1
-    try:
-        result = subprocess.run(
-            ["rclone", "lsd", f"{MEGA_REMOTE}/"],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        
-        if result.returncode != 0:
-            return 1
-        
-        session_numbers = []
-        for line in result.stdout.split('\n'):
-            if 'session-' in line:
-                parts = line.split('session-')
-                if len(parts) > 1:
-                    num_str = parts[1].split()[0].split('-')[0]
-                    try:
-                        session_numbers.append(int(num_str))
-                    except ValueError:
-                        continue
-        
-        if session_numbers:
-            next_num = max(session_numbers) + 1
-            print(f"  📊 Found {len(session_numbers)} sessions on Mega, next: session-{next_num}")
-            return next_num
-        else:
-            print(f"  📊 No sessions found on Mega, starting from session-1")
-            return 1
-            
-    except Exception as e:
-        print(f"  ⚠️  Error checking Mega: {e}, starting from session-1")
-        return 1
+    with open(lock_path, "a+") as lf:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        nums = []
+        for d in SESSIONS_DIR.iterdir():
+            if d.is_dir() and d.name.startswith("session-"):
+                parts = d.name.split("-")
+                if len(parts) == 2 and parts[1].isdigit():
+                    nums.append(int(parts[1]))
+        n = (max(nums) + 1) if nums else 1
+        while True:
+            cand = SESSIONS_DIR / f"session-{n}"
+            try:
+                cand.mkdir()
+                (cand / ".reserved").write_text(
+                    f"pid={os.getpid()} t={time.time()}\n")
+                print(f"  📊 Reserved session-{n} (local lock)", flush=True)
+                return n
+            except FileExistsError:
+                n += 1
 
 
 def next_session_dir(base_dir: Path, session_num: int = None):
@@ -2844,18 +2803,21 @@ if __name__ == "__main__":
         while True:
             attempt += 1
             print(f"\n🔁 Attempt {attempt} (until service OK={UNTIL_SERVICE})")
+            t0 = time.time()
             try:
                 asyncio.run(run(use_warp=use_warp, cloud_mode=CLOUD_MODE))
-                # success if a verified.json appeared recently
+                # only count verified.json created during THIS attempt
                 made = sorted(
-                    SESSIONS_DIR.glob("session-*/verified.json"),
+                    (p for p in SESSIONS_DIR.glob("session-*/verified.json")
+                     if p.stat().st_mtime >= (t0 - 2)),
                     key=lambda p: p.stat().st_mtime, reverse=True)
                 if made:
                     print(f"\n🎉 MADE account with service: {made[0].parent.name}")
                     print(made[0].read_text()[:500])
                     break
                 if not UNTIL_SERVICE:
-                    break
+                    print("⚠️  No new verified.json this attempt (--once)")
+                    sys.exit(2)
                 print("⚠️  No verified.json — retrying whole process...")
             except Exception as e:
                 print(f"⚠️  Attempt {attempt} failed: {e}")
