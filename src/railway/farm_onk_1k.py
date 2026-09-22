@@ -140,6 +140,7 @@ def worker(job_id: int, key_row: dict) -> dict:
         "LD_PRELOAD": "",
         "HOME": str(Path.home()),
         "SKIP_MEGA": "1",
+        "PYTHONUNBUFFERED": "1",
     }
     for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
               "ALL_PROXY", "all_proxy"):

@@ -2280,38 +2280,75 @@ async def run(use_warp=False, cloud_mode=False):
                         is_breaker = True
                     if is_breaker and attempt < 7:
                         print(f"⚠️  Breaker {attempt+1}/3: {msg[:80]} — fresh IP + next mailbox")
-                        # fresh IP
-                        import uuid as _uuid4
-                        from pathlib import Path as _Path2
-                        pool_file = _Path2("/tmp/bd_pool_index")
-                        try: idx = int(pool_file.read_text().strip() or 0)
-                        except: idx = 0
-                        pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
-                        pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
-                        # update WSS for next try (new ASN + sessionId; keep apikey for ZenRows)
-                        import os as _os2
-                        if "zenrows.com" in pool_pick:
-                            new_wss = pool_pick
-                        else:
-                            new_wss = pool_pick.split("?")[0] + f"?sessionId={_uuid4.uuid4()}"
-                        _os2.environ["BRD_WSS"] = new_wss
-                        print(f"🔄 New BD session {pool_pick[:45]}*** -> {new_wss[:50]}***")
                         tried_mails.append(mailbox.address if mailbox else "unknown")
-                        # kill old BD browsers before new one (ensure fresh IP)
-                        import subprocess as _sp2
-                        try:
-                            _hp = _sp2.run(["pgrep", "-f", "chrome.*--headless"], capture_output=True, text=True, timeout=5).stdout.split()
-                            for _hpid in _hp:
-                                try: _sp2.run(["kill", "-9", _hpid], capture_output=True, timeout=5)
-                                except: pass
-                        except: pass
                         try: await page.close()
                         except: pass
                         try: await context.close()
                         except: pass
                         try: await browser.close()
                         except: pass
-                        # new BD browser/context/page with new WSS
+
+                        new_wss = None
+                        if cloud_mode and globals().get("KERNEL_MODE"):
+                            # OnKernel: dead CDP JWT — must mint a NEW browser (pool rotate is useless)
+                            try:
+                                delete_onkernel_browser(kernel_sid)
+                            except Exception:
+                                pass
+                            import uuid as _uuidk
+                            fresh_proxy = f"mobile-us-{_uuidk.uuid4().hex[:10]}"
+                            # ensure unique mobile-US proxy for this browser
+                            try:
+                                key = os.environ.get("KERNEL_API_KEY", "")
+                                body = json.dumps({
+                                    "name": fresh_proxy,
+                                    "type": "mobile",
+                                    "config": {"country": "us"},
+                                }).encode()
+                                req = urllib.request.Request(
+                                    "https://api.onkernel.com/proxies",
+                                    data=body, method="POST",
+                                    headers={
+                                        "Authorization": f"Bearer {key}",
+                                        "Content-Type": "application/json",
+                                        "Accept": "application/json",
+                                    },
+                                )
+                                with urllib.request.urlopen(req, timeout=45) as resp:
+                                    print(f"  🌐 fresh proxy {fresh_proxy}: {resp.status}", flush=True)
+                            except Exception as pe:
+                                print(f"  proxy mint soft-fail ({pe}); trying name anyway", flush=True)
+                            kb = start_onkernel_browser(proxy_name=fresh_proxy)
+                            kernel_sid = kb.get("session_id")
+                            new_wss = kb["cdp_ws_url"]
+                            BRD_WSS = new_wss
+                            BRD_WSS_POOL = [new_wss]
+                            os.environ["BRD_WSS"] = new_wss
+                            print(f"🔄 New OnKernel browser {kernel_sid} proxy={fresh_proxy}", flush=True)
+                        else:
+                            # Bright Data / ZenRows pool rotate
+                            import uuid as _uuid4
+                            from pathlib import Path as _Path2
+                            pool_file = _Path2("/tmp/bd_pool_index")
+                            try: idx = int(pool_file.read_text().strip() or 0)
+                            except: idx = 0
+                            pool_pick = BRD_WSS_POOL[idx % len(BRD_WSS_POOL)]
+                            pool_file.write_text(str((idx + 1) % len(BRD_WSS_POOL)))
+                            if "zenrows.com" in pool_pick:
+                                new_wss = pool_pick
+                            else:
+                                new_wss = pool_pick.split("?")[0] + f"?sessionId={_uuid4.uuid4()}"
+                            os.environ["BRD_WSS"] = new_wss
+                            print(f"🔄 New BD session {pool_pick[:45]}*** -> {new_wss[:50]}***")
+                            import subprocess as _sp2
+                            try:
+                                _hp = _sp2.run(["pgrep", "-f", "chrome.*--headless"], capture_output=True, text=True, timeout=5).stdout.split()
+                                for _hpid in _hp:
+                                    try: _sp2.run(["kill", "-9", _hpid], capture_output=True, timeout=5)
+                                    except: pass
+                            except: pass
+
+                        # new browser/context/page with new WSS
                         if cloud_mode:
                             from playwright.async_api import async_playwright as _p3
                             p3 = await _p3().start()
@@ -2341,10 +2378,10 @@ async def run(use_warp=False, cloud_mode=False):
                                         raise RuntimeError("skipped via HOLY_SKIP_DISPOSE")
                                     from playwright.async_api import async_playwright as _p4
                                     import uuid as _uuid4b
-                                    if "zenrows.com" in new_wss:
+                                    if "zenrows.com" in (new_wss or ""):
                                         disp_wss = new_wss
                                     else:
-                                        disp_wss = new_wss.split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
+                                        disp_wss = (new_wss or "").split("?")[0] + f"?sessionId={_uuid4b.uuid4()}"
                                     p4 = await _p4().start()
                                     b4 = await p4.chromium.connect_over_cdp(disp_wss)
                                     ctx4 = b4.contexts[0] if b4.contexts else await b4.new_context()
