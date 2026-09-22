@@ -441,6 +441,21 @@ async def run(password: str = "GmailK01!", email_override: str | None = None,
             log(f"  api-keys create skipped: {e}")
             await spage.screenshot(path="/tmp/onk-key-fail.png")
 
+        # 7. unlock full potential: proxies → start trial → just exploring → start trial
+        result_unlock = False
+        try:
+            try:
+                from unlock_trial import unlock_full_potential
+            except ImportError:
+                from onkernel.unlock_trial import unlock_full_potential
+            result_unlock = bool(await unlock_full_potential(spage, log=log))
+        except Exception as e:
+            log(f"  unlock trial soft-fail: {e}")
+            try:
+                await spage.screenshot(path="/tmp/onk-unlock-fail.png")
+            except Exception:
+                pass
+
         result = {
             "email": email,
             "password": password,
@@ -450,6 +465,7 @@ async def run(password: str = "GmailK01!", email_override: str | None = None,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "onk_session_id": onk_sid,
             "browser_live_url": browser_data.get("browser_live_view_url", ""),
+            "trial_unlocked": result_unlock,
         }
 
         # save

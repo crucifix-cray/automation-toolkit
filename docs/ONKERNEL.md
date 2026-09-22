@@ -1,11 +1,15 @@
 # OnKernel Accounts DB (GitHub as DB — owner decision 2026-09-21)
 
-10 farmed accounts, minted 2026-09-21 via `src/onkernel/account_creation_cdp.py --end --22do`
-(CDP browser cloud, 22.do one-dot Gmail, Clerk OTP). Full records (email + password +
-api_key + cookies + storage trios) are committed under `finals/sessions/onk_<ts>_<pid>.*`
-— explicit `git add -f` exception to the `onk_*.json` ignore rule.
+Farmed via `src/onkernel/account_creation_cdp.py --end --22do` (CDP browser cloud,
+22.do one-dot Gmail, Clerk OTP). After signup each account runs
+`unlock_trial.py`: proxies → start a trial → just exploring → start trial.
+Full records (email + password + api_key + cookies + storage trios) live under
+`finals/sessions/onk_<ts>_<pid>.*` — explicit `git add -f` exception to the
+`onk_*.json` ignore rule.
 
-## Accounts (10/10 live at mint)
+Password (all): `GmailK01!`. Pointer: `finals/sessions/latest_onk.json`.
+
+## Batch A — 2026-09-21 (10)
 
 | session file | email | key prefix | created (UTC) |
 |---|---|---|---|
@@ -20,7 +24,23 @@ api_key + cookies + storage trios) are committed under `finals/sessions/onk_<ts>
 | `onk_1790010334_241354.json` | kath.lynsavannahvki60@gmail.com | `sk_14cf4f06-9426-ce3` | 2026-09-21 17:05 |
 | `onk_1790010356_242052.json` | dasi.nmolvs93@gmail.com | `sk_61ed6820-a461-d5b` | 2026-09-21 17:05 |
 
-Password (all): `GmailK01!`. Full keys: read the session JSON. Pointer: `finals/sessions/latest_onk.json`.
+## Batch B — 2026-09-22 (10, trial unlocked)
+
+Farmed on `dasi.nmolvs93@gmail.com` browsers; each unlocked via proxies trial flow.
+API-verified: `GET/POST https://api.onkernel.com/proxies` → available.
+
+| session file | email | key prefix | unlocked |
+|---|---|---|---|
+| `onk_1790079465_170355.json` | smoottel.la206@gmail.com | `sk_dcbe0c32-c925-9` | yes |
+| `onk_1790079494_170590.json` | lilli.anaparshsmm18@gmail.com | `sk_1bd77c6d-e57e-2` | yes |
+| `onk_1790079514_171090.json` | lis.awscott94@gmail.com | `sk_749b04ce-3a4a-c` | yes |
+| `onk_1790079548_170866.json` | mag.giezairetncm@gmail.com | `sk_a6784262-d3da-e` | yes |
+| `onk_1790079557_171591.json` | jave.nskinstle77@gmail.com | `sk_d00b152f-75a8-e` | yes |
+| `onk_1790079560_171388.json` | kenethsurrey.clm36@gmail.com | `sk_21eaf06c-6de8-5` | yes |
+| `onk_1790079589_171821.json` | antoninan.rodriquezn38@gmail.com | `sk_69930520-f60b-8` | yes |
+| `onk_1790079871_171277.json` | brigittemm.arloweo82@gmail.com | `sk_1bfe2de7-6d26-4` | yes |
+| `onk_1790080303_183512.json` | pion.tkowskiheffley84@gmail.com | `sk_dbb4caaf-ddbc-1` | yes |
+| `onk_1790080310_184023.json` | grosjeanpretz.548@gmail.com | `sk_ee2acef6-c7d9-0` | yes |
 
 ## Farming
 
@@ -32,17 +52,22 @@ for i in $(seq 1 N); do (sleep $(( (i-1)*15 )); KERNEL_API_KEY=<key> LD_PRELOAD=
   python3 src/onkernel/account_creation_cdp.py --end --22do --attempts 3 > log_$i.txt 2>&1) & done; wait
 ```
 
-Yield notes (2026-09-21): 7/10 first batch — 3 misses from 22.do filter exhaustion under
-10-way contention (fixed: tries 40→80). Refill 3/3. Browsers auto-deleted on success and
-on email-fail; verify with `kernel browsers list`.
+## Unlock trial
+
+```bash
+# wired into create + org_reset; standalone:
+from unlock_trial import unlock_full_potential
+await unlock_full_potential(page)
+# flow: /proxies → "start a trial" → "just exploring" → "start trial"
+```
 
 ## Rotation (credit exhausted → fresh key, same account)
 
 `src/onkernel/org_reset.py` loads `<session>.storage.json`, deletes org, creates new
-org+slug, mints fresh `auto-main` key, updates same JSON. Verified 2026-09-21
-(`genev-91801`, `sk_2a7a3e82-...cq1g`).
+org+slug, mints fresh `auto-main` key, unlocks trial, updates same JSON.
 
-## Pool usage (Railway spreader 68 → 1.2k)
+## Pool usage (Railway spreader → 1k)
 
-Export keys from the JSONs into the spreader browser pool (OnKernel-first, 1 browser/cell,
-`--par 2`). Seed key used for farming: `sk_73b4d85f-...` (owner-provided).
+Batch B keys + `mobile` proxies (`config.country=us`), unique proxy name per browser
+(`mobile-us-<hex>`). Orchestrator: `src/railway/farm_onk_1k.py` — `--par 10`, rotate
+key+proxy each browser.

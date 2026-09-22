@@ -220,6 +220,20 @@ async def run(session_file: str, org_name: str | None = None,
                 log(f"✅ Fresh key: {api_key[:12]}...{api_key[-4:]}")
         except Exception as e:
             log(f"  key create issue: {e}")
+        # unlock full potential: proxies → start trial → just exploring → start trial
+        try:
+            try:
+                from unlock_trial import unlock_full_potential
+            except ImportError:
+                from onkernel.unlock_trial import unlock_full_potential
+            acc["trial_unlocked"] = bool(await unlock_full_potential(page, log=log))
+        except Exception as e:
+            log(f"  unlock trial soft-fail: {e}")
+            acc["trial_unlocked"] = False
+            try:
+                await page.screenshot(path="/tmp/onk-reset-unlock-fail.png")
+            except Exception:
+                pass
         # update session files (mail + pwd + cookies + api)
         acc["org"] = new_org
         acc["org_slug"] = slug

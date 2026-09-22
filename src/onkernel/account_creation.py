@@ -299,8 +299,24 @@ async def run(password: str = "GmailK01!", email_override=None,
         except Exception as e:
             log(f"  api-keys create skipped: {e}")
             await spage.screenshot(path="/tmp/onk-key-fail.png")
+        # unlock full potential: proxies → start trial → just exploring → start trial
+        try:
+            try:
+                from unlock_trial import unlock_full_potential
+            except ImportError:
+                from onkernel.unlock_trial import unlock_full_potential
+            await unlock_full_potential(spage, log=log)
+            result_unlock = True
+        except Exception as e:
+            log(f"  unlock trial soft-fail: {e}")
+            result_unlock = False
+            try:
+                await spage.screenshot(path="/tmp/onk-unlock-fail.png")
+            except Exception:
+                pass
         result = {"email": email, "password": password, "first": first, "last": last,
-                  "api_key": api_key, "created_at": datetime.utcnow().isoformat() + "Z"}
+                  "api_key": api_key, "created_at": datetime.utcnow().isoformat() + "Z",
+                  "trial_unlocked": result_unlock}
         # save: mail + pwd + cookies + api (repo sessions/ convention)
         repo = "/home/alan/Documents/repos/automation-toolkit/finals/core"
         sdir = _os.path.join(_os.path.dirname(repo), "sessions")
