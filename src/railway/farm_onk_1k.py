@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Farm N Railway accounts via OnKernel CDP + fresh mobile-US proxy per browser.
 
-Batch B pool = 10 unlocked keys. Target shape: 10 keys × 10 browsers = 100 concurrent
-(--par 100), round-robin keys; repeat waves toward --target 1000. See docs/ONKERNEL.md.
+Batch B pool = 10 unlocked keys. Goal shape is 10×10 browsers × waves → 1k, but on a
+15Gi host keep --par <=20 (par 40/100 OOM'd 2026-09-22). See docs/ONKERNEL.md.
 
 Usage:
-  python3 src/railway/farm_onk_1k.py --target 1000 --par 100
+  python3 src/railway/farm_onk_1k.py --target 1000 --par 20
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ DEFAULT_GLOBS = [
     "finals/sessions/onk_1790079*.json",
     "finals/sessions/onk_1790080*.json",
 ]
-LOG_DIR = Path("/tmp/onk-rail-1k")
+LOG_DIR = Path("/home/alae/onk-rail-1k")
 API = "https://api.onkernel.com"
 
 _lock = threading.Lock()
@@ -202,7 +202,7 @@ def worker(job_id: int, key_row: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--target", type=int, default=1000)
-    ap.add_argument("--par", type=int, default=10)
+    ap.add_argument("--par", type=int, default=20)
     ap.add_argument("--keys-glob", action="append", default=None)
     ap.add_argument("--max-jobs", type=int, default=0)
     args = ap.parse_args()
@@ -241,7 +241,7 @@ def main() -> int:
                 key_row = keys[(submitted - 1) % len(keys)]
                 fut = ex.submit(worker, submitted, key_row)
                 futs[fut] = submitted
-                time.sleep(8)  # gentle stagger — avoid host thrash
+                time.sleep(1.5)  # stagger — fill 100-wide pool fast
             if not futs:
                 break
             # wait for any completion
