@@ -55,5 +55,5 @@ Login: cookies first; fallback email → password → `pyotp.TOTP(totp_secret)` 
 - Resume bridge on existing fleet projects: `src/lovable/inject_fleet_projects.py --jobs /tmp/fleet_jobs.json`
 - Script 3 (mine): `chimera-miner` `daemon.py` + `miner_injector.py` (Railway cells; navigate Preview → `/term` then `doc('pwd')`)
 
-**Notes (2026-09-23 night):** Fleet remixed projects need script2 bridge before Worker inject. Probe ****, not Homepage. cell-16 mining project locked — do not reuse Railway  CLI home for other cells. OnKernel org ≤**5 concurrent** browsers —  (slot semaphore + create retries). Latest batch: **5/9** bridge OK → restarted Railway daemons on those cells ().
+**Notes (2026-09-23 stop):** Fleet push paused. Only cell-16 + cell-13 mining. Probe **/term**, not Homepage. cell-16 locked — do not reuse Railway `sessions/session-2`. OnKernel: org ≤5 concurrent; default key may be billing-blocked — use unlocked farm KERNEL_API_KEY. 5/9 had OnKernel bridge earlier; Railway cells still no-doc. 4 left: cells 25/26/32/36.
 
