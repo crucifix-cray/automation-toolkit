@@ -1,0 +1,184 @@
+[
+  {
+    "name": "dispose_mailbox",
+    "value": "eyJ2IjozLCJhZGRyZXNzIjoiYWxiLmludmF1dGlzdGFAZ21haWwuY29tIiwibWFpbGJveEtleSI6ImFsYi5pbnZhdXRpc3RhQGdtYWlsLmNvbSIsImlzc3VlZEF0IjoxNzkwMTgxNTk4MDUzLCJleHBpcmVzQXQiOjE3OTI3NzM1OTgwNTMsInVhSGFzaCI6IldBdTBJd2tIVjJlbFBpeVdYb3NzRGJFb01vdHlEVk90S2tYUGpnRUUwRGcifQ.bLiuCyWVfhEyctSEhBw8-MnuUOzU1GIfF2oAOh1Wz1M",
+    "domain": "dispose.lol",
+    "path": "/",
+    "expires": 1792773598.535503,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cf_clearance",
+    "value": "viYwr8jqmwHGVkiAQ.9jXeyhAKAR85tylYyZIshZVcY-1790181598-1.2.1.1-JFI72WZmrDBXUXtBTqAchmA3YhWi8KFQxuxvDdjaXp4E9RxY.IrQKhRtzBV_wD8fpGrTBBwQFHIYyHoLbYSy4yypaZHh6y.tH6m.FuBD.Rl8I_ikFyyQ4pwOjVEtF3jPQETAPVBD08Vkax7TmX5VMr4wdBgN7VZy71x.0FPfBDnqGFCuHfJmdf.nSZU6ia1zA02hJOrkyhyRGWjPdI.7Ub6t1dJbNjnlUEHwGbwAeWNp6XxBsovWv7NC19ExBoFhYgwQzJUvXyIybJvW6_7bk6UBRa7wt9RIEapcA0D9jj6WCU.ibmpPY59GEK4p1JzJCEmhK9GGW9xk93aB6tK.gwkN4Ex_9njrNXs37CHbFZ4",
+    "domain": ".dispose.lol",
+    "path": "/",
+    "expires": 1821717598.643381,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None",
+    "partitionKey": "https://dispose.lol",
+    "_crHasCrossSiteAncestor": false
+  },
+  {
+    "name": "_ga",
+    "value": "GA1.1.1217355399.1790181601",
+    "domain": ".onkernel.com",
+    "path": "/",
+    "expires": 1824741748.937579,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_cfuvid",
+    "value": "T4gc9DMZER03tZE75W.BZwlK4qJZswXLGPgAOCePCEs-1790181601.2450607-1.0.1.1-G2ysB7LqykerwGCSJBsgbf_S6luEr0oPWL1_5lpZPyY",
+    "domain": ".clerk.onkernel.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "__cf_bm",
+    "value": "VzP72.R9fCJegVhr1cUgabo_0Z2F9cktYUGG8JAca0k-1790181601.665484-1.0.1.1-xkYssMYY52Z726wA.JChSmoAZPEj2ljv2l9.TrxPymN5CPo.VDeAQQnh077j825VZD1D8UCCEpA9j6MHGRBzSqxrnO61zP0Rq91xk3gQ3P6gDz8zp9IDSVZaDQbbMiVT",
+    "domain": ".plfalg.kernel.sh",
+    "path": "/",
+    "expires": 1790183401.748034,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "_ca_device_id",
+    "value": "ca_bec045a0-c025-41c9-b547-e1aae299ede7",
+    "domain": ".onkernel.com",
+    "path": "/",
+    "expires": 1824741602.003151,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__cf_bm",
+    "value": "t.x5BY_5sEQXkOXyWgc78HB3ss4OsKwZOuwljktQIh0-1790181602.5671456-1.0.1.1-YHkXq8mGHshBLHUYrHNIX0VXKoz8BReV2C_tDKOQcoD_oijEzDERQycx.txBYs7KbsNlWLiVgJpC2k4CK85mo5RW4bQAwH2Zpe24Zz4mSdKHHzHq0ZfxNUCm2FvHpJr8",
+    "domain": ".img.clerk.com",
+    "path": "/",
+    "expires": 1790183402.698844,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "__client",
+    "value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNsaWVudF8zSmpqdlA1M1A2ZmxhNmFFdnBvdWtrQTdFYnYiLCJyb3RhdGluZ190b2tlbiI6Inh5eXV1aThoN3g3ZXJrenJwNWxya3p0aXpzb3AzZGQ3Y3hmc3BjeWwifQ.Q9wzCqwLnX8jxEn6bRVuDAWFhUfrkxiNEHAUkharf_BGD2NFQcW3IWO3fS5RgahmNRGplwVhAQ9v4PYOg8yy71YJ9FgAFYFWs4A7BgyaU-lCFIKvw_Uhw91RQ3GrjU0gooEx8kc87paGDCWg_U4j2ZpdVfRZVum89OaV9Q3WO4ULAUjEWaoWVbd51SsnvhhLlBfr6CxABVcmkRtGLefeXngeEDpr9XlafUbCnmw8YEs4F6HvSCEn6FB3Y_LmeM_6ZCiB6YnoKZcIvxErO2We7OkH6oHAjhUrBUafVn5EOKwq_Qv2VsZhIYoehcUIly9cAcXW0mnIlv7EjY6CRY4xvQ",
+    "domain": ".clerk.onkernel.com",
+    "path": "/",
+    "expires": 1824741666.744839,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__client_uat",
+    "value": "1790181666",
+    "domain": ".onkernel.com",
+    "path": "/",
+    "expires": 1824741750.103915,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__client_uat_lx9rd0Cu",
+    "value": "1790181666",
+    "domain": ".onkernel.com",
+    "path": "/",
+    "expires": 1824741750.104005,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__cf_bm",
+    "value": "8wxQ7.YCc0I2j1f0TFkNLsR.CaZ_TAhdmOLa4sg2MXk-1790181665.8305523-1.0.1.1-KNTsznRo8TAiEKgQ9kijy9gCi.yR718zHMW3e1yHGatDGTnCg8g97HhJLCxG1tj4N569Fcx4zOQ_F44P_8UhWXA6RiU2vlRO9Pz.3ezspQc76g7bDS404gx1e3eKkqCq",
+    "domain": ".clerk.onkernel.com",
+    "path": "/",
+    "expires": 1790183466.745037,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "clerk_active_context",
+    "value": "sess_3Jjk3djA8OnoAtiX8s5Cfrq24lp:org_3Jjk858v5XzkxhsARb50lZ20fE3",
+    "domain": "dashboard.onkernel.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "kernel-project-id-genev-81699",
+    "value": "ilu0nhg53knraghc5jnblzsi",
+    "domain": "dashboard.onkernel.com",
+    "path": "/",
+    "expires": 1821717749.803461,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__refresh_lx9rd0Cu",
+    "value": "3JjjvP53P6fla6aEvpoukkA7Ebv:TGAOPX0NnabHA0RBZ4h0",
+    "domain": "dashboard.onkernel.com",
+    "path": "/",
+    "expires": 1821717747.160616,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_ga_GVEXRLYSN4",
+    "value": "GS2.1.s1790181601$o1$g1$t1790181750$j59$l0$h0",
+    "domain": ".onkernel.com",
+    "path": "/",
+    "expires": 1824741750.843875,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__session",
+    "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6Imluc18yeThYVGJmWVhUY3dvWGZ5NWp5SlZLUnNtYUoiLCJ0eXAiOiJKV1QiLCJvaWF0IjoxNzkwMTgxNzQ5LCJjYXQiOiJjbF9CN2Q0UEQxMTFBQUEifQ.eyJhenAiOiJodHRwczovL2Rhc2hib2FyZC5vbmtlcm5lbC5jb20iLCJleHAiOjE3OTAxODE4NTIsImZ2YSI6WzIsLTFdLCJpYXQiOjE3OTAxODE3OTIsImlzcyI6Imh0dHBzOi8vY2xlcmsub25rZXJuZWwuY29tIiwianRpIjoiZTg5YWU1NzZhMGMyMzZhYmU4NGMiLCJtZXRhZGF0YSI6eyJoZHloYXVSZXNwb25zZSI6Ik90aGVyOiBmcmllbmQiLCJrZXJuZWxfaWQiOiJtdmU2ZHBjN3A3YTN4Mno3dHVrbHJ3MGIiLCJvbmJvYXJkaW5nU2VlbiI6dHJ1ZSwic3VydmV5Q29tcGxldGVkIjp0cnVlfSwibmJmIjoxNzkwMTgxNzgyLCJvIjp7ImlkIjoib3JnXzNKams4NTh2NVh6a3hoc0FSYjUwbFoyMGZFMyIsInJvbCI6ImFkbWluIiwic2xnIjoiZ2VuZXYtODE2OTkifSwib3JnX2lkIjoib3JnXzNKams4NTh2NVh6a3hoc0FSYjUwbFoyMGZFMyIsIm9yZ19tZW1iZXJzaGlwcyI6eyJvcmdfM0pqazg1OHY1WHpreGhzQVJiNTBsWjIwZkUzIjoib3JnOmFkbWluIn0sInNpZCI6InNlc3NfM0pqazNkakE4T25vQXRpWDhzNUNmcnEyNGxwIiwic3RzIjoiYWN0aXZlIiwic3ViIjoidXNlcl8zSmprM1p3UzNnWndqMkpTdFJENGRySnh5NDMiLCJ2IjoyfQ.o2G8XumConAxsUiBbH4kiVjgCwp2xMK0wFrXwvb3L6eOgnaHjcDt6V7Cf6goa1xnynuMgxZ20tPahr4t1niuWCym6horQhm2N1nyzPhWfUA7tH8_7tHKjczGR8UX-ZRETQerIJTT_q9GCj4U_8i0rZtHWiUMYGy1Ia-YRAHwhl1ReL0un_yyx9ckwFPL8Pc7WWRcqhSLfi4WDdFCZDsO6dQ1uoW7GXAI2ejRKCyeR3Ie35PPdUcVSBJNomyvrhfGMEkpWl_dnAjY_HhUfJ5QmD3Y7Pt_RO3X4eGSpo_90Rce3WkUA9CcGo8l0TXz6clGaVU33lCPjHWyOJ3dhGwr1g",
+    "domain": "dashboard.onkernel.com",
+    "path": "/",
+    "expires": 1821717794,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__session_lx9rd0Cu",
+    "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6Imluc18yeThYVGJmWVhUY3dvWGZ5NWp5SlZLUnNtYUoiLCJ0eXAiOiJKV1QiLCJvaWF0IjoxNzkwMTgxNzQ5LCJjYXQiOiJjbF9CN2Q0UEQxMTFBQUEifQ.eyJhenAiOiJodHRwczovL2Rhc2hib2FyZC5vbmtlcm5lbC5jb20iLCJleHAiOjE3OTAxODE4NTIsImZ2YSI6WzIsLTFdLCJpYXQiOjE3OTAxODE3OTIsImlzcyI6Imh0dHBzOi8vY2xlcmsub25rZXJuZWwuY29tIiwianRpIjoiZTg5YWU1NzZhMGMyMzZhYmU4NGMiLCJtZXRhZGF0YSI6eyJoZHloYXVSZXNwb25zZSI6Ik90aGVyOiBmcmllbmQiLCJrZXJuZWxfaWQiOiJtdmU2ZHBjN3A3YTN4Mno3dHVrbHJ3MGIiLCJvbmJvYXJkaW5nU2VlbiI6dHJ1ZSwic3VydmV5Q29tcGxldGVkIjp0cnVlfSwibmJmIjoxNzkwMTgxNzgyLCJvIjp7ImlkIjoib3JnXzNKams4NTh2NVh6a3hoc0FSYjUwbFoyMGZFMyIsInJvbCI6ImFkbWluIiwic2xnIjoiZ2VuZXYtODE2OTkifSwib3JnX2lkIjoib3JnXzNKams4NTh2NVh6a3hoc0FSYjUwbFoyMGZFMyIsIm9yZ19tZW1iZXJzaGlwcyI6eyJvcmdfM0pqazg1OHY1WHpreGhzQVJiNTBsWjIwZkUzIjoib3JnOmFkbWluIn0sInNpZCI6InNlc3NfM0pqazNkakE4T25vQXRpWDhzNUNmcnEyNGxwIiwic3RzIjoiYWN0aXZlIiwic3ViIjoidXNlcl8zSmprM1p3UzNnWndqMkpTdFJENGRySnh5NDMiLCJ2IjoyfQ.o2G8XumConAxsUiBbH4kiVjgCwp2xMK0wFrXwvb3L6eOgnaHjcDt6V7Cf6goa1xnynuMgxZ20tPahr4t1niuWCym6horQhm2N1nyzPhWfUA7tH8_7tHKjczGR8UX-ZRETQerIJTT_q9GCj4U_8i0rZtHWiUMYGy1Ia-YRAHwhl1ReL0un_yyx9ckwFPL8Pc7WWRcqhSLfi4WDdFCZDsO6dQ1uoW7GXAI2ejRKCyeR3Ie35PPdUcVSBJNomyvrhfGMEkpWl_dnAjY_HhUfJ5QmD3Y7Pt_RO3X4eGSpo_90Rce3WkUA9CcGo8l0TXz6clGaVU33lCPjHWyOJ3dhGwr1g",
+    "domain": "dashboard.onkernel.com",
+    "path": "/",
+    "expires": 1821717794,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "ph_phc_qzbYaPzLlNcu6f7xxZ30EpuEvPHQjpRfUx2P2Iy9z1o_posthog",
+    "value": "%7B%22%24device_id%22%3A%2201a0cf25-b04d-7e5e-9db8-5fd9c8d9f3ab%22%2C%22distinct_id%22%3A%22mve6dpc7p7a3x2z7tuklrw0b%22%2C%22%24sesid%22%3A%5B1790181792710%2C%2201a0cf25-b04f-743a-8fb8-5bf01251618e%22%2C1790181748814%5D%2C%22%24epp%22%3Atrue%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22%24direct%22%2C%22u%22%3A%22https%3A%2F%2Fdashboard.onkernel.com%2Fgenev-81699%2Fproxies%22%7D%7D",
+    "domain": ".onkernel.com",
+    "path": "/",
+    "expires": 1821717792,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  }
+]
