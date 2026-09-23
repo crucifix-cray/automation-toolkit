@@ -58,6 +58,7 @@ opencode backups/opencode.db-shm
 opencode backups/opencode.db-wal
 opencode backups/sessions/
 
-# OnKernel sessions contain API keys + Clerk cookies (onk-api.py / onk-org-reset.py) - never commit.
-finals/sessions/onk_*.json
+# OnKernel login jars: TRACKED (owner decision 2026-09-23 — farm backup; lost when ignored).
+# Still ignore rotate backups + latest pointer noise.
 finals/sessions/latest_onk.json
+finals/sessions/backups/
