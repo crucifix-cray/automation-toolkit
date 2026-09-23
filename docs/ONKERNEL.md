@@ -88,6 +88,17 @@ Disable: `GH_PUSH=0`. See `finals/secrets/README.md`.
 - Jar: `finals/sessions/farmed-pilot-session-1/` (`verified.json` present)
 - Earlier fails: missing `railway` binary on box; host `RAILWAY_API_TOKEN` leak (fixed)
 
+### Pilot — 2026-09-23b (Railway sandbox on session-1, full loop)
+
+- Host account: `janic.ebunagna@gmail.com` / project `talented-celebration`
+- Worker: Railway **sandbox** (fleet `cell-13` mapping was stale/offline)
+- OnK: Batch B `smoottel…` + mobile proxy `mobi-holy-*`
+- Bootstrap: Python 3.12 + playwright chromium(+deps) + `@onkernel/cli` + railway CLI + toolkit clone
+- Result: **SERVICE OK — MADE** `uqmvvmugjqw7@uberip.com` → `cell-1-28bce9` / `hlth-1`
+- Jar: `finals/sessions/farmed-sandbox-session-1/`
+- GitHub push: first attempt failed (`eisen0x` token no write); re-sealed `gh_token.enc` for writable user; sandbox `sync_to_github` **OK**
+- Local box footprint during run: ~0.4–0.7 GiB of 2.2 GiB (browser remote on OnK)
+
 ### Run notes — 2026-09-22 (local OOM)
 
 - Local `--par 100` / `--par 40` **OOM’d** the 15 GiB host.
