@@ -690,6 +690,23 @@ def sync_to_mega(session_dir: Path):
         print(f"⚠️  Mega sync error: {e}")
 
 
+def sync_to_github(session_dir: Path):
+    """Push MADE jar to GitHub. Decrypts GH PAT via HOLY_SECRET_KEY at runtime."""
+    try:
+        from gh_push import sync_to_github as _push
+    except ImportError:
+        try:
+            from src.railway.gh_push import sync_to_github as _push
+        except ImportError as e:
+            print(f"⚠️  GitHub push unavailable (import): {e}")
+            return
+    try:
+        clean_session_dir(session_dir)
+        _push(session_dir)
+    except Exception as e:
+        print(f"⚠️  GitHub push error: {e}")
+
+
 def get_next_session_number():
     """Get next available session number.
 
@@ -2536,6 +2553,8 @@ async def run(use_warp=False, cloud_mode=False):
                     except Exception:
                         pass
                     raise RuntimeError(f"service-not-ready: {sve}") from sve
+                # GitHub-as-DB: push verified jar (GH token decrypted at runtime)
+                sync_to_github(session_dir)
                 # ponytail: cloud — verify via raw IP isolated HOME (not RAILWAY_CONFIG_DIR)
                 if cloud_mode:
                     try:
@@ -2750,6 +2769,11 @@ if __name__ == "__main__":
     print("="*60)
     print(f"📁 Sessions directory: {SESSIONS_DIR}")
     print(f"☁️  Mega remote: {MEGA_REMOTE}")
+    _gh_ready = bool(os.environ.get("HOLY_SECRET_KEY")) and (
+        bool(os.environ.get("GH_TOKEN_ENC"))
+        or Path(__file__).resolve().parents[2].joinpath("finals/secrets/gh_token.enc").is_file()
+    )
+    print(f"🐙 GitHub push: {'READY' if _gh_ready else 'OFF (need HOLY_SECRET_KEY + gh_token.enc)'}")
     print(f"🔁 WARP: {'ENABLED' if use_warp else 'DISABLED'}")
     print(f"🧪 Gate: service create+verify (retry={'ON' if UNTIL_SERVICE else 'OFF'})")
     if KERNEL_MODE:

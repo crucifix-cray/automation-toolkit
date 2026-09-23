@@ -62,3 +62,11 @@ opencode backups/sessions/
 # Still ignore rotate backups + latest pointer noise.
 finals/sessions/latest_onk.json
 finals/sessions/backups/
+
+# Encrypted GH PAT OK to track; never plaintext
+finals/secrets/*.token
+finals/secrets/*token*.txt
+finals/secrets/*.local
+finals/secrets/holy_secret_key.local
+!finals/secrets/*.enc
+!finals/secrets/README.md

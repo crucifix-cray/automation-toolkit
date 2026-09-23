@@ -62,6 +62,24 @@ the host (wrong email, “Free plan resource provision limit exceeded”) and de
 new jar. `create_and_verify_service` now strips **all** `RAILWAY_*` env vars and sets
 `HOME=<new session dir>` before CLI calls. Runner shells must scrub too.
 
+### GitHub push (encrypted PAT)
+
+MADE jars push to `finals/sessions/farmed-<session>/` on this repo after service verify.
+
+```bash
+# one-time on laptop — ciphertext only is committed
+HOLY_SECRET_KEY='choose-a-strong-passphrase' GITHUB_TOKEN='ghp_…' \
+  python3 -m src.utils.secret_box encrypt --out finals/secrets/gh_token.enc
+git add -f finals/secrets/gh_token.enc && git commit && git push
+
+# on Railway worker / sandbox — inject passphrase only (never the raw PAT)
+export HOLY_SECRET_KEY='choose-a-strong-passphrase'
+# optional override instead of file: export GH_TOKEN_ENC='…ciphertext…'
+# clone is automatic via src/railway/gh_push.py (TOOLKIT_ROOT=/app/toolkit if pre-cloned)
+```
+
+Disable: `GH_PUSH=0`. See `finals/secrets/README.md`.
+
 ### Pilot — 2026-09-23 (green, then stop)
 
 - Worker: `session-40` (`cell-113`)
