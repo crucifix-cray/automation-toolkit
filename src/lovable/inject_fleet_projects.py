@@ -11,7 +11,7 @@ Usage:
   python3 src/lovable/inject_fleet_projects.py
   python3 src/lovable/inject_fleet_projects.py --jobs /tmp/fleet_jobs.json
   python3 src/lovable/inject_fleet_projects.py --only 05da1af6,b06e4a07
-  python3 src/lovable/inject_fleet_projects.py --workers 2 --wait 900
+  python3 src/lovable/inject_fleet_projects.py --workers 5 --wait 900
 """
 from __future__ import annotations
 
@@ -29,7 +29,6 @@ sys.path.insert(0, CORE)
 
 import remix_inject as R  # noqa: E402
 
-# rail_session, lovable_session, project_id — last remixed fleet batch
 DEFAULT_JOBS = [
     [1, 1, "05da1af6-0626-4746-a339-92d7e6b2e3e1"],
     [3, 2, "b06e4a07-95fb-4dc3-89a8-72ca84f2f25d"],
@@ -44,7 +43,6 @@ DEFAULT_JOBS = [
 ]
 SKIP_PROJECTS = {"7d6f77a6-69a1-4b06-a1d3-53094c4c8019"}  # cell-16 mining
 
-# OnKernel org unified_concurrent_sessions hard cap (observed: 5)
 KERNEL_SLOT_LIMIT = int(os.environ.get("KERNEL_SLOT_LIMIT", "5"))
 _kernel_slots: asyncio.Semaphore | None = None
 
@@ -57,8 +55,6 @@ def _slots() -> asyncio.Semaphore:
 
 
 async def _create_browser_retry(label: str, tries: int = 16):
-    """Create Kernel browser; retry on org/rate limit until a slot frees."""
-    import subprocess as _sp
     last = None
     for i in range(tries):
         try:
@@ -70,7 +66,6 @@ async def _create_browser_retry(label: str, tries: int = 16):
             await asyncio.sleep(wait)
             continue
     raise last  # type: ignore[misc]
-
 
 
 def _load_jobs(path: str | None, only: set[str] | None):
@@ -125,61 +120,63 @@ async def inject_one(pw, lov_sess: int, project_id: str, rail: int, wait_s: int)
             return {"rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
                     "success": False, "reason": f"kernel create: {e}"[:240], "bridge": False}
         try:
-        browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=60000)
-        ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
-        cookies, ck_path = _cookies_for_session(lov_sess)
-        await ctx.add_cookies(cookies)
-        page = await ctx.new_page()
-        _alts = [cfg.get("password_alt"), cfg.get("password_backup")]
-        if not await R._login(
-            page, email, password, cfg.get("totp_secret"), cfg.get("totp_secret_backup"),
-            password_alts=[a for a in _alts if a],
-        ):
+            browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=60000)
+            ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
+            cookies, ck_path = _cookies_for_session(lov_sess)
+            await ctx.add_cookies(cookies)
+            page = await ctx.new_page()
+            _alts = [cfg.get("password_alt"), cfg.get("password_backup")]
+            if not await R._login(
+                page, email, password, cfg.get("totp_secret"), cfg.get("totp_secret_backup"),
+                password_alts=[a for a in _alts if a],
+            ):
+                return {"rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
+                        "success": False, "reason": "login failed", "bridge": False, "kernel_sid": sid}
+
+            await page.goto(url, timeout=90000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(8000)
+            if "Log in" in await R._safe_text(page, 400):
+                return {"rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
+                        "success": False, "reason": "auth wall on project", "bridge": False, "kernel_sid": sid}
+
+            inj = await R.inject_and_wait_bridge(page, ctx, label=label, wait_s=wait_s)
+            try:
+                fresh = await ctx.cookies()
+                json.dump(fresh, open(ck_path, "w"), indent=2)
+            except Exception:
+                pass
+            cfg["project_id"] = project_id
+            cfg["project_link"] = url
+            cfg["last_bridge_inject_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            cfg["bridge_ok"] = bool(inj.get("bridge"))
+            json.dump(cfg, open(cfg_path, "w"), indent=2)
+
+            return {
+                "rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
+                "project_link": url, "success": bool(inj.get("bridge")),
+                "reason": inj.get("reason"), "bridge": bool(inj.get("bridge")),
+                "preview_url": inj.get("preview_url"), "pwd": inj.get("pwd"),
+                "kernel_sid": sid, "live": None,
+            }
+        except Exception as e:
             return {"rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
-                    "success": False, "reason": "login failed", "bridge": False}
-
-        await page.goto(url, timeout=90000, wait_until="domcontentloaded")
-        await page.wait_for_timeout(8000)
-        if "Log in" in await R._safe_text(page, 400):
-            return {"rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
-                    "success": False, "reason": "auth wall on project", "bridge": False}
-
-        inj = await R.inject_and_wait_bridge(page, ctx, label=label, wait_s=wait_s)
-        try:
-            fresh = await ctx.cookies()
-            json.dump(fresh, open(ck_path, "w"), indent=2)
-        except Exception:
-            pass
-        cfg["project_id"] = project_id
-        cfg["project_link"] = url
-        cfg["last_bridge_inject_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
-        cfg["bridge_ok"] = bool(inj.get("bridge"))
-        json.dump(cfg, open(cfg_path, "w"), indent=2)
-
-        return {
-            "rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
-            "project_link": url, "success": bool(inj.get("bridge")),
-            "reason": inj.get("reason"), "bridge": bool(inj.get("bridge")),
-            "preview_url": inj.get("preview_url"), "pwd": inj.get("pwd"),
-            "kernel_sid": sid, "live": None,
-        }
-    except Exception as e:
-        return {"rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
-                "success": False, "reason": str(e)[:240], "bridge": False, "kernel_sid": sid}
-    finally:
-        try:
-            if browser:
-                await browser.close()
-        except Exception:
-            pass
-        await asyncio.to_thread(R._del_browser, sid)
+                    "success": False, "reason": str(e)[:240], "bridge": False, "kernel_sid": sid}
+        finally:
+            try:
+                if browser:
+                    await browser.close()
+            except Exception:
+                pass
+            if sid:
+                await asyncio.to_thread(R._del_browser, sid)
 
 
 async def main():
     ap = argparse.ArgumentParser(description="Inject Build a debug terminal on fleet remix projects (OnKernel)")
     ap.add_argument("--jobs", default="/tmp/fleet_jobs.json")
     ap.add_argument("--only", default="", help="comma project-id prefixes to include")
-    ap.add_argument("--workers", type=int, default=2)
+    ap.add_argument("--workers", type=int, default=5,
+                    help="parallel job runners (Kernel org cap ~5; extra workers queue)")
     ap.add_argument("--wait", type=int, default=900, help="seconds to wait for window.doc per project")
     ap.add_argument("--out", default="/tmp/fleet_inject_results.json")
     a = ap.parse_args()
@@ -189,7 +186,14 @@ async def main():
     jobs = _load_jobs(a.jobs, only)
     if not jobs:
         raise SystemExit("no jobs")
-    print(f"jobs={len(jobs)} workers={a.workers} wait={a.wait}s prompt_chars={len(R.SUBPROCESS_PROMPT)}", flush=True)
+
+    global _kernel_slots
+    _kernel_slots = asyncio.Semaphore(max(1, min(KERNEL_SLOT_LIMIT, a.workers)))
+    print(
+        f"jobs={len(jobs)} workers={a.workers} kernel_slots={KERNEL_SLOT_LIMIT} "
+        f"wait={a.wait}s prompt_chars={len(R.SUBPROCESS_PROMPT)}",
+        flush=True,
+    )
     for rail, lov, pid in jobs:
         print(f"  rail-{rail} lov-s{lov} {pid}", flush=True)
 
@@ -202,7 +206,7 @@ async def main():
     results_lock = asyncio.Lock()
 
     async def worker(wid: int, pw):
-        await asyncio.sleep(wid * 5)
+        await asyncio.sleep(wid * 1.5)
         while True:
             try:
                 rail, lov, pid = queue.get_nowait()
