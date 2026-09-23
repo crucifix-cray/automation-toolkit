@@ -30,43 +30,51 @@ API-verified: `GET/POST https://api.onkernel.com/proxies` → mobile US availabl
 | `onk_1790080303_183512.json` | pion.tkowskiheffley84@gmail.com | `sk_dbb4caaf-ddbc-1` | unlocked |
 | `onk_1790080310_184023.json` | grosjeanpretz.548@gmail.com | `sk_ee2acef6-c7d9-0` | unlocked |
 
-## Railway spreader plan (100-wide → 1k)
+## Railway spreader plan (51 workers → ~1k)
 
-**Do 100 browsers — not on this laptop.** Spread workers across the verified Railway
-fleet (`Documents/railways/session-1..44`). Local host only orchestrates / ships jobs;
-Playwright+CDP clients run **on Railway sandboxes**, using Batch B OnK keys + unique
-mobile-US proxies.
+**Laptop = thin boss only.** Playwright+CDP runs **on Railway sandboxes** via
+`scripts/cell_ssh.sh`. Each job: fresh OnK **mobile-US** proxy → stealth browser →
+Holy `account_creation.py --kernel --kernel-proxy <name> --once --no-warp`.
 
 | Knob | Value |
 |---|---|
-| OnK accounts | **10** Batch B (`tag=unlocked`) |
-| Concurrent browsers | **100** (spread on Railway fleet, not local) |
-| Fleet workers | **44** Railway sessions (grow as new MADE land) |
-| Binding sketch | ~2–3 OnK browser slots per Railway worker → ~100 total |
-| Waves to ~1k | reuse same 10 OnK keys across waves |
-| Proxy | unique `mobile-us-<hex>` per browser, `type=mobile`, `country=us` |
-| Orchestrator (local thin) | `src/railway/farm_onk_1k.py` — **must dispatch to Railway**, not spawn 100 local Playwright |
-| OnK pool files | `finals/sessions/onk_*.json` (+ cookies/storage) |
+| OnK providers | Batch B + newly farmed unlocked jars (`finals/sessions/onk_*.json`) |
+| Fleet workers | **51** (`services.json` / `sessions/session-1..51`) — docs previously said 44 (stale) |
+| Wave math | **51 × ~20 ≈ 1k** MADE accounts |
+| Concurrent | Cap by OnK org limit (~5 browsers/org); do **not** local `--par 50+` |
+| Proxy | unique `kernel proxies create --type mobile --country US --name …` per job |
+| Dispatch | `cell_ssh.sh <session> <project> <env> <service> -- <cmd>` |
+| Holy script | `src/railway/account_creation.py` |
+| Status | **PAUSED after 1-green pilot** (2026-09-23). Do not blast 50 until resumed. |
 
 ```bash
-# WRONG on 15Gi laptop — OOM (see run notes)
+# WRONG on 15Gi laptop — OOM
 # LD_PRELOAD="" python3 src/railway/farm_onk_1k.py --target 1000 --par 100
 
-# RIGHT: spread --par 100 across Railway session-* workers (impl TBD / in progress)
-# each Railway sandbox runs a thin farm worker with 1–3 OnK browsers
+# RIGHT: one worker example (see pilot notes). Fleet dispatcher still thin / TBD.
 ```
 
-Logs (when local probe only): `/home/alae/onk-rail-1k/`. Verified Railways stay at
-`/home/alae/Documents/railways/session-*` (**44** goods as of stop).
+### Hard rule — scrub host `RAILWAY_*` inside sandboxes
 
-### Run notes — 2026-09-22 (stopped)
+Every Railway cell injects `RAILWAY_API_TOKEN` (+ project/service ids) for the **host**
+account. If Holy’s service-verify `railway whoami`/`init` sees those, it operates as
+the host (wrong email, “Free plan resource provision limit exceeded”) and deletes the
+new jar. `create_and_verify_service` now strips **all** `RAILWAY_*` env vars and sets
+`HOME=<new session dir>` before CLI calls. Runner shells must scrub too.
 
-- Local `--par 100` / `--par 40` **OOM’d** the 15 GiB host — proved why spread must be
-  on Railway, not localhost.
-- `mail.tm` **HTTP 429** under blast; prefer 22.do primary.
+### Pilot — 2026-09-23 (green, then stop)
+
+- Worker: `session-40` (`cell-113`)
+- OnK: provider key + fresh mobile proxy (`mobi-one3-*`)
+- Result: **SERVICE OK — account MADE** `tbofekfloksc@uberip.com`
+- Jar: `finals/sessions/farmed-pilot-session-1/` (`verified.json` present)
+- Earlier fails: missing `railway` binary on box; host `RAILWAY_API_TOKEN` leak (fixed)
+
+### Run notes — 2026-09-22 (local OOM)
+
+- Local `--par 100` / `--par 40` **OOM’d** the 15 GiB host.
+- Prefer 22.do; `mail.tm` works as fallback (pilot used mail.tm).
 - Kill leftover local clients: `pkill -9 -f farm_onk_1k; pkill -9 -f 'railway/account_creation.py'`.
-- Next: ship farm workers onto `session-1..44`, target **100** concurrent OnK browsers
-  fleet-wide, then wave toward 1k.
 
 ## Optional: farm more OnK (paused)
 

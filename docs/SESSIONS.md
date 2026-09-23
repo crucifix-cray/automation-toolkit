@@ -1,14 +1,18 @@
 # Railway sessions (canonical live path)
 
-Live verified tokens: `/home/alae/Documents/railways/session-*` (**44**, renumbered
-2026-09-22 after create-service verify; 61 trial/bad culled).
+Fleet size: **51** (`services.json`, `sessions/session-1..51`). Docs previously said 44
+— that table stopped early; count from `services.json`.
 
-OnKernel browser pool for farming: **Batch B only** — see [ONKERNEL.md](ONKERNEL.md)
-(10 `tag=unlocked` keys, cookies + `__refresh_*`).
+Token homes (either layout works with `scripts/cell_ssh.sh`):
+- `/home/alan/Documents/repos/automation-toolkit/sessions/session-N`
+- `/home/alan/Documents/railways/sessions/session-N`
 
-**100-wide farm:** spread across these Railway sessions (workers), not the laptop.
+OnKernel browser pool for farming: see [ONKERNEL.md](ONKERNEL.md).
 
-Use: `HOME=/home/alae/Documents/railways/session-N LD_PRELOAD='' railway whoami`
+**Farm status (2026-09-23):** one green pilot on `session-40` → MADE jar
+`finals/sessions/farmed-pilot-session-1/`. **Paused** before 50-wide wave.
+
+Use: `HOME=…/sessions/session-N LD_PRELOAD='' railway whoami`
 
 | session | email | project | service |
 |---|---|---|---|
@@ -51,18 +55,26 @@ Use: `HOME=/home/alae/Documents/railways/session-N LD_PRELOAD='' railway whoami`
 | session-37 | 818idrf8u1dm@uberip.com | cell-159-24eee0 | hlth-159 |
 | session-38 | pwxvwn6o2o1s@uberip.com | cell-160-21b670 | hlth-160 |
 | session-39 | vykyr7mbtcjm@uberip.com | cell-161-0cc240 | hlth-161 |
-| session-40 | atjm8h2rjdbi@uberip.com | cell-162-959326 | hlth-162 |
-| session-41 | 063lsic3v9vr@uberip.com | cell-163-a07ca8 | hlth-163 |
-| session-42 | 5sipc4ydq3du@uberip.com | cell-164-97821f | hlth-164 |
-| session-43 | 3sw5equic9p4@uberip.com | cell-165-67eb45 | hlth-165 |
-| session-44 | 70hhruuyjwdk@uberip.com | cell-166-443d50 | hlth-166 |
+| session-40 | nwnjzp42432e+2y85ai8k57fs50ym@outlook.com | cell-113 | (pilot host) |
+| session-41 | y.a.v.as.h.u.seyi.n15@gmail.com | cell-115 | - |
+| session-42 | pexxg885ejrgb+ntaflt9@outlook.com | cell-116 | - |
+| session-43 | jelai.merope@gmail.com | cell-117 | - |
+| session-44 | balat.ce.mr.e@gmail.com | cell-118 | - |
+| session-45 | y.av.a.shu.s.ey.i.n15@gmail.com | cell-120 | - |
+| session-46 | hamadasa.ji94@gmail.com | cell-121 | - |
+| session-47 | tanfu686574+ogcwrplnac79fkqn8@outlook.com | cell-122 | - |
+| session-48 | ki.ttysantosna@gmail.com | cell-125 | - |
+| session-49 | nnkowkw2861b+r7bhet10@hotmail.com | cell-126 | - |
+| session-50 | sha.neoadjaron@gmail.com | cell-129 | - |
+| session-51 | y.a.va.shus.eyin15@gmail.com | cell-130 | - |
 
 ## Farm next
 
 ```text
-100 concurrent OnK browsers → spread on session-1..44 (Railway sandboxes)
-Local laptop = orchestrator only (local --par 100 OOMs — do not)
+Paused. Pilot green on session-40 (tbofekfloksc@uberip.com MADE).
+When resumed: ~50 concurrent workers × fresh mobile OnK IPs → waves to ~1k.
+Scrub RAILWAY_* inside sandboxes. Laptop = orchestrator only.
 ```
 
-See [ONKERNEL.md](ONKERNEL.md). Tokens stay local under `Documents/railways/` (not this
-repo’s `sessions/` tree). Index emails above are safe to commit; CLI tokens are not.
+See [ONKERNEL.md](ONKERNEL.md). Index emails above are safe to commit; CLI tokens in
+`sessions/*/.railway/` are tracked per owner policy.

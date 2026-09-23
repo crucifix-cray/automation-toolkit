@@ -1658,8 +1658,14 @@ def create_and_verify_service(session_dir: Path) -> dict:
     env["HOME"] = str(session_dir)
     env["LD_PRELOAD"] = ""
     for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
-              "ALL_PROXY", "all_proxy", "RAILWAY_TOKEN"):
+              "ALL_PROXY", "all_proxy", "RAILWAY_TOKEN", "RAILWAY_API_TOKEN"):
         env.pop(k, None)
+    # Running inside a Railway sandbox injects RAILWAY_* (project/service ids +
+    # RAILWAY_API_TOKEN for the HOST cell). Those steal whoami/init away from
+    # the freshly farmed account — scrub every RAILWAY_* var.
+    for k in list(env):
+        if k.startswith("RAILWAY_"):
+            env.pop(k, None)
 
     work = Path("/tmp/rvwork") / session_dir.name
     work.mkdir(parents=True, exist_ok=True)
