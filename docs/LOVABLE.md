@@ -51,8 +51,9 @@ Login: cookies first; fallback email → password → `pyotp.TOTP(totp_secret)` 
 ## Pipeline
 
 - Script 1 (2FA rescue): `src/lovable/session_refresh.py` / `load_session_with_rescue.py` — **pyotp TOTP**
-- Script 2: `chimera-miner/script2_remix_link.py --browser kernel|zenrows` — sends **`prompts/Build a debug terminal.txt`** (never trivial `say 'a'`). Built-in re-login is email+pwd only — **no OTP**.
-- Script 3: `chimera-miner/script3_launch_miner.py` + `miner_injector.py` (mine via `/__shell`)
+- Script 2 remix+bridge: `src/lovable/remix_inject.py` (OnKernel) — sends **`prompts/Build a debug terminal.txt`**, waits for `window.doc` on **`*.lovableproject.com/term`** (never trivial `say 'a'`).
+- Resume bridge on existing fleet projects: `src/lovable/inject_fleet_projects.py --jobs /tmp/fleet_jobs.json`
+- Script 3 (mine): `chimera-miner` `daemon.py` + `miner_injector.py` (Railway cells; navigate Preview → `/term` then `doc('pwd')`)
 
-**Notes (2026-09-19):** session-1 Lovable **disabled** — skip. session-2 cookies revived. Pilot paused mid-script2.
+**Notes (2026-09-23):** Fleet remixed projects need script2 bridge before Worker inject. Probe **`/term`**, not Homepage. cell-16 mining project locked — do not reuse Railway `sessions/session-2` CLI home for other cells.
 

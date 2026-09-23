@@ -24,6 +24,19 @@ def clear_proxy():
             os.environ.pop(k, None)
 clear_proxy()
 
+def _kernel_env():
+    """Env for `kernel` CLI only — optional Tor SOCKS, never touches cell-16 miner."""
+    env = {**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}
+    socks = os.environ.get("TOR_SOCKS", "").strip()
+    if socks:
+        env["ALL_PROXY"] = socks
+        env["all_proxy"] = socks
+        env["HTTPS_PROXY"] = socks
+        env["HTTP_PROXY"] = socks
+        env["https_proxy"] = socks
+        env["http_proxy"] = socks
+    return env
+
 import re as _re, time as _time, random as _random
 def log(msg, level="INFO"):
     print(f"[{_time.strftime('%H:%M:%S')}] {level}: {msg}", flush=True)
@@ -50,32 +63,55 @@ SUBPROCESS_PROMPT = _load_subprocess_prompt()
 KERNEL_API_KEY = os.environ.get("KERNEL_API_KEY", "sk_3c47ea14-fd9b-811e-baee-f825da6c787e.tSkgaBckY9M1Qv0bMz620378Ys4NlpXn2b-CutDLnGM")
 
 def _new_browser():
-    out = subprocess.check_output(["kernel", "browsers", "create", "--stealth",
-        "--timeout", "2400", "--start-url", "https://lovable.dev/dashboard", "-o", "json"],
-        env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}, text=True, timeout=120)
+    tag = os.environ.get("KERNEL_BROWSER_NAME", f"remix-iso-{int(time.time())}")
+    cmd = ["kernel", "browsers", "create", "--stealth",
+           "--timeout", "2400", "--name", tag,
+           "--start-url", "https://lovable.dev/dashboard", "-o", "json"]
+    out = subprocess.check_output(cmd, env=_kernel_env(), text=True, timeout=120)
     d = json.loads(out)
-    print(f"LIVE: {d.get('browser_live_view_url')} | SID: {d['session_id']}", file=sys.stderr)
+    print(f"LIVE: {d.get('browser_live_view_url')} | SID: {d['session_id']} | NAME: {tag}", file=sys.stderr)
     return d["cdp_ws_url"], d["session_id"]
 
 def _del_browser(sid):
     if sid:
         subprocess.run(["kernel", "browsers", "delete", sid],
-            env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY},
+            env=_kernel_env(),
             timeout=15, capture_output=True)
 
 async def _dismiss_overlays(page):
-    """Kill cookie-consent / popup banners that crop or cover inputs."""
+    """Kill cookie-consent / upgrade / dialog banners that crop or cover inputs."""
+    try:
+        await page.keyboard.press("Escape")
+    except Exception:
+        pass
     try:
         await page.evaluate("""() => {
-            const btns = [...document.querySelectorAll('button')];
+            const want = [
+                'ok', 'accept', 'accept all', 'got it', 'agree', 'allow all',
+                'close', 'dismiss', 'not now', 'maybe later', 'skip', 'continue',
+                'keep editing', 'no thanks', 'x'
+            ];
+            const btns = [...document.querySelectorAll('button, [role="button"], [aria-label="Close"]')];
             for (const b of btns) {
-                const t = (b.innerText || '').trim().toLowerCase();
-                if (['ok', 'accept', 'accept all', 'got it', 'agree', 'allow all'].includes(t)) {
-                    const r = b.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) { b.click(); }
+                const t = ((b.innerText || b.getAttribute('aria-label') || '') + '').trim().toLowerCase();
+                if (!want.includes(t) && !/close|dismiss|not now|maybe later/i.test(t)) continue;
+                const r = b.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) { try { b.click(); } catch (e) {} }
+            }
+            // nuke fixed/full-screen dialog backdrops that trap clicks
+            for (const el of document.querySelectorAll('[role="dialog"], [data-state="open"]')) {
+                const t = (el.innerText || '').toLowerCase();
+                if (/upgrade|pro plan|credits|subscribe|billing/.test(t)) {
+                    const x = el.querySelector('button[aria-label="Close"], button:has(svg)');
+                    if (x) try { x.click(); } catch (e) {}
                 }
             }
         }""")
+    except Exception:
+        pass
+    try:
+        await page.wait_for_timeout(400)
+        await page.keyboard.press("Escape")
     except Exception:
         pass
 
@@ -154,7 +190,7 @@ async def _safe_text(page, n=500, retries=4):
             raise
     return await page.evaluate(f"() => document.body.innerText.slice(0,{n})")
 
-async def _login(page, email, password, totp_secret=None, totp_backup=None):
+async def _login(page, email, password, totp_secret=None, totp_backup=None, password_alts=None):
     """Cookies already injected by caller; full login fallback incl. TOTP."""
     await page.goto("https://lovable.dev/dashboard", timeout=40000, wait_until="domcontentloaded")
     try:
@@ -164,33 +200,421 @@ async def _login(page, email, password, totp_secret=None, totp_backup=None):
     await page.wait_for_timeout(4000)
     if "Log in" not in await _safe_text(page, 500):
         return True
+    candidates = []
+    for p in [password, *(password_alts or []), email, email + "1", email + "K01"]:
+        if p and p not in candidates:
+            candidates.append(p)
     await page.goto("https://lovable.dev/login?redirect=%2Fdashboard", timeout=40000, wait_until="domcontentloaded")
     await page.wait_for_timeout(3000)
     await page.locator('input[placeholder="Email"]').fill(email)
     await page.locator('[data-testid="auth-submit-button"]').click()
     await page.wait_for_timeout(3000)
-    await page.locator('input[placeholder="Password"]').fill(password)
-    await page.locator('[data-testid="auth-submit-button"]').click()
-    await page.wait_for_timeout(6000)
-    txt = await _safe_text(page, 800)
-    if "invalid" in txt.lower():
-        return False
-    if "verification code" in txt.lower() or "two-factor" in txt.lower() or "authenticator" in txt.lower():
-        if not totp_secret:
-            return False
-        await _totp_fill(page, totp_secret)
+    for i, pwd in enumerate(candidates):
+        try:
+            pw_inp = page.locator('input[placeholder="Password"]')
+            await pw_inp.wait_for(state="visible", timeout=8000)
+            await pw_inp.fill(pwd)
+        except Exception:
+            try:
+                await page.locator('input[placeholder="Email"]').fill(email)
+                await page.locator('[data-testid="auth-submit-button"]').click()
+                await page.wait_for_timeout(2500)
+                await page.locator('input[placeholder="Password"]').fill(pwd)
+            except Exception:
+                continue
+        await page.locator('[data-testid="auth-submit-button"]').click()
         await page.wait_for_timeout(6000)
-        # primary stale? retry with backup secret (s1 proven: primary dead, backup live)
-        txt2 = await _safe_text(page, 800)
-        if (
-            totp_backup
-            and totp_backup != totp_secret
-            and ("verification code" in txt2.lower() or "two-factor" in txt2.lower() or "authenticator" in txt2.lower())
-        ):
-            log("primary TOTP rejected, trying backup secret")
-            await _totp_fill(page, totp_backup)
+        txt = await _safe_text(page, 800)
+        low = txt.lower()
+        if "invalid" in low or "incorrect" in low:
+            log(f"login pwd try {i+1}/{len(candidates)} rejected")
+            continue
+        if "verification code" in low or "two-factor" in low or "authenticator" in low:
+            if not totp_secret:
+                return False
+            await _totp_fill(page, totp_secret)
             await page.wait_for_timeout(6000)
+            txt2 = await _safe_text(page, 800)
+            if (
+                totp_backup
+                and totp_backup != totp_secret
+                and ("verification code" in txt2.lower() or "two-factor" in txt2.lower() or "authenticator" in txt2.lower())
+            ):
+                log("primary TOTP rejected, trying backup secret")
+                await _totp_fill(page, totp_backup)
+                await page.wait_for_timeout(6000)
+        if "Log in" not in await _safe_text(page, 500):
+            return True
+        log(f"login pwd try {i+1} still on auth page")
     return "Log in" not in await _safe_text(page, 500)
+
+
+async def _scroll_chat_bottom(page):
+    try:
+        await page.evaluate("""() => {
+            const els = [...document.querySelectorAll('*')];
+            const col = els.filter(e => e.scrollHeight > e.clientHeight + 200)
+                .sort((a, b) => (b.clientHeight - a.clientHeight))[0];
+            (col || document.scrollingElement).scrollTo(
+                0, (col || document.scrollingElement).scrollHeight);
+        }""")
+    except Exception:
+        pass
+    try:
+        await page.keyboard.press("End")
+    except Exception:
+        pass
+
+
+async def _find_chat_input(page):
+    """Scroll chat column and locate Ask Lovable input."""
+    chat_input = None
+    for _scroll_try in range(4):
+        await _scroll_chat_bottom(page)
+        await page.wait_for_timeout(2000)
+        for sel in [
+            'div[contenteditable="true"][role="textbox"]',
+            'div[contenteditable="true"]',
+            '.ProseMirror[contenteditable="true"]',
+            '[data-testid="chat-input"]',
+            'textarea[placeholder*="Ask"]',
+            '[contenteditable="true"]',
+            'textarea',
+        ]:
+            try:
+                cand = page.locator(sel).first
+                await cand.wait_for(state="visible", timeout=4000)
+                chat_input = cand
+                break
+            except Exception:
+                continue
+        if chat_input:
+            await _dismiss_overlays(page)
+            # click Ask Lovable placeholder / composer to force hydrate
+            try:
+                ask = page.get_by_text("Ask Lovable", exact=False).first
+                if await ask.count():
+                    await ask.click(timeout=2000, force=True)
+            except Exception:
+                pass
+            if await _uncrop(page, chat_input, "chat input"):
+                return chat_input
+            # last tries: still return input — paste path force-clicks
+            if _scroll_try >= 2:
+                log("chat input covered — forcing through")
+                return chat_input
+            chat_input = None
+        log(f"chat input not yet rendered (scroll try {_scroll_try+1}/4)")
+    return None
+
+
+async def _paste_bridge_prompt(page, chat_input, prompt=None):
+    """Paste full prompts/Build a debug terminal.txt into chat (not trivial wake)."""
+    prompt = prompt if prompt is not None else SUBPROCESS_PROMPT
+    try:
+        await chat_input.scroll_into_view_if_needed(timeout=8000)
+    except Exception:
+        pass
+    try:
+        await chat_input.click(timeout=8000, force=True)
+    except Exception:
+        try:
+            await chat_input.focus(timeout=8000)
+        except Exception:
+            await js_click(page, chat_input, "chat input focus")
+    # 1) fill
+    try:
+        await chat_input.fill(prompt, timeout=20000)
+        got = (await chat_input.inner_text()).strip()
+        if len(got) >= min(200, len(prompt) // 4):
+            return True
+    except Exception as e:
+        log(f"chat fill fail: {e}")
+    # 2) clipboard + Ctrl+V
+    try:
+        await page.evaluate(
+            """async (text) => { try { await navigator.clipboard.writeText(text); } catch (e) {} }""",
+            prompt,
+        )
+        await page.keyboard.press("ControlOrMeta+a")
+        await page.keyboard.press("ControlOrMeta+v")
+        await page.wait_for_timeout(600)
+        got = (await chat_input.inner_text()).strip()
+        if len(got) >= min(200, len(prompt) // 4):
+            return True
+    except Exception as e:
+        log(f"clipboard paste fail: {e}")
+    # 3) insertText (handles long prompts without per-char type)
+    await page.keyboard.press("ControlOrMeta+a")
+    await page.keyboard.insert_text(prompt)
+    await page.wait_for_timeout(400)
+    return True
+
+
+async def _project_id_from_page(page):
+    try:
+        m = _re.search(r"/projects/([0-9a-fA-F-]{36})", page.url or "")
+        return m.group(1) if m else None
+    except Exception:
+        return None
+
+
+async def _ensure_lovableproject_term(page, label="", ctx=None):
+    """Make lovableproject.com /term visible — that's where window.doc lives.
+
+    Prefer navigating an existing lovableproject iframe. If Kernel only shows
+    id-preview/about:blank, open https://{project}.lovableproject.com/term in a
+    same-cookie tab and probe there.
+    """
+    await _dismiss_overlays(page)
+    for name in ("Previewing", "Preview", "Shell", "Terminal", "Restore preview", "Restore"):
+        try:
+            loc = page.get_by_role("button", name=re.compile(name, re.I))
+            if await loc.count() and await loc.first.is_visible():
+                await loc.first.click(timeout=2500, force=True)
+                await page.wait_for_timeout(800)
+        except Exception:
+            pass
+
+    # 1) navigate existing lovableproject frame → /term
+    for fr in list(page.frames):
+        u = fr.url or ""
+        if "lovableproject.com" not in u:
+            continue
+        if "/term" in u:
+            return fr, None
+        try:
+            m = _re.match(r"(https://[^/]+\.lovableproject\.com)", u.split("?")[0])
+            host = m.group(1) if m else u.split("?")[0].rstrip("/")
+            dest = host + "/term"
+            log(f"{label} inject: navigate iframe → /term")
+            await fr.goto(dest, timeout=25000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(1500)
+            return fr, None
+        except Exception as e:
+            log(f"{label} inject: iframe /term nav warn: {type(e).__name__}")
+
+    # 2) no lovableproject iframe — open dedicated tab (same cookies)
+    if ctx is None:
+        try:
+            ctx = page.context
+        except Exception:
+            ctx = None
+    pid = await _project_id_from_page(page)
+    if ctx is not None and pid:
+        dest = f"https://{pid}.lovableproject.com/term"
+        try:
+            log(f"{label} inject: open tab {dest}")
+            tab = await ctx.new_page()
+            await tab.goto(dest, timeout=60000, wait_until="domcontentloaded")
+            await tab.wait_for_timeout(2500)
+            return None, tab
+        except Exception as e:
+            log(f"{label} inject: lovableproject tab fail: {type(e).__name__}: {e}")
+    return None, None
+
+
+async def _probe_doc_on_target(page=None, tab=None):
+    """Probe window.doc on iframe frames and/or a dedicated lovableproject tab."""
+    targets = []
+    if tab is not None:
+        targets.append(("tab", tab, tab.url or ""))
+        for fr in tab.frames:
+            targets.append(("tab-fr", fr, fr.url or ""))
+    if page is not None:
+        for fr in page.frames:
+            u = fr.url or ""
+            if not u or u.startswith("chrome") or u == "about:blank":
+                continue
+            if "lovable.dev" in u and "lovableproject" not in u:
+                continue
+            score = 0
+            if "lovableproject.com" in u:
+                score += 100
+            if "/term" in u:
+                score += 50
+            if "id-preview" in u or "lovable.app" in u:
+                score += 10
+            targets.append((score, fr, u))
+    # sort: prefer dedicated tab, then high-score frames (lovableproject /term first)
+    def key(t):
+        kind = t[0]
+        if kind == "tab":
+            return (0, 0)
+        if kind == "tab-fr":
+            return (1, 0)
+        return (2, -int(kind))
+
+    for kind, fr, u in sorted(targets, key=key):
+        if not u:
+            continue
+        if isinstance(kind, int) and kind < 10:
+            continue
+        try:
+            ok = await fr.evaluate(
+                """() => {
+                  try {
+                    if (typeof window.doc === 'function') return true;
+                    if (typeof window.bug === 'function' || typeof window.bug !== 'undefined') return true;
+                  } catch (e) {}
+                  return false;
+                }"""
+            )
+            if ok:
+                return True, u, fr
+            # helpful when /term not built yet
+            if "/term" in u or "lovableproject.com" in u:
+                try:
+                    snip = await fr.evaluate(
+                        "() => (document.body&&document.body.innerText||'').slice(0,60)"
+                    )
+                    if snip and ("404" in snip or "proxy error" in snip.lower()):
+                        # not ready
+                        pass
+                except Exception:
+                    pass
+        except Exception:
+            continue
+    return False, None, None
+
+
+async def _probe_doc_in_frames(page):
+    ok, u, _ = await _probe_doc_on_target(page=page)
+    return ok, u
+
+
+async def _remount_preview(page, label="", ctx=None):
+    return await _ensure_lovableproject_term(page, label=label, ctx=ctx)
+
+
+async def inject_and_wait_bridge(page, ctx=None, label="", wait_s=900, prompt=None):
+    """Send Build a debug terminal.txt and wait until window.doc is live.
+
+    window.doc lives on lovableproject.com /term — Homepage / id-preview will miss it.
+    """
+    prompt = prompt if prompt is not None else SUBPROCESS_PROMPT
+    if ctx is None:
+        try:
+            ctx = page.context
+        except Exception:
+            ctx = None
+    term_tab = None
+    try:
+        _, term_tab = await _ensure_lovableproject_term(page, label=label, ctx=ctx)
+        ok0, url0, fr0 = await _probe_doc_on_target(page=page, tab=term_tab)
+        if ok0:
+            pwd_out = None
+            try:
+                if fr0 is not None:
+                    pwd_out = await fr0.evaluate(
+                        "async () => typeof window.doc === 'function' ? await window.doc('pwd') : null"
+                    )
+            except Exception:
+                pass
+            log(f"{label} inject: window.doc already live @ {(url0 or '')[:90]} pwd={str(pwd_out)[:60]}")
+            return {"bridge": True, "reason": "doc_already", "preview_url": url0, "pwd": pwd_out}
+
+        log(f"{label} inject: Build a debug terminal ({len(prompt)} chars), wait≤{wait_s}s")
+        chat_input = await _find_chat_input(page)
+        if not chat_input:
+            return {"bridge": False, "reason": "no_chat_input"}
+        await _paste_bridge_prompt(page, chat_input, prompt)
+        try:
+            got = (await chat_input.inner_text()).strip()
+            log(f"{label} inject: composer_len={len(got)} head={got[:50]!r}")
+            if "debug terminal" not in got.lower() and len(got) < 200:
+                await page.keyboard.press("ControlOrMeta+a")
+                await page.keyboard.insert_text(prompt)
+                await page.wait_for_timeout(500)
+        except Exception as e:
+            log(f"{label} inject: composer verify warn: {e}")
+        await wait(800, 1200)
+        try:
+            await js_click(page, page.locator('button[data-testid="chat-input-send"]'), "send bridge prompt")
+        except Exception:
+            await page.keyboard.press("Enter")
+        log(f"{label} inject: prompt sent — polling lovableproject /term for window.doc")
+        deadline = asyncio.get_running_loop().time() + wait_s
+        last_status = ""
+        ticks = 0
+        while asyncio.get_running_loop().time() < deadline:
+            ticks += 1
+            await _dismiss_overlays(page)
+            if ticks == 1 or (last_status in ("Previewing", "Stopped") and ticks % 3 == 0) or ticks % 8 == 0:
+                # reuse tab when possible; only reopen periodically / after Previewing
+                need_new = term_tab is None
+                if term_tab is not None:
+                    try:
+                        body = await term_tab.evaluate(
+                            "() => (document.body && document.body.innerText || '').slice(0,80)"
+                        )
+                        if "404" in (body or "") or "proxy error" in (body or "").lower():
+                            need_new = True
+                        else:
+                            await term_tab.reload(wait_until="domcontentloaded", timeout=30000)
+                            await term_tab.wait_for_timeout(1500)
+                    except Exception:
+                        need_new = True
+                if need_new:
+                    try:
+                        if term_tab is not None:
+                            await term_tab.close()
+                    except Exception:
+                        pass
+                    _, term_tab = await _ensure_lovableproject_term(page, label=label, ctx=ctx)
+            # also try navigate in-editor lovableproject iframe when it appears
+            for fr in list(page.frames):
+                u = fr.url or ""
+                if "lovableproject.com" in u and "/term" not in u:
+                    try:
+                        m = _re.match(r"(https://[^/]+\.lovableproject\.com)", u.split("?")[0])
+                        if m:
+                            await fr.goto(m.group(1) + "/term", timeout=20000, wait_until="domcontentloaded")
+                            log(f"{label} inject: editor iframe → /term")
+                    except Exception:
+                        pass
+            ok, url, fr = await _probe_doc_on_target(page=page, tab=term_tab)
+            if ok:
+                pwd_out = None
+                try:
+                    if fr is not None:
+                        pwd_out = await fr.evaluate(
+                            "async () => typeof window.doc === 'function' ? await window.doc('pwd') : null"
+                        )
+                except Exception as e:
+                    log(f"{label} inject: pwd probe warn: {e}")
+                log(f"{label} inject: window.doc live @ {(url or '')[:90]} pwd={str(pwd_out)[:80]}")
+                return {"bridge": True, "reason": "doc_ready", "preview_url": url, "pwd": pwd_out}
+            try:
+                st = await page.evaluate("""() => {
+                    const t = document.body.innerText || '';
+                    if (/Previewing/i.test(t)) return 'Previewing';
+                    if (/\\bStopped\\b/i.test(t)) return 'Stopped';
+                    if (/Building|Thinking|Thought for|Working|Generating/i.test(t)) return 'Building';
+                    return 'wait';
+                }""")
+                if st != last_status:
+                    log(f"{label} inject: status={st}")
+                    last_status = st
+            except Exception:
+                pass
+            if ticks % 5 == 0:
+                try:
+                    urls = [fr.url for fr in page.frames if fr.url][:6]
+                    if term_tab is not None:
+                        urls.append("TAB:" + (term_tab.url or "")[:80])
+                    log(f"{label} inject: frames={urls}")
+                except Exception:
+                    pass
+            await asyncio.sleep(6)
+        return {"bridge": False, "reason": "timeout_no_doc"}
+    finally:
+        if term_tab is not None:
+            try:
+                await term_tab.close()
+            except Exception:
+                pass
+
 
 async def remix_one(pw, ctx, num):
     """Login -> template remix -> inject bridge -> invite. Returns result dict."""
@@ -207,8 +631,41 @@ async def remix_one(pw, ctx, num):
                     "sameSite": c.get("sameSite", "Lax") if c.get("sameSite") in ("Lax", "Strict", "None") else "Lax"}
                    for c in raw if "lovable" in c.get("domain", "")]
         await ctx.add_cookies(cookies)
-        if not await _login(page, email, password, cfg.get("totp_secret"), cfg.get("totp_secret_backup")):
+        _alts = [cfg.get("password_alt"), cfg.get("password_backup")]
+        if not await _login(
+            page, email, password, cfg.get("totp_secret"), cfg.get("totp_secret_backup"),
+            password_alts=[a for a in _alts if a],
+        ):
             return {"session": num, "email": email, "success": False, "reason": "login failed"}
+
+        # Finish onboarding if still on /getting-started
+        try:
+            txt0 = await _safe_text(page, 800)
+            if (
+                "/getting-started" in page.url
+                or "Pick your style" in txt0
+                or "What's your name" in txt0
+                or "Which role fits you best" in txt0
+            ):
+                log(f"session-{num} completing onboarding before remix")
+                import importlib.util
+                _p = os.path.join(CORE, "account_creation.py")
+                _spec = importlib.util.spec_from_file_location("lov_ac_onboard", _p)
+                _mod = importlib.util.module_from_spec(_spec)
+                _spec.loader.exec_module(_mod)
+                await _mod.handle_onboarding(page)
+                await page.wait_for_timeout(2000)
+                log(f"session-{num} onboarding done url={page.url[:80]}")
+        except Exception as e:
+            log(f"session-{num} onboarding warn: {e}")
+
+        try:
+            await page.goto("https://lovable.dev/dashboard", timeout=40000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(2500)
+            if "Log in" in await _safe_text(page, 500):
+                return {"session": num, "email": email, "success": False, "reason": "login failed (post-check)"}
+        except Exception:
+            pass
 
         # --- template pick (lovable-full-automation.py:503-548) ---
         await page.goto("https://lovable.dev/templates/apps/saas", timeout=60000)
@@ -252,7 +709,9 @@ async def remix_one(pw, ctx, num):
         # Radix-style custom checkbox: idempotent — stop after first successful tick
         ticked = False
         try:
-            for sel in ['div[role="dialog"] input[type="checkbox"]',
+            for sel in ['div[role="dialog"] button[role="checkbox"]',
+                        'div[role="dialog"] [role="checkbox"]',
+                        'div[role="dialog"] input[type="checkbox"]',
                         'input[type="checkbox"]', '[role="checkbox"]']:
                 try:
                     loc = page.locator(sel).first
@@ -326,13 +785,17 @@ async def remix_one(pw, ctx, num):
                 dbg_txt = await _safe_text(page, 1500)
                 log(f"session-{num} ack not visible url={dbg_url[:100]} txt={dbg_txt[:300]!r}")
                 # fallback: any button with Acknowledge text, or dialog submit
-                for fsel in ['button:has-text("Acknowledge")',
-                             'div[role="dialog"] button:last-child',
-                             '[role="dialog"] button[type="submit"]']:
+                for fsel in ['button:has-text("Acknowledge and remix")',
+                             'button:has-text("Acknowledge & remix")',
+                             'div[role="dialog"] button:has-text("Acknowledge")',
+                             'div[role="dialog"] button:has-text("Remix")']:
                     try:
                         fl = page.locator(fsel).first
                         if await fl.count() and await fl.is_visible():
-                            log(f"session-{num} ack fallback sel={fsel}")
+                            label = ((await fl.inner_text()) or "").strip().lower()
+                            if any(bad in label for bad in ("close", "cancel", "continue", "dismiss")):
+                                continue
+                            log(f"session-{num} ack fallback sel={fsel} label={label!r}")
                             ack = fl
                             break
                     except Exception:
@@ -393,99 +856,60 @@ async def remix_one(pw, ctx, num):
         if "suspicious activity" in body.lower() or "not allowed to create projects" in body.lower():
             return {"session": num, "email": email, "success": False, "reason": "RED flagged"}
         if "/projects/" not in page.url:
+            try:
+                await page.goto("https://lovable.dev/dashboard", timeout=60000, wait_until="domcontentloaded")
+                await page.wait_for_timeout(4000)
+                href = await page.evaluate("""() => {
+                  const a = [...document.querySelectorAll('a[href*="/projects/"]')]
+                    .map(x => x.href)
+                    .find(h => /\\/projects\\/[0-9a-f-]{8,}/i.test(h));
+                  return a || null;
+                }""")
+                if href and "/projects/" in href:
+                    await page.goto(href.split("?")[0], timeout=60000, wait_until="domcontentloaded")
+                    await page.wait_for_timeout(3000)
+                    log(f"session-{num} recovered project via dashboard {page.url[:100]}")
+            except Exception as e:
+                log(f"session-{num} dashboard recover warn: {e}")
+        if "/projects/" not in page.url:
             return {"session": num, "email": email, "success": False, "reason": f"no redirect after remix ({page.url[:80]})"}
         project_id = page.url.split("/projects/")[-1].split("?")[0] if "/projects/" in page.url else ""
         project_link = page.url.split("?")[0] if "/projects/" in page.url else ""
         log(f"session-{num} remixed project {project_id} {project_link}")
+        # persist project immediately — bridge may still fail
+        cfg["last_remix_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        cfg["project_id"] = project_id
+        cfg["project_link"] = project_link
+        projects = cfg.get("projects") if isinstance(cfg.get("projects"), list) else []
+        if not any(p.get("project_id") == project_id for p in projects if isinstance(p, dict)):
+            projects.append({
+                "project_id": project_id,
+                "project_link": project_link,
+                "invite_link": None,
+                "from_session": int(num) if str(num).isdigit() else num,
+            })
+        cfg["projects"] = projects
+        json.dump(cfg, open(cfg_path, "w"), indent=2)
+        try:
+            fresh = await ctx.cookies()
+            json.dump(fresh, open(ck_path, "w"), indent=2)
+        except Exception:
+            pass
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=20000)
         except Exception:
             pass
         await page.wait_for_timeout(10000)  # let editor hydrate after remix
 
-        # --- inject bridge via chat ---
-        # The input sits BELOW the fold after the AI response: scroll the
-        # chat column to bottom first, else the box never hydrates.
-        for _scroll_try in range(3):
-            try:
-                await page.evaluate("""() => {
-                    const els = [...document.querySelectorAll('*')];
-                    const col = els.filter(e => e.scrollHeight > e.clientHeight + 200)
-                        .sort((a, b) => (b.clientHeight - a.clientHeight))[0];
-                    (col || document.scrollingElement).scrollTo(
-                        0, (col || document.scrollingElement).scrollHeight);
-                }""")
-            except Exception:
-                pass
-            try:
-                await page.keyboard.press("End")
-            except Exception:
-                pass
-            await page.wait_for_timeout(2500)
-            chat_input = None
-            for sel in ['div[contenteditable="true"][role="textbox"]', 'div[contenteditable="true"]',
-                        '.ProseMirror[contenteditable="true"]', '[data-testid="chat-input"]', 'textarea[placeholder*="Ask"]',
-                        '[contenteditable="true"]', 'textarea']:
-                try:
-                    cand = page.locator(sel).first
-                    await cand.wait_for(state="visible", timeout=5000)
-                    chat_input = cand
-                    break
-                except Exception:
-                    continue
-            if chat_input:
-                await _dismiss_overlays(page)
-                if await _uncrop(page, chat_input, "chat input"):
-                    break
-                chat_input = None  # covered — retry scroll+dismiss round
-            log(f"chat input not yet rendered (scroll try {_scroll_try+1}/3)")
-        if not chat_input:
-            return {"session": num, "email": email, "success": False, "reason": "no chat input",
-                    "project_id": project_id, "project_link": project_link}
-        try:
-            await chat_input.scroll_into_view_if_needed(timeout=10000)
-        except Exception:
-            pass
-        try:
-            await chat_input.click(timeout=10000)
-        except Exception:
-            try:
-                await chat_input.focus(timeout=10000)
-            except Exception:
-                await js_click(page, chat_input, "chat input focus")
-        try:
-            await chat_input.fill(SUBPROCESS_PROMPT, timeout=15000)
-        except Exception:
-            await page.keyboard.press("ControlOrMeta+a")
-            await page.keyboard.type(SUBPROCESS_PROMPT[:2000])
-            await page.keyboard.press("ControlOrMeta+a")
-            await page.keyboard.type(SUBPROCESS_PROMPT)
-        await wait(1000)
-        await js_click(page, page.locator('button[data-testid="chat-input-send"]'), "send bridge prompt")
-        before = await page.locator('[data-testid="chat-item-ai_message"]').count()
-        deadline = asyncio.get_running_loop().time() + 420
-        while asyncio.get_running_loop().time() < deadline:
-            if await page.locator('[data-testid="chat-item-ai_message"]').count() > before:
-                break
-            await asyncio.sleep(5)
-        else:
-            return {"session": num, "email": email, "success": False, "reason": "AI no response",
-                    "project_id": project_id, "project_link": project_link}
-
-        # --- verify bridge in preview ---
-        try:
-            async with ctx.expect_page(timeout=15000) as pop:
-                await page.locator('a:has-text("Preview"), button:has-text("Preview")').first.click(timeout=8000)
-            preview = await pop.value
-            await preview.wait_for_timeout(8000)
-            has_doc = await preview.evaluate("typeof window.doc !== 'undefined' || typeof window.bug !== 'undefined'")
-            if has_doc:
-                pwd_out = await preview.evaluate("typeof window.doc !== 'undefined' ? window.doc('pwd') : window.bug.sh('pwd')")
-                log(f"session-{num} bridge pwd: {str(pwd_out)[:120]}")
-            await preview.close()
-        except Exception as e:
-            log(f"session-{num} preview check warn: {e}")
-            has_doc = False
+        # --- inject bridge via chat (Build a debug terminal.txt — wait for window.doc) ---
+        inj = await inject_and_wait_bridge(page, ctx, label=f"session-{num}", wait_s=900)
+        has_doc = bool(inj.get("bridge"))
+        if not has_doc:
+            return {
+                "session": num, "email": email, "success": True,
+                "reason": f"project_ok_no_bridge:{inj.get('reason')}",
+                "project_id": project_id, "project_link": project_link, "bridge": False,
+            }
 
         # --- invite link (clipboard intercept, lovable-full-automation.py:1020-1078) ---
         await page.bring_to_front()
@@ -563,27 +987,33 @@ async def main():
         raise SystemExit("pass --session N or --all")
 
     def _new_browser():
-        out = subprocess.check_output(["kernel", "browsers", "create", "--stealth",
-            "--timeout", "2400", "--start-url", "https://lovable.dev/dashboard", "-o", "json"],
-            env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}, text=True, timeout=120)
+        tag = os.environ.get("KERNEL_BROWSER_NAME", f"remix-iso-{int(time.time())}")
+        cmd = ["kernel", "browsers", "create", "--stealth",
+               "--timeout", "2400", "--name", tag,
+               "--start-url", "https://lovable.dev/dashboard", "-o", "json"]
+        out = subprocess.check_output(cmd, env=_kernel_env(), text=True, timeout=120)
         d = json.loads(out)
-        print(f"LIVE: {d.get('browser_live_view_url')} | SID: {d['session_id']}", file=sys.stderr)
+        print(f"LIVE: {d.get('browser_live_view_url')} | SID: {d['session_id']} | NAME: {tag}", file=sys.stderr)
         return d["cdp_ws_url"], d["session_id"]
 
     def _del_browser(sid):
         if sid:
             subprocess.run(["kernel", "browsers", "delete", sid],
-                env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY},
+                env=_kernel_env(),
                 timeout=15, capture_output=True)
 
-    if os.environ.get("SKIP_PRECLEAN"):
-        print("pre-cleanup skipped (parallel sibling runs)", flush=True)
-    else:  # pre-cleanup stale so 5 workers fit org cap
+    if os.environ.get("SKIP_PRECLEAN") or os.environ.get("ISOLATE"):
+        print("pre-cleanup skipped (isolate/sibling)", flush=True)
+    else:  # ONLY delete remix-iso-* — never foreign / cell browsers
         try:
             _ls = subprocess.check_output(["kernel", "browsers", "list", "-o", "json"],
-                env={**os.environ, "KERNEL_API_KEY": KERNEL_API_KEY}, text=True, timeout=30)
+                env=_kernel_env(), text=True, timeout=30)
             for _b in json.loads(_ls):
-                _del_browser(_b.get("session_id"))
+                _name = str(_b.get("name") or "")
+                if _name.startswith("remix-iso"):
+                    _del_browser(_b.get("session_id"))
+                else:
+                    print(f"pre-cleanup keep foreign browser name={_name!r}", flush=True)
         except Exception as e:
             print(f"pre-cleanup warn {e}", flush=True)
 
