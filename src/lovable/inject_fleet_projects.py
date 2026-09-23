@@ -44,6 +44,34 @@ DEFAULT_JOBS = [
 ]
 SKIP_PROJECTS = {"7d6f77a6-69a1-4b06-a1d3-53094c4c8019"}  # cell-16 mining
 
+# OnKernel org unified_concurrent_sessions hard cap (observed: 5)
+KERNEL_SLOT_LIMIT = int(os.environ.get("KERNEL_SLOT_LIMIT", "5"))
+_kernel_slots: asyncio.Semaphore | None = None
+
+
+def _slots() -> asyncio.Semaphore:
+    global _kernel_slots
+    if _kernel_slots is None:
+        _kernel_slots = asyncio.Semaphore(max(1, KERNEL_SLOT_LIMIT))
+    return _kernel_slots
+
+
+async def _create_browser_retry(label: str, tries: int = 16):
+    """Create Kernel browser; retry on org/rate limit until a slot frees."""
+    import subprocess as _sp
+    last = None
+    for i in range(tries):
+        try:
+            return await asyncio.to_thread(R._new_browser)
+        except Exception as e:
+            last = e
+            wait = min(60, 4 + i * 4)
+            R.log(f"{label} kernel create fail ({type(e).__name__}) — retry {i+1}/{tries} in {wait}s")
+            await asyncio.sleep(wait)
+            continue
+    raise last  # type: ignore[misc]
+
+
 
 def _load_jobs(path: str | None, only: set[str] | None):
     jobs = DEFAULT_JOBS
@@ -87,10 +115,16 @@ async def inject_one(pw, lov_sess: int, project_id: str, rail: int, wait_s: int)
     label = f"rail-{rail}/lov-s{lov_sess}/{project_id[:8]}"
     R.log(f"{label} start email={email}")
 
-    os.environ["KERNEL_BROWSER_NAME"] = f"fleet-inject-{project_id[:8]}-{int(time.time())}"
-    cdp_ws, sid = await asyncio.to_thread(R._new_browser)
+    sid = None
     browser = None
-    try:
+    async with _slots():
+        os.environ["KERNEL_BROWSER_NAME"] = f"fleet-inject-{project_id[:8]}-{int(time.time())}"
+        try:
+            cdp_ws, sid = await _create_browser_retry(label)
+        except Exception as e:
+            return {"rail": rail, "session": lov_sess, "email": email, "project_id": project_id,
+                    "success": False, "reason": f"kernel create: {e}"[:240], "bridge": False}
+        try:
         browser = await pw.chromium.connect_over_cdp(cdp_ws, timeout=60000)
         ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
         cookies, ck_path = _cookies_for_session(lov_sess)
