@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 """Push MADE Railway jars to GitHub (decrypt GH PAT at runtime).
 
+Conflict-free parallel design:
+  - Each MADE jar gets a unique path: farmed-{host}-{shortuuid}/
+  - Each push goes to its own branch: farm/{dest_name}
+  - Never force-pushes main from workers (no merge conflicts between workers)
+  - Boss merges farm/* → main via src/railway/merge_farm_branches.py
+
 Requires:
   HOLY_SECRET_KEY   — passphrase to decrypt the GitHub token
   GH_TOKEN_ENC      — optional; else finals/secrets/gh_token.enc
 
 Optional:
   GH_REPO           — default crucifix-cray/automation-toolkit
-  GH_BRANCH         — default main
-  TOOLKIT_ROOT      — local checkout path (default: auto-detect / clone to /tmp/holy-toolkit)
+  GH_BASE_BRANCH    — default main (branch workers fork from)
+  TOOLKIT_ROOT      — local checkout path
   GH_PUSH           — set 0 to skip
+  GH_FARM_HOST      — worker id baked into path/branch (e.g. sb03)
 """
 from __future__ import annotations
 
@@ -17,10 +24,11 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 REPO_DEFAULT = "crucifix-cray/automation-toolkit"
-BRANCH_DEFAULT = "main"
+BASE_DEFAULT = "main"
 
 
 def _run(cmd: list[str], cwd: Path | None = None, env: dict | None = None, timeout: int = 300) -> subprocess.CompletedProcess:
@@ -35,7 +43,6 @@ def _run(cmd: list[str], cwd: Path | None = None, env: dict | None = None, timeo
 
 
 def _decrypt_token() -> str:
-    # allow importing when run from src/railway or repo root
     root = Path(__file__).resolve().parents[2]
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
@@ -51,9 +58,8 @@ def ensure_toolkit_repo(token: str) -> Path:
     candidates: list[Path] = []
     if env_root:
         candidates.append(Path(env_root))
-    # common layouts
     here = Path(__file__).resolve()
-    candidates.append(here.parents[2])  # .../automation-toolkit
+    candidates.append(here.parents[2])
     candidates.append(Path("/app/toolkit"))
     candidates.append(Path("/tmp/holy-toolkit"))
 
@@ -65,18 +71,18 @@ def ensure_toolkit_repo(token: str) -> Path:
     if dest.exists() and not (dest / ".git").is_dir():
         shutil.rmtree(dest, ignore_errors=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
+    base = os.environ.get("GH_BASE_BRANCH", BASE_DEFAULT)
     url = f"https://x-access-token:{token}@github.com/{os.environ.get('GH_REPO', REPO_DEFAULT)}.git"
     print(f"📥 Cloning toolkit → {dest}")
-    r = _run(["git", "clone", "--depth", "1", "-b", os.environ.get("GH_BRANCH", BRANCH_DEFAULT), url, str(dest)], timeout=600)
+    r = _run(["git", "clone", "--depth", "1", "-b", base, url, str(dest)], timeout=600)
     if r.returncode != 0:
         raise RuntimeError(f"git clone failed: {(r.stderr or r.stdout)[:400]}")
-    # scrub token from remote URL in local config
     _run(["git", "remote", "set-url", "origin", f"https://github.com/{os.environ.get('GH_REPO', REPO_DEFAULT)}.git"], cwd=dest)
     return dest
 
 
 def sync_to_github(session_dir: Path) -> None:
-    """Copy MADE session jar into repo finals/sessions/ and push."""
+    """Copy MADE jar into a unique path and push a unique farm/* branch."""
     if os.environ.get("GH_PUSH", "1") == "0":
         print("☁️  GitHub push skipped (GH_PUSH=0)")
         return
@@ -105,8 +111,11 @@ def sync_to_github(session_dir: Path) -> None:
         print(f"⚠️  GitHub push: ensure repo failed: {e}")
         return
 
-    branch = os.environ.get("GH_BRANCH", BRANCH_DEFAULT)
-    dest_name = f"farmed-{session_dir.name}"
+    base = os.environ.get("GH_BASE_BRANCH", BASE_DEFAULT)
+    host = (os.environ.get("GH_FARM_HOST") or "w").strip().replace("/", "-")[:32]
+    short = uuid.uuid4().hex[:10]
+    dest_name = f"farmed-{host}-{short}"
+    farm_branch = f"farm/{dest_name}"
     dest = repo / "finals" / "sessions" / dest_name
     if dest.exists():
         shutil.rmtree(dest)
@@ -119,20 +128,25 @@ def sync_to_github(session_dir: Path) -> None:
 
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
-    # auth via header so remote URL stays clean
     env["GIT_CONFIG_COUNT"] = "1"
     env["GIT_CONFIG_KEY_0"] = "http.https://github.com/.extraheader"
-    env["GIT_CONFIG_VALUE_0"] = f"AUTHORIZATION: basic {__import__('base64').b64encode(f'x-access-token:{token}'.encode()).decode()}"
+    env["GIT_CONFIG_VALUE_0"] = (
+        "AUTHORIZATION: basic "
+        + __import__("base64").b64encode(f"x-access-token:{token}".encode()).decode()
+    )
 
     def g(*args: str, timeout: int = 300) -> subprocess.CompletedProcess:
         return _run(["git", *args], cwd=repo, env=env, timeout=timeout)
 
-    # refresh + commit
-    g("fetch", "origin", branch)
-    g("checkout", branch)
-    g("pull", "--ff-only", "origin", branch)
+    # unique branch off latest base — workers never push the same ref
+    g("fetch", "origin", base)
+    co = g("checkout", "-B", farm_branch, f"origin/{base}")
+    if co.returncode != 0:
+        # shallow clone may lack origin/base tip naming — fall back
+        g("checkout", base)
+        g("pull", "--ff-only", "origin", base)
+        g("checkout", "-B", farm_branch)
 
-    # force-add (some session files may match ignore rules)
     add = g("add", "-f", str(dest.relative_to(repo)))
     if add.returncode != 0:
         print(f"⚠️  git add failed: {(add.stderr or add.stdout)[:300]}")
@@ -156,8 +170,12 @@ def sync_to_github(session_dir: Path) -> None:
         print(f"⚠️  git commit failed: {(c.stderr or c.stdout)[:300]}")
         return
 
-    p = g("push", "origin", f"HEAD:{branch}", timeout=600)
+    p = g("push", "-u", "origin", f"HEAD:{farm_branch}", timeout=600)
     if p.returncode != 0:
         print(f"⚠️  git push failed: {(p.stderr or p.stdout)[:400]}")
         return
-    print(f"✅ Pushed {dest_name} → github.com/{os.environ.get('GH_REPO', REPO_DEFAULT)} ({branch})")
+    print(
+        f"✅ Pushed {dest_name} → branch {farm_branch} "
+        f"(github.com/{os.environ.get('GH_REPO', REPO_DEFAULT)})"
+    )
+    print(f"   merge later: python3 src/railway/merge_farm_branches.py")
