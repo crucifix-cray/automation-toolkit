@@ -1,0 +1,116 @@
+{
+  "cookies": [
+    {
+      "name": "IndrX0xRN0EzRW5rX0RpMmQ2MUM3N3dNR0x5ZzhzMTQ2aEM3WFpxUWVVNDZtX2Fub255bW91c1VzZXJJZCI%3D",
+      "value": "ImE2NzMzOWQ2LWJkZDctNGEwZC04YzhmLTNjNGIzNTQxYzE0YiI=",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1821701342,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "railway_attribution",
+      "value": "%7B%22referringDomain%22%3A%22%24direct%22%2C%22landingPath%22%3A%22%2Flogin%22%7D",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1797941342.561963,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "470OJi49kOdk98IfeiHxi21VUIws1ngYnAvXy4kJzr0-1790165366.7636456-1.0.1.1-xC3G079gEeNcoROLZhoQnn49O94zA.bqvxxm2C2QBsq56HEy8MJ8NB2ZQbSZXxJd2NQbf0k2aacUPtsJ1EMuJPCHD3q1HT1sdSEi61M3u83HQ1O0tBzt272wzt3Dtzog",
+      "domain": ".magic.link",
+      "path": "/",
+      "expires": 1790167167.49567,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_cfuvid",
+      "value": "kSsvyOi10zBHgx7SiOWbWF4nUDTJ6K5tEE9LouvKSlU-1790165366.7636456-1.0.1.1-VTljLraHGMXtGSa1_YKJzRS.U3dPpDdSBR2IqIOp9wM",
+      "domain": ".magic.link",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "rw.session",
+      "value": "rw_Fe26.2**1c685146c79df91b588c25e1d30684982c637bd7879b70a56242dbf5bb3fe1d3*GQqiw4A2ivEdqJJ3rwfxGA*l3uhbbJye2xR9sLEq8yV2IAueyBimpQSovaNzhXm7qZnA8YtZu5JpnWXu9--bnK5rXvZDm6OsTuxv1DkyhBszA*1792757396536*157ba6fd413175a74085ed2743c5fab3f37e8033d8e34ca0c64a7187e01f97cd*_MaOD7ZfbW7UrwJ6Ex-z59VXIDCC0FbjF366CoRwZQs",
+      "domain": "backboard.railway.com",
+      "path": "/",
+      "expires": 1792757396.659216,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "rw.session.sig",
+      "value": "febTUdfB_45PoJ-F2Qc38G38m1g",
+      "domain": "backboard.railway.com",
+      "path": "/",
+      "expires": 1792757396.659435,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "rw.authenticated",
+      "value": "true",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1792757396.659647,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "rw.authenticated.sig",
+      "value": "eMmi--ySRFSmthC5IH0IvFdhhcE",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1792757396.659852,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "ph_phc_jmpOAF1fCA4XG8D6zO8AuihY1JHmOkvzqtg5cZoxeJb_posthog",
+      "value": "%7B%22distinct_id%22%3A%22084cc627-f293-4014-b5b7-a20833ffcb95%22%2C%22%24sesid%22%3A%5B1790165414128%2C%2201a0ce2b-5a10-78e8-b5dc-911b5315e83e%22%2C1790165342736%5D%2C%22%24session_is_sampled%22%3A%22!01a0ce2b-5a10-78e8-b5dc-911b5315e83e%22%2C%22%24epp%22%3Atrue%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22%24direct%22%2C%22u%22%3A%22https%3A%2F%2Frailway.com%2Flogin%22%7D%7D",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1821701414,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_dd_s_v2",
+      "value": "aid=44774a5e-976a-48f2-b6bc-bfcd21788268&id=89c434fd-352f-42a2-ad32-661e771fa1c1&created=1790165363926&expire=1790166323933&c=1",
+      "domain": "auth.magic.link",
+      "path": "/",
+      "expires": 1821701423.933,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://railway.com",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "_dd_s",
+      "value": "rum=0&expire=1790166314136&logs=1&id=2e5539c7-28bc-4e39-b9a9-99d7f6b8d492&created=1790165341728",
+      "domain": "railway.com",
+      "path": "/",
+      "expires": 1790166337,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Strict"
+    }
+  ]
+}
