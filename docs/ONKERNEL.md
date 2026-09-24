@@ -30,22 +30,26 @@ API-verified: `GET/POST https://api.onkernel.com/proxies` → mobile US availabl
 | `onk_1790080303_183512.json` | pion.tkowskiheffley84@gmail.com | `sk_dbb4caaf-ddbc-1` | unlocked |
 | `onk_1790080310_184023.json` | grosjeanpretz.548@gmail.com | `sk_ee2acef6-c7d9-0` | unlocked |
 
-## Railway spreader plan (51 workers → ~1k)
+## Lovable 1k (2026-09-24) — primary use of OnK slots
 
-**Laptop = thin boss only.** Playwright+CDP runs **on Railway sandboxes** via
-`scripts/cell_ssh.sh`. Each job: fresh OnK **mobile-US** proxy → stealth browser →
-Holy `account_creation.py --kernel --kernel-proxy <name> --once --no-warp`.
+See **[LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md)**. ~101 healthy unlocked keys × 10
+mobile browsers ≈ 1010. Prefer **last** keys; multi-country mobile (not US-only).
+Browsers run from Ubuntu services on `farmed-*[236:]`.
+
+## Railway spreader plan (51 workers → ~1k MADE jars) — legacy / paused
+
+**Laptop = thin boss only.** Playwright+CDP on Railway via `scripts/cell_ssh.sh`.
+Each job: fresh OnK **mobile** proxy → stealth browser → Holy
+`account_creation.py --kernel --kernel-proxy <name> --once --no-warp`.
 
 | Knob | Value |
 |---|---|
-| OnK providers | Batch B + newly farmed unlocked jars (`finals/sessions/onk_*.json`) |
-| Fleet workers | **51** (`services.json` / `sessions/session-1..51`) — docs previously said 44 (stale) |
-| Wave math | **51 × ~20 ≈ 1k** MADE accounts |
-| Concurrent | Cap by OnK org limit (~5 browsers/org); do **not** local `--par 50+` |
-| Proxy | unique `kernel proxies create --type mobile --country US --name …` per job |
-| Dispatch | `cell_ssh.sh <session> <project> <env> <service> -- <cmd>` |
+| OnK providers | Unlocked jars (`finals/sessions/onk_*.json`) |
+| Fleet workers | Documents/railways + `farmed-*` CLI homes |
+| Wave math | historical `51 × ~20 ≈ 1k` MADE Railway accounts |
+| Concurrent | Cap by OnK org; do **not** local `--par 50+` |
 | Holy script | `src/railway/account_creation.py` |
-| Status | **PAUSED after 1-green pilot** (2026-09-23). Do not blast 50 until resumed. |
+| Status | **PAUSED** after green pilots (2026-09-23). Lovable 1k is the active track. |
 
 ```bash
 # WRONG on 15Gi laptop — OOM

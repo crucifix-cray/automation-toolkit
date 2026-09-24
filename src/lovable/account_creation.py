@@ -801,47 +801,102 @@ async def handle_turnstile(page: Page, email: str = "", password: str = "", max_
 
 # ── Onboarding (Pick your style → … → chat) ─────────────────────────────────
 async def handle_onboarding(page: Page) -> None:
+    """Clear getting-started / style wizard so /settings 2FA Enable is reachable."""
+
+    async def _click_any(*labels: str) -> bool:
+        for lab in labels:
+            try:
+                btn = page.locator("button").filter(has_text=lab)
+                if await btn.count():  # type: ignore
+                    await btn.first.click(timeout=4000)  # type: ignore
+                    await page.wait_for_timeout(1500)
+                    return True
+            except Exception:
+                pass
+            try:
+                role = page.get_by_role("button", name=lab)
+                if await role.count():  # type: ignore
+                    await role.first.click(timeout=4000)  # type: ignore
+                    await page.wait_for_timeout(1500)
+                    return True
+            except Exception:
+                pass
+        # fuzzy: any visible button matching needles
+        try:
+            hit = await page.evaluate(
+                """(nds) => {
+                  const b=[...document.querySelectorAll('button,a,[role=button]')].find(x=>{
+                    const t=(x.innerText||x.textContent||'').trim();
+                    if(!t || t.length>48) return false;
+                    return nds.some(n=>t===n || t.includes(n));
+                  });
+                  if(!b) return false; b.click(); return true;
+                }""",
+                list(labels),
+            )
+            if hit:
+                await page.wait_for_timeout(1500)
+                return True
+        except Exception:
+            pass
+        return False
+
     try:
-        for _ in range(3):
-            if "Pick your style" in await body_text(page):
-                btn = page.locator('button').filter(has_text='Next')
-                if await btn.count():  # type: ignore
-                    await btn.first.click(timeout=5000)  # type: ignore
-                else:
-                    await page.get_by_role("button", name="Next").first.click(timeout=5000)  # type: ignore
-                await page.wait_for_timeout(2000)
-            else:
+        for round_i in range(8):
+            cur = await body_text(page)
+            url = page.url
+            still = (
+                "/getting-started" in url
+                or "Pick your style" in cur
+                or "What's your name" in cur
+                or "Which role fits you best" in cur
+                or "How many people work at your company" in cur
+                or "Tell us about" in cur
+            )
+            if not still:
                 break
-        for _ in range(2):
-            if "What's your name" in await body_text(page):
-                inp = page.get_by_placeholder("Enter your name")
-                if await inp.count():  # type: ignore
-                    await inp.fill("Sam Dad")  # type: ignore
-                btn = page.locator('button').filter(has_text='Next')
-                if await btn.count():  # type: ignore
-                    await btn.first.click(timeout=5000)  # type: ignore
-                await page.wait_for_timeout(2000)
-            else:
-                break
-        if "Which role fits you best" in await body_text(page):
-            founder = page.get_by_role("button", name="Founder")
-            if await founder.count():  # type: ignore
-                await founder.first.click(timeout=5000)  # type: ignore
-            nxt = page.locator('button').filter(has_text='Next')
-            if await nxt.count():  # type: ignore
+
+            if "Pick your style" in cur:
+                if not await _click_any("Next", "Suivant", "Continue", "Continuer"):
+                    break
+                continue
+            if "What's your name" in cur:
                 try:
-                    await nxt.first.click(timeout=3000)  # type: ignore
+                    inp = page.get_by_placeholder("Enter your name")
+                    if await inp.count():  # type: ignore
+                        await inp.fill("Sam Dad")  # type: ignore
                 except Exception:
                     pass
+                await _click_any("Next", "Suivant", "Continue", "Continuer")
+                continue
+            if "Which role fits you best" in cur:
+                await _click_any("Founder", "Fondateur", "Developer", "Développeur")
+                await _click_any("Next", "Suivant", "Continue", "Continuer")
+                continue
+            if "How many people work at your company" in cur:
+                await _click_any("Solo", "Just me", "1", "2-10")
                 await page.wait_for_timeout(2000)
-        if "How many people work at your company" in await body_text(page):
-            solo = page.get_by_role("button", name="Solo")
-            if await solo.count():  # type: ignore
-                await solo.first.click(timeout=5000)  # type: ignore
-            await page.wait_for_timeout(2700)
+                continue
+
+            # generic skip / continue on getting-started interstitial
+            if await _click_any(
+                "Skip", "Passer", "Continue", "Continuer", "Get started",
+                "Let's go", "Next", "Suivant", "Start building", "Go to dashboard",
+            ):
+                continue
+            # last resort: leave wizard
+            if "/getting-started" in url:
+                try:
+                    await page.goto("https://lovable.dev/dashboard",
+                                    wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(2500)
+                except Exception:
+                    pass
+                break
+            break
     except Exception as e:
         print(f"  onboarding: {e}", file=sys.stderr)
-    await page.wait_for_timeout(2500)
+    await page.wait_for_timeout(2000)
 
 async def wait_for_getting_started(page: Page, timeout: float = 90) -> None:
     deadline = asyncio.get_running_loop().time() + timeout
@@ -1362,9 +1417,21 @@ async def run(
         session_dir = sessions_dir / session_id
         session_dir.mkdir(parents=True, exist_ok=True)
 
-        cookies = await context.cookies()  # type: ignore
-        (session_dir / "cookies.json").write_text(json.dumps(cookies, indent=2))
-        print(f"✅ Saved {len(cookies)} cookies to {session_dir / 'cookies.json'}", file=sys.stderr)
+        # Full trio: cookies + localStorage + Firebase IndexedDB (refresh_token)
+        try:
+            from session_state import save_full_state as _save_full_state
+        except ImportError:
+            from src.lovable.session_state import save_full_state as _save_full_state  # type: ignore
+        try:
+            ok_refresh = await _save_full_state(context, lovable_page, session_dir)
+            print(
+                f"✅ Full session state saved to {session_dir} (refresh_token={'YES' if ok_refresh else 'MISSING'})",
+                file=sys.stderr,
+            )
+        except Exception as e:
+            cookies = await context.cookies()  # type: ignore
+            (session_dir / "cookies.json").write_text(json.dumps(cookies, indent=2))
+            print(f"⚠️ Full-state save failed ({e}); cookies-only fallback ({len(cookies)})", file=sys.stderr)
 
         config = dict(
             email=email,

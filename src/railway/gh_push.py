@@ -179,3 +179,114 @@ def sync_to_github(session_dir: Path) -> None:
         f"(github.com/{os.environ.get('GH_REPO', REPO_DEFAULT)})"
     )
     print(f"   merge later: python3 src/railway/merge_farm_branches.py")
+
+
+def sync_lovable_to_github(session_dir: Path) -> None:
+    """Copy Lovable session (verified + totp) to unique lov-* path / farm/lov-* branch."""
+    if os.environ.get("GH_PUSH", "1") == "0":
+        print("☁️  GitHub push skipped (GH_PUSH=0)")
+        return
+
+    session_dir = Path(session_dir)
+    if not session_dir.is_dir():
+        print(f"⚠️  GitHub push: missing session dir {session_dir}")
+        return
+
+    cfg_path = session_dir / "config.json"
+    if not cfg_path.is_file():
+        print(f"⚠️  GitHub push: no config.json in {session_dir.name}")
+        return
+    try:
+        cfg = __import__("json").loads(cfg_path.read_text())
+    except Exception as e:
+        print(f"⚠️  GitHub push: bad config.json: {e}")
+        return
+    if not cfg.get("verified", False):
+        print(f"⚠️  GitHub push: not verified — skip")
+        return
+    # 2FA optional: verified + cookies/refresh_token is enough to keep the account
+    if not cfg.get("totp_secret") and not cfg.get("2fa_done"):
+        print(f"ℹ️  GitHub push: verified without 2FA (2fa_pending) — {session_dir.name}")
+
+    try:
+        token = _decrypt_token()
+    except Exception as e:
+        print(f"⚠️  GitHub push skipped (decrypt): {e}")
+        return
+
+    if not shutil.which("git"):
+        print("⚠️  GitHub push skipped: git not installed")
+        return
+
+    try:
+        repo = ensure_toolkit_repo(token)
+    except Exception as e:
+        print(f"⚠️  GitHub push: ensure repo failed: {e}")
+        return
+
+    base = os.environ.get("GH_BASE_BRANCH", BASE_DEFAULT)
+    host = (os.environ.get("GH_FARM_HOST") or "lov").strip().replace("/", "-")[:32]
+    short = uuid.uuid4().hex[:10]
+    dest_name = f"lov-{host}-{short}"
+    farm_branch = f"farm/{dest_name}"
+    dest = repo / "finals" / "sessions" / dest_name
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        session_dir,
+        dest,
+        ignore=shutil.ignore_patterns("*.log", ".cache", "__pycache__", "node_modules", ".reserved"),
+    )
+
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["GIT_CONFIG_COUNT"] = "1"
+    env["GIT_CONFIG_KEY_0"] = "http.https://github.com/.extraheader"
+    env["GIT_CONFIG_VALUE_0"] = (
+        "AUTHORIZATION: basic "
+        + __import__("base64").b64encode(f"x-access-token:{token}".encode()).decode()
+    )
+
+    def g(*args: str, timeout: int = 300) -> subprocess.CompletedProcess:
+        return _run(["git", *args], cwd=repo, env=env, timeout=timeout)
+
+    g("fetch", "origin", base)
+    co = g("checkout", "-B", farm_branch, f"origin/{base}")
+    if co.returncode != 0:
+        g("checkout", base)
+        g("pull", "--ff-only", "origin", base)
+        g("checkout", "-B", farm_branch)
+
+    add = g("add", "-f", str(dest.relative_to(repo)))
+    if add.returncode != 0:
+        print(f"⚠️  git add failed: {(add.stderr or add.stdout)[:300]}")
+        return
+
+    st = g("status", "--porcelain")
+    if not (st.stdout or "").strip():
+        print(f"☁️  GitHub: nothing new for {dest_name}")
+        return
+
+    email = cfg.get("email") or "lovable-farm@local"
+    try:
+        email = (session_dir / "email.txt").read_text().strip() or email
+    except Exception:
+        pass
+    msg = f"farm: add {dest_name} ({email})"
+    g("config", "user.email", "holy-farm@users.noreply.github.com")
+    g("config", "user.name", "holy-farm")
+    c = g("commit", "-m", msg)
+    if c.returncode != 0:
+        print(f"⚠️  git commit failed: {(c.stderr or c.stdout)[:300]}")
+        return
+
+    p = g("push", "-u", "origin", f"HEAD:{farm_branch}", timeout=600)
+    if p.returncode != 0:
+        print(f"⚠️  git push failed: {(p.stderr or p.stdout)[:400]}")
+        return
+    print(
+        f"✅ Pushed {dest_name} → branch {farm_branch} "
+        f"(github.com/{os.environ.get('GH_REPO', REPO_DEFAULT)})"
+    )
+    print(f"   merge later: python3 src/railway/merge_farm_branches.py")

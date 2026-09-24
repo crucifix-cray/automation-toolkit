@@ -47,11 +47,23 @@ async def _safe_text(page, n=500, retries=4):
     return await page.evaluate(f"() => document.body.innerText.slice(0,{n})")
 
 
-async def _totp_fill(page, secret):
-    """Fill TOTP code with multiple fallback strategies."""
+async def _totp_fill(page, secret, *, min_remaining: int = 8):
+    """Fill TOTP code with multiple fallback strategies.
+
+    Waits for a fresh window if the current code has < min_remaining seconds left,
+    so we don't submit a code that expires mid-verify.
+    """
     import pyotp
-    code = pyotp.TOTP(secret).now()
-    print(f"   🔑 TOTP: {code}")
+    import time as _time
+    totp = pyotp.TOTP(secret)
+    # Remaining seconds in this 30s window
+    remaining = totp.interval - int(_time.time()) % totp.interval
+    if remaining < min_remaining:
+        wait_ms = (remaining + 1) * 1000
+        print(f"   ⏳ TOTP window low ({remaining}s) — wait {wait_ms}ms for next code")
+        await page.wait_for_timeout(wait_ms)
+    code = totp.now()
+    print(f"   🔑 TOTP: {code} (window ~{totp.interval - int(_time.time()) % totp.interval}s left)")
     inp = page.locator('input[inputmode="numeric"], input[autocomplete="one-time-code"], input[type="text"], input:not([type])').first
     try:
         await inp.wait_for(state="visible", timeout=8000)
@@ -71,66 +83,22 @@ async def _totp_fill(page, secret):
     return code
 
 
+def _login_ok(url: str, body: str) -> bool:
+    """True if we left the auth wall (prefer URL; body 'Log in' alone is noisy)."""
+    u = (url or "").lower()
+    if "/login" in u or "/auth" in u or "/signin" in u:
+        return False
+    if "/dashboard" in u or "/projects" in u:
+        return True
+    # Still on login host but body no longer shows the login CTA
+    b = (body or "").lower()
+    return "log in" not in b and "sign in" not in b
+
+
 async def _save_full_state(context, page, session_dir):
-    """Save cookies + localStorage + IndexedDB (Firebase refresh token) to disk.
-    This is the FULL session state — restoring all three avoids re-login."""
-    # 1. Cookies (existing behavior)
-    fresh_cookies = await context.cookies()
-    with open(session_dir / "cookies.json", "w") as f:
-        json.dump(fresh_cookies, f, indent=2)
-    print(f"   ✅ Saved {len(fresh_cookies)} cookies")
-    # 2. localStorage
-    try:
-        ls_data = await page.evaluate("""() => {
-            const out = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                out[k] = localStorage.getItem(k);
-            }
-            return out;
-        }""")
-        with open(session_dir / "localstorage.json", "w") as f:
-            json.dump(ls_data, f, indent=2)
-        print(f"   ✅ Saved localStorage ({len(ls_data)} keys)")
-    except Exception as e:
-        print(f"   ⚠️  localStorage save failed: {e}")
-    # 3. IndexedDB — Firebase auth (access + refresh token)
-    try:
-        idb_data = await page.evaluate("""async () => {
-            return new Promise((resolve) => {
-                try {
-                    const req = indexedDB.open('firebaseLocalStorageDb');
-                    req.onsuccess = () => {
-                        const db = req.result;
-                        const stores = Array.from(db.objectStoreNames);
-                        if (!stores.length) { resolve([]); return; }
-                        const tx = db.transaction(stores, 'readonly');
-                        const out = [];
-                        let pending = stores.length;
-                        stores.forEach(sn => {
-                            try {
-                                const rq = tx.objectStore(sn).getAll();
-                                rq.onsuccess = () => {
-                                    rq.result.forEach(r => out.push({store: sn, key: r.fkey || r.key, value: r.value}));
-                                    if (--pending === 0) resolve(out);
-                                };
-                                rq.onerror = () => { if (--pending === 0) resolve(out); };
-                            } catch(e) { if (--pending === 0) resolve(out); }
-                        });
-                    };
-                    req.onerror = () => resolve([]);
-                } catch(e) { resolve([]); }
-            });
-        }""")
-        with open(session_dir / "indexeddb.json", "w") as f:
-            json.dump(idb_data, f, indent=2)
-        has_refresh = any(
-            r.get("value", {}).get("stsTokenManager", {}).get("refreshToken")
-            for r in idb_data if isinstance(r.get("value"), dict)
-        )
-        print(f"   ✅ Saved IndexedDB ({len(idb_data)} records, refresh_token={'YES' if has_refresh else 'MISSING'})")
-    except Exception as e:
-        print(f"   ⚠️  IndexedDB save failed: {e}")
+    """Save cookies + localStorage + IndexedDB (Firebase refresh token) to disk."""
+    from session_state import save_full_state
+    return await save_full_state(context, page, session_dir)
 
 
 async def _load_full_state(context, page, session_dir, target_url="https://lovable.dev"):
@@ -189,7 +157,7 @@ async def _load_full_state(context, page, session_dir, target_url="https://lovab
                                     if (!records.length) { resolve(0); return; }
                                     records.forEach(r => {
                                         try {
-                                            const putReq = store.put({fkey: r.key, value: r.value});
+                                            const putReq = store.put({fkey: r.key || r.fkey, value: r.value});
                                             putReq.onsuccess = putReq.onerror = () => { if (++done === records.length) resolve(done); };
                                         } catch(e) { if (++done === records.length) resolve(done); }
                                     });
@@ -204,9 +172,9 @@ async def _load_full_state(context, page, session_dir, target_url="https://lovab
             print(f"   ⚠️  IndexedDB restore failed: {e}")
 
 
-async def _refresh_firebase_token(page):
-    """If Firebase access token expired but refresh token exists, mint a new one.
-    Returns True if token is fresh (or was refreshed), False if no refresh possible."""
+async def _refresh_firebase_token(page, session_dir=None):
+    """Try in-page Firebase refresh; if that fails and session_dir has indexeddb.json,
+    use virgin-context Google API + init-script revive (no password)."""
     try:
         result = await page.evaluate("""async () => {
             return new Promise((resolve) => {
@@ -214,6 +182,9 @@ async def _refresh_firebase_token(page):
                     const req = indexedDB.open('firebaseLocalStorageDb');
                     req.onsuccess = () => {
                         const db = req.result;
+                        if (![...db.objectStoreNames].includes('firebaseLocalStorage')) {
+                            resolve({status: 'no_store'}); return;
+                        }
                         const tx = db.transaction('firebaseLocalStorage', 'readwrite');
                         const store = tx.objectStore('firebaseLocalStorage');
                         const getAll = store.getAll();
@@ -224,7 +195,6 @@ async def _refresh_firebase_token(page):
                                     const now = Date.now();
                                     const exp = v.stsTokenManager.expirationTime || 0;
                                     if (exp > now + 60000) { resolve({status: 'fresh', exp}); return; }
-                                    // Expired — use refresh token to mint new access token
                                     try {
                                         const resp = await fetch(
                                             'https://securetoken.googleapis.com/v1/token?key=' + v.apiKey,
@@ -259,10 +229,18 @@ async def _refresh_firebase_token(page):
             return True
         else:
             print(f"   ⚠️  Firebase token status: {status} {result.get('detail', '')}")
-            return False
     except Exception as e:
         print(f"   ⚠️  Firebase refresh check failed: {e}")
-        return False
+
+    # Proven fallback: Google API + virgin context init-script
+    if session_dir is not None:
+        try:
+            from session_state import revive_via_refresh_token
+        except ImportError:
+            from src.lovable.session_state import revive_via_refresh_token  # type: ignore
+        print("   🔄 Trying virgin-context refresh_token revive…")
+        return await revive_via_refresh_token(page, session_dir)
+    return False
 
 
 async def _rescue_login(page, context, email, password, totp_secret, totp_backup, session_dir):
@@ -298,27 +276,41 @@ async def _rescue_login(page, context, email, password, totp_secret, totp_backup
             print("   🔐 2FA detected, filling TOTP code...")
             await _totp_fill(page, totp_secret)
             await page.wait_for_timeout(6000)
-            
-            # Check if primary TOTP failed, try backup
-            txt2 = await _safe_text(page, 800)
-            if (
-                totp_backup
-                and totp_backup != totp_secret
-                and ("verification code" in txt2.lower() or "two-factor" in txt2.lower() or "authenticator" in txt2.lower())
+
+            # Still on 2FA? retry once with next window, then backup secret
+            for attempt_label, secret in (
+                ("retry primary (next window)", totp_secret),
+                ("backup secret", totp_backup if totp_backup and totp_backup != totp_secret else None),
             ):
-                print("   ⚠️  Primary TOTP rejected, trying backup secret...")
-                await _totp_fill(page, totp_backup)
+                if not secret:
+                    continue
+                if _login_ok(page.url, await _safe_text(page, 400)):
+                    break
+                txt2 = await _safe_text(page, 800)
+                still_2fa = (
+                    "verification code" in txt2.lower()
+                    or "two-factor" in txt2.lower()
+                    or "authenticator" in txt2.lower()
+                    or "/login" in (page.url or "").lower()
+                )
+                if not still_2fa:
+                    break
+                print(f"   ⚠️  Still on 2FA — trying {attempt_label}...")
+                # Force wait into next window for retry
+                await page.wait_for_timeout(12000)
+                await _totp_fill(page, secret, min_remaining=12)
                 await page.wait_for_timeout(6000)
         
-        # Check if login succeeded
+        # Check if login succeeded (URL-first)
         final_txt = await _safe_text(page, 500)
-        if "Log in" not in final_txt:
+        if _login_ok(page.url, final_txt):
             # Save FULL state: cookies + localStorage + IndexedDB (Firebase refresh token)
             await _save_full_state(context, page, session_dir)
             print(f"   ✅ Rescue successful! Full session state saved")
             return True
         else:
-            print("   ❌ Login failed - still on login page")
+            snippet = final_txt[:180].replace("\n", " ")
+            print(f"   ❌ Login failed — url={page.url} body={snippet!r}")
             return False
             
     except Exception as e:
@@ -396,7 +388,7 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             if "/login" in current_url or "/auth" in current_url or "Log in" in body_text:
                 # Step 1: Try Firebase silent refresh (no credentials needed)
                 print("   🔄 Cookies stale — trying Firebase silent refresh first...")
-                if await _refresh_firebase_token(page):
+                if await _refresh_firebase_token(page, session_dir):
                     await _save_full_state(context, page, session_dir)
                     await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
                     await page.wait_for_timeout(2000)
@@ -416,7 +408,7 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             else:
                 print(f"\n✅ Cookies still valid! Loaded at: {page.url}")
                 # Proactively refresh Firebase token + save full state while we're here
-                await _refresh_firebase_token(page)
+                await _refresh_firebase_token(page, session_dir)
                 await _save_full_state(context, page, session_dir)
             
             await browser.close()
@@ -454,7 +446,7 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             if "/login" in current_url or "/auth" in current_url or "Log in" in body_text:
                 # Step 1: Try Firebase silent refresh (no credentials needed)
                 print("   🔄 Cookies stale — trying Firebase silent refresh first...")
-                if await _refresh_firebase_token(page):
+                if await _refresh_firebase_token(page, session_dir):
                     await _save_full_state(context, page, session_dir)
                     await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
                     await page.wait_for_timeout(2000)
@@ -474,7 +466,7 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             else:
                 print(f"\n✅ Cookies still valid! Loaded at: {page.url}")
                 # Proactively refresh Firebase token + save full state while we're here
-                await _refresh_firebase_token(page)
+                await _refresh_firebase_token(page, session_dir)
                 await _save_full_state(context, page, session_dir)
             
             print(f"\n✅ Session-{session_num} rescue complete. Live view: {kernel_data.get('browser_live_view_url', 'N/A')}")
@@ -512,7 +504,7 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             if "/login" in current_url or "/auth" in current_url or "Log in" in body_text:
                 # Step 1: Try Firebase silent refresh (no credentials needed)
                 print("   🔄 Cookies stale — trying Firebase silent refresh first...")
-                if await _refresh_firebase_token(page):
+                if await _refresh_firebase_token(page, session_dir):
                     await _save_full_state(context, page, session_dir)
                     await page.goto(target_url, timeout=40000, wait_until="domcontentloaded")
                     await page.wait_for_timeout(2000)
@@ -532,7 +524,7 @@ async def load_session(session_num: str, target_url: str = "https://lovable.dev/
             else:
                 print(f"\n✅ Cookies still valid! Loaded at: {page.url}")
                 # Proactively refresh Firebase token + save full state while we're here
-                await _refresh_firebase_token(page)
+                await _refresh_firebase_token(page, session_dir)
                 await _save_full_state(context, page, session_dir)
             
             await browser.close()

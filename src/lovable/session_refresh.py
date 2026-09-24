@@ -137,10 +137,21 @@ async def main():
         
         print(f"✅ Login successful! URL: {page.url}")
         
-        if "/dashboard" in page.url or "/projects" in page.url:
-            ck = await ctx.cookies()
-            json.dump(ck, open(cookies_path, "w"), indent=2)
-            print(f"✅ SAVED {len(ck)} fresh cookies to {cookies_path}")
+        if "/dashboard" in page.url or "/projects" in page.url or "Log in" not in await _safe_text(page, 400):
+            # Full trio: cookies + localStorage + Firebase IndexedDB (refresh_token)
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+            from session_state import save_full_state
+            session_dir = os.path.dirname(cookies_path)
+            ok_refresh = await save_full_state(ctx, page, session_dir)
+            if not ok_refresh:
+                print("⚠️  Login OK but refresh_token MISSING in IndexedDB — retry once on dashboard")
+                try:
+                    await page.goto("https://lovable.dev/dashboard", timeout=40000, wait_until="domcontentloaded")
+                    await page.wait_for_timeout(4000)
+                    ok_refresh = await save_full_state(ctx, page, session_dir)
+                except Exception as e:
+                    print(f"⚠️  dashboard re-save failed: {e}")
+            print(f"✅ FULL STATE saved to {session_dir} (refresh_token={'YES' if ok_refresh else 'NO'})")
         else:
             print("⚠️  NOT on dashboard")
             print(await page.evaluate("() => document.body.innerText.slice(0,300)"))

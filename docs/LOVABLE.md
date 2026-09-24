@@ -50,10 +50,11 @@ Login: cookies first; fallback email → password → `pyotp.TOTP(totp_secret)` 
 
 ## Pipeline
 
+- **1k farm (current):** [LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md) — Ubuntu services on `finals/sessions/farmed-*[236:]`; script `src/lovable/farm_lovable_ultimate.py`
 - Script 1 (2FA rescue): `src/lovable/session_refresh.py` / `load_session_with_rescue.py` — **pyotp TOTP**
 - Script 2 remix+bridge: `src/lovable/remix_inject.py` (OnKernel) — sends **`prompts/Build a debug terminal.txt`**, waits for `window.doc` on **`*.lovableproject.com/term`** (never trivial `say 'a'`).
 - Resume bridge on existing fleet projects: `src/lovable/inject_fleet_projects.py --jobs /tmp/fleet_jobs.json`
 - Script 3 (mine): `chimera-miner` `daemon.py` + `miner_injector.py` (Railway cells; navigate Preview → `/term` then `doc('pwd')`)
 
-**Notes (2026-09-23 stop):** Fleet push paused. Only cell-16 + cell-13 mining. Probe **/term**, not Homepage. cell-16 locked — do not reuse Railway `sessions/session-2`. OnKernel: org ≤5 concurrent; default key may be billing-blocked — use unlocked farm KERNEL_API_KEY. 5/9 had OnKernel bridge earlier; Railway cells still no-doc. 4 left: cells 25/26/32/36.
+**Notes (2026-09-24):** Lovable 1k = Ubuntu services on farmed jars from offset **236** (not sandboxes, not jar index 0). Soft-2FA keeps verified signups. Mining fleet notes from 2026-09-23 remain: probe **/term**; OnKernel use unlocked farm keys.
 
