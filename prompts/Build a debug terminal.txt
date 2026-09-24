@@ -87,3 +87,6 @@ Local registry commands must win over shell commands so you can always introspec
 
 
 Don't use .server.ts file naming; keep node:child_process inside the Vite config / server middleware, never imported by client code.
+
+
+Keep the rest of the app as-is (do not redesign or remove unrelated UI). Go straight into implementing this — do not ask clarifying questions, do not propose alternatives, do not wait for confirmation.
