@@ -308,9 +308,65 @@ async def _find_chat_input(page):
     return None
 
 
+async def _ensure_build_mode(page) -> bool:
+    """Lovable composer now has Build/Chat/Plan modes — bridge prompt only builds in Build.
+
+    Never match dynamic base-ui-* ids; find the mode trigger by aria-haspopup
+    near the composer, open it, pick the Build menuitemradio. No-op when the
+    switcher isn't present (old UI) or Build already active. Returns True if
+    Build is (now) active.
+    """
+    try:
+        state = await page.evaluate("""() => {
+            const input = document.querySelector('div[contenteditable="true"][role="textbox"]')
+                || document.querySelector('[contenteditable="true"]');
+            const root = (input && input.closest('form')) || document;
+            const trig = [...root.querySelectorAll('button[aria-haspopup="menu"]')]
+                .find(b => /build|chat|plan/i.test(b.innerText || ''));
+            if (!trig) return {found: false};
+            return {found: true, text: (trig.innerText || '').trim().slice(0, 20)};
+        }""")
+    except Exception as e:
+        log(f"build-mode detect warn: {e}")
+        return True
+    if not state or not state.get("found"):
+        log("build-mode switcher not present, continuing")
+        return True
+    if "build" in (state.get("text") or "").lower():
+        log("composer already in Build mode")
+        return True
+    log(f"composer in {state.get('text')!r} mode — switching to Build")
+    try:
+        trig = page.locator('form button[aria-haspopup="menu"], div[contenteditable="true"]').first
+        # click the actual trigger via JS (dynamic ids, avoid mis-clicks)
+        await page.evaluate("""() => {
+            const input = document.querySelector('div[contenteditable="true"][role="textbox"]')
+                || document.querySelector('[contenteditable="true"]');
+            const root = (input && input.closest('form')) || document;
+            const trig = [...root.querySelectorAll('button[aria-haspopup="menu"]')]
+                .find(b => /build|chat|plan/i.test(b.innerText || ''));
+            if (trig) trig.click();
+        }""")
+        await page.wait_for_timeout(1200)
+        build_item = page.locator('div[role="menuitemradio"]:has-text("Build")').first
+        await build_item.wait_for(state="visible", timeout=6000)
+        await build_item.click(timeout=5000, force=True)
+        await page.wait_for_timeout(800)
+        try:
+            await page.keyboard.press("Escape")
+        except Exception:
+            pass
+        log("composer switched to Build mode")
+        return True
+    except Exception as e:
+        log(f"build-mode switch failed: {e} — sending anyway")
+        return False
+
+
 async def _paste_bridge_prompt(page, chat_input, prompt=None):
     """Paste full prompts/Build a debug terminal.txt into chat (not trivial wake)."""
     prompt = prompt if prompt is not None else SUBPROCESS_PROMPT
+    await _ensure_build_mode(page)
     try:
         await chat_input.scroll_into_view_if_needed(timeout=8000)
     except Exception:
@@ -616,6 +672,67 @@ async def inject_and_wait_bridge(page, ctx=None, label="", wait_s=900, prompt=No
                 pass
 
 
+async def bridge_existing(pw, ctx, num):
+    """Bridge-only: login -> goto existing config project -> inject bridge. No remix."""
+    cfg_path = os.path.join(SESSIONS, f"session-{num}", "config.json")
+    ck_path = os.path.join(SESSIONS, f"session-{num}", "cookies.json")
+    cfg = json.load(open(cfg_path))
+    email, password = cfg["email"], cfg.get("password", cfg["email"])
+    project_id = cfg.get("project_id")
+    if not project_id:
+        return {"session": num, "email": email, "success": False, "reason": "no project_id in config"}
+    page = await ctx.new_page()
+    try:
+        try:
+            raw = json.load(open(ck_path))
+            cookies = [{"name": c["name"], "value": c["value"], "domain": c["domain"],
+                        "path": c.get("path", "/"), "expires": int(c["expires"]) if c.get("expires") else -1,
+                        "httpOnly": bool(c.get("httpOnly", False)), "secure": bool(c.get("secure", False)),
+                        "sameSite": c.get("sameSite", "Lax") if c.get("sameSite") in ("Lax", "Strict", "None") else "Lax"}
+                       for c in raw if "lovable" in c.get("domain", "")]
+            await ctx.add_cookies(cookies)
+        except Exception:
+            pass
+        try:
+            from src.lovable.session_state import revive_via_refresh_token as _revive
+        except ImportError:
+            try:
+                from session_state import revive_via_refresh_token as _revive  # type: ignore
+            except ImportError:
+                _revive = None
+        if _revive is not None:
+            try:
+                await _revive(page, os.path.join(SESSIONS, f"session-{num}"))
+            except Exception as e:
+                log(f"session-{num} refresh revive warn: {e}")
+        _alts = [cfg.get("password_alt"), cfg.get("password_backup")]
+        if not await _login(
+            page, email, password, cfg.get("totp_secret"), cfg.get("totp_secret_backup"),
+            password_alts=[a for a in _alts if a],
+        ):
+            return {"session": num, "email": email, "success": False, "reason": "login failed"}
+        await page.goto(f"https://lovable.dev/projects/{project_id}", timeout=60000,
+                        wait_until="domcontentloaded")
+        await page.wait_for_timeout(10000)
+        inj = await inject_and_wait_bridge(page, ctx, label=f"session-{num}", wait_s=900)
+        has_doc = bool(inj.get("bridge"))
+        try:
+            fresh = await ctx.cookies()
+            json.dump(fresh, open(ck_path, "w"), indent=2)
+        except Exception:
+            pass
+        return {"session": num, "email": email, "success": has_doc,
+                "reason": "doc_ready" if has_doc else f"bridge_retry:{inj.get('reason')}",
+                "project_id": project_id, "bridge": has_doc}
+    except Exception as e:
+        return {"session": num, "email": cfg.get("email"), "success": False, "reason": str(e)[:200]}
+    finally:
+        try:
+            await page.close()
+        except Exception:
+            pass
+
+
 async def remix_one(pw, ctx, num):
     """Login -> template remix -> inject bridge -> invite. Returns result dict."""
     cfg_path = os.path.join(SESSIONS, f"session-{num}", "config.json")
@@ -631,6 +748,22 @@ async def remix_one(pw, ctx, num):
                     "sameSite": c.get("sameSite", "Lax") if c.get("sameSite") in ("Lax", "Strict", "None") else "Lax"}
                    for c in raw if "lovable" in c.get("domain", "")]
         await ctx.add_cookies(cookies)
+        # refresh_token BEFORE password (cookies alone are usually expired;
+        # passwords get rejected while RT still mints). revive saves fresh
+        # cookies + copies them into this ctx; _login then sees dashboard.
+        try:
+            from src.lovable.session_state import revive_via_refresh_token as _revive
+        except ImportError:
+            try:
+                from session_state import revive_via_refresh_token as _revive  # type: ignore
+            except ImportError:
+                _revive = None
+        if _revive is not None:
+            try:
+                ok_rt = await _revive(page, os.path.join(SESSIONS, f"session-{num}"))
+                log(f"session-{num} refresh revive: {'OK' if ok_rt else 'no-rt/failed, password next'}")
+            except Exception as e:
+                log(f"session-{num} refresh revive warn: {type(e).__name__}: {e}")
         _alts = [cfg.get("password_alt"), cfg.get("password_backup")]
         if not await _login(
             page, email, password, cfg.get("totp_secret"), cfg.get("totp_secret_backup"),
@@ -653,8 +786,20 @@ async def remix_one(pw, ctx, num):
                 _spec = importlib.util.spec_from_file_location("lov_ac_onboard", _p)
                 _mod = importlib.util.module_from_spec(_spec)
                 _spec.loader.exec_module(_mod)
-                await _mod.handle_onboarding(page)
-                await page.wait_for_timeout(2000)
+                for _ob in range(6):
+                    try:
+                        await _mod.handle_onboarding(page)
+                    except Exception as e:
+                        log(f"session-{num} onboarding warn: {e}")
+                    await page.wait_for_timeout(4000)
+                    try:
+                        _u = page.url
+                        _t = await _safe_text(page, 500)
+                    except Exception:
+                        break
+                    if "/getting-started" not in _u and "Pick your style" not in _t:
+                        break
+                    log(f"session-{num} onboarding still present (try {_ob+1}/6)")
                 log(f"session-{num} onboarding done url={page.url[:80]}")
         except Exception as e:
             log(f"session-{num} onboarding warn: {e}")
@@ -666,6 +811,39 @@ async def remix_one(pw, ctx, num):
                 return {"session": num, "email": email, "success": False, "reason": "login failed (post-check)"}
         except Exception:
             pass
+        # Safety net: onboarding can appear AFTER the first check (redirect race).
+        # Clear it unconditionally before touching templates.
+        try:
+            _u0 = page.url
+            _t0 = await _safe_text(page, 800)
+        except Exception:
+            _u0, _t0 = "", ""
+        if "/getting-started" in _u0 or "Pick your style" in _t0 or "What's your name" in _t0:
+            log(f"session-{num} late onboarding, clearing")
+            import importlib.util
+            _p2 = os.path.join(CORE, "account_creation.py")
+            _spec2 = importlib.util.spec_from_file_location("lov_ac_onboard2", _p2)
+            _mod2 = importlib.util.module_from_spec(_spec2)
+            _spec2.loader.exec_module(_mod2)
+            for _ob2 in range(6):
+                try:
+                    await _mod2.handle_onboarding(page)
+                except Exception as e:
+                    log(f"session-{num} onboarding warn: {e}")
+                await page.wait_for_timeout(4000)
+                try:
+                    _u2 = page.url
+                    _t2 = await _safe_text(page, 500)
+                except Exception:
+                    break
+                if "/getting-started" not in _u2 and "Pick your style" not in _t2:
+                    break
+            try:
+                await page.goto("https://lovable.dev/dashboard", timeout=40000,
+                                wait_until="domcontentloaded")
+                await page.wait_for_timeout(2500)
+            except Exception:
+                pass
 
         # --- template pick (lovable-full-automation.py:503-548) ---
         await page.goto("https://lovable.dev/templates/apps/saas", timeout=60000)
@@ -964,6 +1142,8 @@ async def main():
     ap.add_argument("--session", default=None)
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--skip", default="")
+    ap.add_argument("--bridge-only", action="store_true",
+                    help="Skip remix: bridge the existing config project only")
     a = ap.parse_args()
     clear_proxy()
 
@@ -1079,7 +1259,10 @@ async def main():
                     except Exception:
                         pass
                     try:
-                        res = await remix_one(pw, ctx, num)
+                        if a.bridge_only:
+                            res = await bridge_existing(pw, ctx, num)
+                        else:
+                            res = await remix_one(pw, ctx, num)
                     finally:
                         try:
                             await ctx.close()

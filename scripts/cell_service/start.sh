@@ -7,6 +7,10 @@ echo "=== cell boot $(date -u) ==="
 swapon -s 2>&1 || echo "SWAP: unavailable in container (expected)"
 cat /proc/meminfo | head -2
 /opt/venv/bin/python -c 'import patchright, playwright, camoufox; print("STACK OK")'
-mkdir -p /data && touch /data/.alive && echo "alive $(date -u)" >> /data/boot.log
-echo "cell ready, sleeping"
+mkdir -p /data/work/chimera-miner /data/work/scripts/sessions /data/work/shots
+mkdir -p /app
+# Persist work on the volume; daemon paths expect /app/work
+ln -sfn /data/work /app/work
+touch /data/.alive && echo "alive $(date -u)" >> /data/boot.log
+echo "cell ready work=/app/work -> /data/work, sleeping"
 sleep infinity
