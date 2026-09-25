@@ -151,7 +151,13 @@ async def main():
                     ok_refresh = await save_full_state(ctx, page, session_dir)
                 except Exception as e:
                     print(f"⚠️  dashboard re-save failed: {e}")
-            print(f"✅ FULL STATE saved to {session_dir} (refresh_token={'YES' if ok_refresh else 'NO'})")
+            if not ok_refresh:
+                # Cookies-only trios silently break every later cell (auth wall that
+                # the wall-detector reads as "no wall"). Fail loud instead.
+                print("❌ refresh_token MISSING — refusing cookies-only trio. Re-run rescue.")
+                await b.close()
+                sys.exit(2)
+            print(f"✅ FULL STATE saved to {session_dir} (refresh_token=YES)")
         else:
             print("⚠️  NOT on dashboard")
             print(await page.evaluate("() => document.body.innerText.slice(0,300)"))
