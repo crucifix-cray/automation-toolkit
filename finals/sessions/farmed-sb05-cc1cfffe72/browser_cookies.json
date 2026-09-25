@@ -1,0 +1,166 @@
+{
+  "cookies": [
+    {
+      "name": "IndrX0xRN0EzRW5rX0RpMmQ2MUM3N3dNR0x5ZzhzMTQ2aEM3WFpxUWVVNDZtX2Fub255bW91c1VzZXJJZCI%3D",
+      "value": "IjgwZTMwYjE2LTY2YzYtNGQ3MC04OGJlLTYwYTRiM2JiMGJkMyI=",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1821880473,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "railway_attribution",
+      "value": "%7B%22referringDomain%22%3A%22%24direct%22%2C%22landingPath%22%3A%22%2Flogin%22%7D",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1798120473.234356,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ph_phc_jmpOAF1fCA4XG8D6zO8AuihY1JHmOkvzqtg5cZoxeJb_posthog",
+      "value": "%7B%22distinct_id%22%3A%2201a0d8d8-ab1c-76a6-8b4d-8a3ccf58b25c%22%2C%22%24sesid%22%3A%5B1790344473394%2C%2201a0d8d8-ab1d-7d78-9d67-2c91a23e1116%22%2C1790344473373%5D%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22%24direct%22%2C%22u%22%3A%22https%3A%2F%2Frailway.com%2Flogin%22%7D%7D",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1821880473,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "m",
+      "value": "ee7e3e04-6197-456d-abd3-459b8f2b9ae43fafe4",
+      "domain": "m.stripe.com",
+      "path": "/",
+      "expires": 1824904566.129619,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__stripe_mid",
+      "value": "ff8dad1a-3993-4a70-b918-f4aa8f75d037d698b0",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1821880566,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "__stripe_sid",
+      "value": "37d4d309-7aeb-48b7-bb7c-9f6409e61be7d89ad4",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1790346366,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "_gcl_au",
+      "value": "1.1.1149159760.1790344482",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1798120481,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "test_cookie",
+      "value": "CheckForPermission",
+      "domain": ".doubleclick.net",
+      "path": "/",
+      "expires": 1790345382.954745,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "7YjY6OABvItXmufJ5Trx8mFHPxp_rcR3q_0SBCnAxvU-1790344502.2294588-1.0.1.1-xppmKNY4j83kJzpvoHfRssM1NA5enlCB4ovKTTbUfjt.kWt1Ftl2sHn_CIvvT4_.MvaGPSURnAVnFaui5UAyGeNnfBhtRTTnOypC4vZfXHO4xgXe3_jaKaGzkVEG1d0D",
+      "domain": ".magic.link",
+      "path": "/",
+      "expires": 1790346303.189258,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_cfuvid",
+      "value": "fYS_1MgWefBdHm4CLeHidnmc_cFz88lo5oLXDF2z7sU-1790344502.2294588-1.0.1.1-TbGSvkVeCV6sVpo.m933EDDLPfTRKDvBft22r5PO6EI",
+      "domain": ".magic.link",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_dd_s_v2",
+      "value": "aid=1787d5de-961c-490d-8b3e-5af9ccde5022&id=9adf4104-7250-4a77-8157-2b3c9e233572&created=1790344499081&expire=1790345459086&c=1",
+      "domain": "auth.magic.link",
+      "path": "/",
+      "expires": 1821880559.086,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://railway.com",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "rw.session",
+      "value": "rw_Fe26.2**9271de5ad6eb3cce788800419780c52f049cd53286b514913fda26230b7d970e*W5Rf_tYC10sks5ZhVHM9uw*0VLWHNEPLKK6tyEWQQqayilAkHxei5hEJmIsF_fAv3LWe8P1gM7Rto488YYMLE7JNCiczLzocgwxhAh8FtQNIA*1792936560842*2371f3c66e90e2df0176eaced526085e7295f9b3754073516ed721a5784085a1*Pfg56Sjab60dhObl5q6ROnOX7_BWQfx0_toj-4vpkB0",
+      "domain": "backboard.railway.com",
+      "path": "/",
+      "expires": 1792936561.011474,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "rw.session.sig",
+      "value": "hV5E7d13JGaUr2LUh9qVH8LU8E4",
+      "domain": "backboard.railway.com",
+      "path": "/",
+      "expires": 1792936561.011648,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "rw.authenticated",
+      "value": "true",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1792936561.011717,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "rw.authenticated.sig",
+      "value": "eMmi--ySRFSmthC5IH0IvFdhhcE",
+      "domain": ".railway.com",
+      "path": "/",
+      "expires": 1792936561.011865,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_dd_s",
+      "value": "rum=0&expire=1790345501161&logs=1&id=6e47fb2b-ffad-439e-9129-b22688f4bf50&created=1790344473154",
+      "domain": "railway.com",
+      "path": "/",
+      "expires": 1790345503,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Strict"
+    }
+  ]
+}
