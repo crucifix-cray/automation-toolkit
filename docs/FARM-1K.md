@@ -18,12 +18,32 @@ merge farm/* → main → materialize jar → session-N → verify up/down → U
 
 Sandbox = compute. Laptop = thin boss (CDP/SSH only). No local farming.
 
-## Status (2026-09-25)
+## Status (2026-09-25, 17:40 UTC) — PAUSED
 
-* **UP_GOOD = 524** banked, 0 bad, pending full re-verification.
-* Fleet was **paused** after Railway started auto-restricting new workspaces
-  (~16:30 UTC). See Incident below.
-* Round-2 expansion: 28/30 hosts checkpointed (`holy-ready-v1`), launch not run.
+| Metric | Value |
+|---|---|
+| UP_GOOD markers on disk | **524** |
+| Re-verified live (fresh deploy+teardown) | **312** |
+| `RECHECK_FAIL` (restricted / undeployable) | **0** |
+| UP_BAD | 0 |
+| Fleet | **paused** (`refill_all.py.PAUSED`) |
+| Account creation | stopped |
+
+**The honest number: 312 of 524 are confirmed healthy *right now*.** The other
+212 still carry a marker from their original verify pass and have not been
+re-probed since; the sweep was cut before covering them. Treat 312 as the
+verified baseline and 524 as unconfirmed-pending.
+
+Zero restrictions found among the 312 re-checked — the marker drift feared
+after the 16:30 restriction wave did **not** materialise for accounts that
+had already passed. `recheck_good.py --all` resumes cleanly and is
+idempotent (skips nothing, re-stamps in place).
+
+Resume points:
+* fleet → `mv /home/alae/onk-rail-1k/refill_all.py.PAUSED /home/alae/onk-rail-1k/refill_all.py`
+* health sweep → `python3 /home/alae/onk-rail-1k/recheck_good.py --all --par 12`
+
+Round-2 expansion: 28/30 hosts checkpointed (`holy-ready-v1`), launch not run.
 
 ## Health is verified-NOW, not verified-once
 
@@ -50,7 +70,9 @@ Sampling caveat: a 24-account sample cannot resolve a small bad fraction (at a
 `--all`; samples only rule out *widespread* breakage.
 
 ```bash
-# full health sweep (re-stamps every UP_GOOD, ~35 min at par 12)
+# full health sweep (re-stamps every UP_GOOD). Rate ≈ 3-4/min at par 12 —
+# Railway API contention, not CPU. A full 524 sweep takes ~2.5h, not the
+# ~35 min first assumed; run it backgrounded.
 python3 /home/alae/onk-rail-1k/recheck_good.py --all --par 12
 # spot sample instead
 python3 /home/alae/onk-rail-1k/recheck_good.py --ids-file /tmp/sample.txt --par 8

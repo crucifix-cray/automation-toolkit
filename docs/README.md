@@ -2,7 +2,7 @@
 
 | Doc | Covers |
 |---|---|
-| `FARM-1K.md` | **1k Railway farm ops runbook** — 524 UP_GOOD, mass-restriction incident + mail rotation fix, all commands, gotchas |
+| `FARM-1K.md` | **1k Railway farm ops runbook** — 524 UP_GOOD (312 re-verified), mass-restriction incident + mail rotation fix, all commands, gotchas |
 | `ONKERNEL.md` | **Canonical OnK DB** — Batch B 10 unlocked; **100 browsers spread on Railway fleet** |
 | `SESSIONS.md` | Railway verified pool — **44** under `Documents/railways/session-*` |
 | `PIPELINE.md` | Quickstart paths (OnK + Railway + bridge) |
