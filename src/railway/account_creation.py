@@ -2128,12 +2128,11 @@ async def run(use_warp=False, cloud_mode=False):
                 use_warp = False
             else:
                 # verify isolation: warp=on via proxy, warp=off direct
-                import urllib.request, json as _j
                 try:
                     import socket
                     with socket.create_connection(("127.0.0.1", 40000), timeout=2):
                         print("✅ WARP proxy 127.0.0.1:40000 alive (browser-only, other apps not affected)")
-                except:
+                except Exception:
                     print("⚠️  Proxy port 40000 not reachable, continuing direct")
                     use_warp = False
         
@@ -2466,14 +2465,23 @@ async def run(use_warp=False, cloud_mode=False):
                             except Exception:
                                 pass
                             import uuid as _uuidk
-                            fresh_proxy = f"mobile-us-{_uuidk.uuid4().hex[:10]}"
-                            # ensure unique mobile-US proxy for this browser
+                            # multi-country mobile (match farm orchestrator — not US-only)
+                            _countries = [
+                                c.strip().lower()
+                                for c in os.environ.get(
+                                    "HOLY_MOBILE_COUNTRIES",
+                                    "gb,de,fr,nl,ie,es,it,be,at,se",
+                                ).split(",")
+                                if c.strip()
+                            ] or ["gb"]
+                            _cc = _countries[attempt % len(_countries)]
+                            fresh_proxy = f"mobile-{_cc}-{_uuidk.uuid4().hex[:10]}"
                             try:
                                 key = os.environ.get("KERNEL_API_KEY", "")
                                 body = json.dumps({
                                     "name": fresh_proxy,
                                     "type": "mobile",
-                                    "config": {"country": "us"},
+                                    "config": {"country": _cc},
                                 }).encode()
                                 req = urllib.request.Request(
                                     "https://api.onkernel.com/proxies",
@@ -2485,9 +2493,10 @@ async def run(use_warp=False, cloud_mode=False):
                                     },
                                 )
                                 with urllib.request.urlopen(req, timeout=45) as resp:
-                                    print(f"  🌐 fresh proxy {fresh_proxy}: {resp.status}", flush=True)
+                                    print(f"  🌐 fresh proxy {fresh_proxy} country={_cc}: {resp.status}", flush=True)
                             except Exception as pe:
-                                print(f"  proxy mint soft-fail ({pe}); trying name anyway", flush=True)
+                                print(f"  proxy mint soft-fail ({pe}); retry without named proxy", flush=True)
+                                fresh_proxy = ""
                             kb = start_onkernel_browser(proxy_name=fresh_proxy)
                             kernel_sid = kb.get("session_id")
                             new_wss = kb["cdp_ws_url"]
