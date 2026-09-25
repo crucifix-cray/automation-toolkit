@@ -1,8 +1,18 @@
 # 1k Railway Farm — Ops Runbook
 
+> **STATE: PAUSED (2026-09-25 17:42 UTC).** 524 UP_GOOD markers, **312 re-verified
+> healthy, 0 restricted**. Fleet stopped, health sweep stopped. Nothing running.
+> Do not resume without reading the [mass-restriction incident](#incident-2026-09-25--mass-workspace-restriction)
+> — the farm burned itself with signup velocity (294 proxies / 10 egress IPs +
+> one mail provider), and the fix (`mail_rotate.py` pacing + provider rotation)
+> must be active first.
+
 Mission: **1000 Railway accounts verified healthy** = dirs under
 `/home/alae/Documents/railways/session-*` holding an `UP_GOOD` marker
 (passed `railway up` → SUCCESS → down verify). Count: `count_ready.py`.
+
+**Note the marker is not self-maintaining** — see
+[Health is verified-NOW](#health-is-verified-now-not-verified-once).
 
 ## Architecture
 
@@ -18,7 +28,7 @@ merge farm/* → main → materialize jar → session-N → verify up/down → U
 
 Sandbox = compute. Laptop = thin boss (CDP/SSH only). No local farming.
 
-## Status (2026-09-25, 17:40 UTC) — PAUSED
+## Status (2026-09-25, 17:42 UTC) — PAUSED, verification stopped
 
 | Metric | Value |
 |---|---|
@@ -28,6 +38,8 @@ Sandbox = compute. Laptop = thin boss (CDP/SSH only). No local farming.
 | UP_BAD | 0 |
 | Fleet | **paused** (`refill_all.py.PAUSED`) |
 | Account creation | stopped |
+| Health sweep | **stopped** at 312/524 |
+| Running processes | none (supervisor tick idles: merge + key probe only) |
 
 **The honest number: 312 of 524 are confirmed healthy *right now*.** The other
 212 still carry a marker from their original verify pass and have not been
@@ -44,6 +56,17 @@ Resume points:
 * health sweep → `python3 /home/alae/onk-rail-1k/recheck_good.py --all --par 12`
 
 Round-2 expansion: 28/30 hosts checkpointed (`holy-ready-v1`), launch not run.
+
+### Before resuming the fleet
+
+1. Confirm `mail_rotate.py` pacing is loaded — `python3 mail_rotate.py stats`.
+   Defaults: 90s min gap per egress IP, 40 signups/IP/hour. Do not raise these
+   without a new IP pool; the restriction came back the moment velocity spiked.
+2. Re-probe the 212 unverified accounts (or accept 312 as the working baseline).
+3. Re-check host keys with a **write** probe (create+delete a proxy), not a read
+   probe — plan-canceled keys return 200 on `GET /browsers` and 403 on writes.
+4. Expect the sandbox quota to need a purge: destroyed/idle sandboxes block
+   `sandbox create` with `Your plan only allows 10 running sandboxes`.
 
 ## Health is verified-NOW, not verified-once
 
