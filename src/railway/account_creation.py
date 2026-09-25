@@ -140,6 +140,20 @@ HANDLERS = [
     ("@outlook.com", "https://22.do/temporary-outlook", "@outlook.com"),
 ]
 
+# Mail chain (owner 2026-09-25): 22.do one-dot Gmail PRIMARY → temp.tf gmail
+# one-dot → temp.tf @high.edu.pl → mail.tm. Dots only, never '+'.
+TWODO_GMAIL_API = "https://22.do/action/mailbox/gmail"
+MAIL_CHAIN_ORDER = "22.do one-dot → temp.tf gmail → temp.tf high.edu → mail.tm"
+
+
+def one_dot_gmail(em: str) -> bool:
+    """Exactly one '.' in local-part, @gmail.com, no '+' aliases."""
+    em = (em or "").strip()
+    if not em.lower().endswith("@gmail.com") or "+" in em:
+        return False
+    return em.split("@", 1)[0].count(".") == 1
+
+
 class MailTmInbox:
     """mail.tm API-based inbox — no browser needed, works through any proxy"""
     MAIL_TM_API = "https://api.mail.tm"
@@ -229,15 +243,20 @@ class MailTmInbox:
 
 
 class TempTfInbox:
-    """temp.tf API — free Gmail dot/plus aliases, no browser needed, 60 req/min"""
+    """temp.tf API — Gmail one-dot (no '+') or @high.edu.pl. No browser. 60 req/min."""
     API = "https://temp.tf/api"
 
-    def __init__(self, context=None, target_domain=None, recovery_email=None):
+    def __init__(self, context=None, target_domain=None, recovery_email=None, variant: str = "gmail"):
         self.context = context
         self.address = recovery_email
         self.target_domain = target_domain
         self.recovery_email = recovery_email
         self.handler_used = None
+        # variant: "gmail" (one-dot) | "high" (@high.edu.pl)
+        td = (target_domain or "").lower()
+        if "high" in td:
+            variant = "high"
+        self.variant = variant if variant in ("gmail", "high") else "gmail"
 
     def _get(self, path, data=None):
         url = f"{self.API}{path}"
@@ -262,15 +281,45 @@ class TempTfInbox:
             self.address = self.recovery_email
             print(f"♻️  Using recovery email: {self.address}")
             return self.address
-        print("\n📧 Creating temp.tf Gmail (dots only) — pre-checking inbox...")
-        for attempt in range(10):
+
+        if self.variant == "high":
+            print("\n📧 Creating temp.tf @high.edu.pl — pre-checking inbox...")
+            last = ""
+            for attempt in range(8):
+                acct = self._get("/account?domain=high.edu")
+                em = (acct.get("email") or "").strip()
+                last = em
+                if not em.lower().endswith("@high.edu.pl"):
+                    print(f"  skip bad high.edu addr: {em}")
+                    continue
+                self.address = em
+                self._created_at = time.time()
+                try:
+                    self._get("/check", {"email": self.address})
+                    print(f"✅ Mailbox ready: {self.address} (via temp.tf high.edu.pl)")
+                    return self.address
+                except urllib.error.HTTPError as e:
+                    if e.code == 500:
+                        print(f"  ⚠️ {self.address} inbox not ready (500), trying next...")
+                        await asyncio.sleep(2)
+                        continue
+                    raise
+            raise RuntimeError(f"temp.tf high.edu.pl unavailable (last={last})")
+
+        print("\n📧 Creating temp.tf Gmail one-dot (no '+') — pre-checking inbox...")
+        last = ""
+        for attempt in range(12):
             acct = self._get("/account?dot=1&providers=gmail")
-            self.address = acct["email"]
+            em = (acct.get("email") or "").strip()
+            last = em
+            if not one_dot_gmail(em):
+                print(f"  skip non-one-dot / plus: {em}")
+                continue
+            self.address = em
             self._created_at = time.time()
-            # pre-check: can we read the inbox? (500 = not ready)
             try:
                 self._get("/check", {"email": self.address})
-                print(f"✅ Mailbox ready: {self.address} (via temp.tf, inbox confirmed)")
+                print(f"✅ Mailbox ready: {self.address} (via temp.tf gmail one-dot)")
                 return self.address
             except urllib.error.HTTPError as e:
                 if e.code == 500:
@@ -278,10 +327,7 @@ class TempTfInbox:
                     await asyncio.sleep(2)
                     continue
                 raise
-        # if all 10 failed, just use last one and hope for the best
-        print(f"  ⚠️ Using {self.address} anyway (all pre-checks returned 500)")
-        self._created_at = time.time()
-        return self.address
+        raise RuntimeError(f"temp.tf gmail one-dot unavailable (last={last})")
 
     async def wait_for_railway_code(self, timeout_seconds=420):
         if not self.address:
@@ -491,6 +537,60 @@ class TwoTwoDoInbox:
             self.address = email.strip()
             print(f"✅ Mailbox ready: {self.address} (via {name})")
             return self.address
+        finally:
+            await pg.close()
+
+    async def create_onedot_gmail(self, tries: int = 40):
+        """PRIMARY path: 22.do API random Gmail with exactly one '.' and no '+'."""
+        if self.recovery_email:
+            self.address = self.recovery_email
+            print(f"♻️  Using recovery email: {self.address}")
+            return self.address
+        print("\n📧 Creating 22.do Gmail one-dot (PRIMARY)...")
+        pg = await self.context.new_page()
+        try:
+            await pg.goto("https://22.do/", wait_until="domcontentloaded", timeout=60000)
+            await pg.wait_for_timeout(2000)
+            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+            for _t in range(tries):
+                try:
+                    r = await pg.evaluate(
+                        """async (p) => {
+                            try {
+                                const resp = await fetch(p.url, {
+                                    method: 'POST',
+                                    headers: p.headers,
+                                    body: JSON.stringify(p.body),
+                                });
+                                const t = await resp.text();
+                                return {status: resp.status, body: t};
+                            } catch (e) {
+                                return {status: 0, body: 'FETCH_ERR:' + String(e).slice(0, 120)};
+                            }
+                        }""",
+                        {
+                            "url": TWODO_GMAIL_API,
+                            "headers": {"Content-Type": "application/json", "User-Agent": ua},
+                            "body": {"type": "random"},
+                        },
+                    )
+                except Exception as e:
+                    print(f"  22.do evaluate fail: {str(e)[:80]}")
+                    continue
+                if not r or r.get("status") != 200:
+                    continue
+                try:
+                    data = json.loads(r.get("body") or "{}")
+                    em = (((data.get("data") or {}).get("email")) or "").strip()
+                except Exception:
+                    continue
+                if one_dot_gmail(em):
+                    self.address = em
+                    self.handler_used = ("@gmail.com one-dot", TWODO_GMAIL_API, "@gmail.com")
+                    print(f"✅ Mailbox ready: {self.address} (via 22.do one-dot)")
+                    return self.address
+                print(f"  skip non-one-dot: {em}")
+            raise RuntimeError("22.do one-dot gmail unavailable")
         finally:
             await pg.close()
 
@@ -2152,24 +2252,20 @@ async def run(use_warp=False, cloud_mode=False):
             
             print("✅ Browser ready")
             
-            # Create mailbox — cloud uses mail.tm API to avoid 2-domain limit (free tier)
+            # Create mailbox — chain (2026-09-25): 22.do one-dot PRIMARY →
+            # temp.tf gmail one-dot → temp.tf high.edu → mail.tm (dispose hidden)
             target_domain = globals().get("CLI_TARGET_DOMAIN")
             recovery_email = globals().get("CLI_RECOVERY_EMAIL")
-            _handler_desc = recovery_email or target_domain or "random pool"
-            print(f"📧 22.do handler: {_handler_desc} (pool {len(HANDLERS)} handlers)")
+            _handler_desc = recovery_email or target_domain or "22.do one-dot primary"
+            print(f"📧 Mail chain: {MAIL_CHAIN_ORDER} ({_handler_desc})")
             mailbox = None
             if cloud_mode:
-                # Order (owner 2026-09-22): 22.do primary → mail.tm → temp.tf last; dispose hidden
-                print("☁️  Cloud mailbox fallback: 22.do -> mail.tm -> temp.tf (dispose hidden)")
+                print(f"☁️  Cloud mailbox: {MAIL_CHAIN_ORDER}")
                 for _provider_round in range(12):
-                    # 0. 22.do primary
-                    _22do_ok = False
-                    for dom in ["@gmail.com", "@outlook.com", "@hotmail.com"]:
-                        if os.environ.get("HOLY_SKIP_22DO") == "1":
-                            print("  skip 22.do (HOLY_SKIP_22DO)")
-                            break
+                    # 1. 22.do one-dot Gmail PRIMARY
+                    if os.environ.get("HOLY_SKIP_22DO") != "1":
                         try:
-                            print(f"☁️  [round {_provider_round+1}] Trying 22.do {dom} (separate BD)...")
+                            print(f"☁️  [round {_provider_round+1}] Trying 22.do one-dot Gmail (PRIMARY)...")
                             from playwright.async_api import async_playwright as _p2
                             import uuid as _uuid3
                             if "zenrows.com" in BRD_WSS:
@@ -2179,81 +2275,122 @@ async def run(use_warp=False, cloud_mode=False):
                             p22 = await _p2().start()
                             b22 = await p22.chromium.connect_over_cdp(wss_22)
                             ctx22 = b22.contexts[0] if b22.contexts else await b22.new_context()
-                            tmp_mb = TwoTwoDoInbox(context=ctx22, target_domain=dom)
-                            await tmp_mb.create()
+                            tmp_mb = TwoTwoDoInbox(context=ctx22)
+                            await tmp_mb.create_onedot_gmail()
                             mailbox = tmp_mb
                             mailbox._22_browser = b22
                             mailbox._22_playwright = p22
                             mailbox._22_context = ctx22
-                            print(f"✅ Mailbox ready: {mailbox.address} (via 22.do {dom})")
-                            _22do_ok = True
+                            print(f"✅ Mailbox ready: {mailbox.address} (via 22.do one-dot)")
                             break
                         except Exception as ex:
-                            print(f"  22.do {dom} failed: {str(ex)[:80]}")
+                            print(f"  22.do one-dot failed: {str(ex)[:100]}")
                             try:
                                 await b22.close()
                                 await p22.stop()
-                            except: pass
-                            continue
-                    if _22do_ok:
+                            except Exception:
+                                pass
+                    else:
+                        print("  skip 22.do (HOLY_SKIP_22DO)")
+
+                    # 2. temp.tf gmail one-dot
+                    try:
+                        print(f"☁️  [round {_provider_round+1}] Trying temp.tf Gmail one-dot...")
+                        if os.environ.get("HOLY_SKIP_TEMPTF") == "1":
+                            raise RuntimeError("skipped via HOLY_SKIP_TEMPTF")
+                        mailbox = TempTfInbox(
+                            context=context, target_domain=target_domain,
+                            recovery_email=recovery_email, variant="gmail",
+                        )
+                        await mailbox.create()
                         break
-                    # 1. mail.tm API
+                    except Exception as _ttf_e:
+                        print(f"  temp.tf gmail failed: {str(_ttf_e)[:80]}")
+
+                    # 3. temp.tf high.edu.pl
+                    try:
+                        print(f"☁️  [round {_provider_round+1}] Trying temp.tf @high.edu.pl...")
+                        if os.environ.get("HOLY_SKIP_TEMPTF") == "1":
+                            raise RuntimeError("skipped via HOLY_SKIP_TEMPTF")
+                        mailbox = TempTfInbox(
+                            context=context, recovery_email=recovery_email, variant="high",
+                        )
+                        await mailbox.create()
+                        break
+                    except Exception as _tth_e:
+                        print(f"  temp.tf high.edu failed: {str(_tth_e)[:80]}")
+
+                    # 4. mail.tm last
                     try:
                         print(f"☁️  [round {_provider_round+1}] Trying mail.tm API...")
                         if os.environ.get("HOLY_SKIP_MAILTM") == "1":
                             raise RuntimeError("skipped via HOLY_SKIP_MAILTM")
-                        mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                        mailbox = MailTmInbox(
+                            context=context, target_domain=target_domain,
+                            recovery_email=recovery_email,
+                        )
                         await mailbox.create()
-                        print(f"✅ Mailbox ready: {mailbox.address} (via mail.tm)")
                         break
                     except Exception as _mtm_e:
-                        print(f"  mail.tm failed: {str(_mtm_e)[:80]}")
-                    # 2. temp.tf last
-                    try:
-                        print(f"☁️  [round {_provider_round+1}] Trying temp.tf Gmail (dots) [last]...")
-                        if os.environ.get("HOLY_SKIP_TEMPTF") == "1":
-                            raise RuntimeError("skipped via HOLY_SKIP_TEMPTF")
-                        mailbox = TempTfInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
-                        await mailbox.create()
-                        print(f"✅ Mailbox ready: {mailbox.address} (via temp.tf)")
-                        break
-                    except Exception as _ttf_e:
-                        print(f"  temp.tf failed: {str(_ttf_e)[:80]} — cycling...")
+                        print(f"  mail.tm failed: {str(_mtm_e)[:80]} — cycling...")
                         await asyncio.sleep(3)
                         continue
-                    # dispose.lol hidden (HOLY_SKIP_DISPOSE forced)
                 else:
                     raise RuntimeError("All mailbox providers exhausted after 12 rounds")
             else:
                 for _crash_attempt in range(3):
                     try:
-                        mailbox = TwoTwoDoInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                        mailbox = TwoTwoDoInbox(
+                            context=context, target_domain=target_domain,
+                            recovery_email=recovery_email,
+                        )
                         mailbox.railway_page = page
-                        await mailbox.create()
+                        if recovery_email or (
+                            target_domain
+                            and str(target_domain).lower() not in ("@gmail.com", "gmail", "")
+                        ):
+                            await mailbox.create()
+                        else:
+                            await mailbox.create_onedot_gmail()
                         break
                     except Exception as _e:
                         _msg = str(_e)
-                        _is_22do_fail = ("ERR_CONNECTION_CLOSED" in _msg or "ERR_PROXY_CONNECTION_FAILED" in _msg or "403" in _msg or "Timeout" in _msg)
-                        _is_crash = ("Target crashed" in _msg or "TargetClosed" in _msg or "Page crashed" in _msg or "has been closed" in _msg or page.is_closed())
+                        _is_22do_fail = (
+                            "ERR_CONNECTION_CLOSED" in _msg or "ERR_PROXY_CONNECTION_FAILED" in _msg
+                            or "403" in _msg or "Timeout" in _msg or "one-dot" in _msg
+                            or "unavailable" in _msg
+                        )
+                        _is_crash = (
+                            "Target crashed" in _msg or "TargetClosed" in _msg
+                            or "Page crashed" in _msg or "has been closed" in _msg or page.is_closed()
+                        )
                         if _is_22do_fail:
-                            print(f"⚠️  22.do blocked ({_msg[:80]}), trying dispose.lol...")
+                            print(f"⚠️  22.do failed ({_msg[:80]}), falling through mail chain...")
                             try:
-                                if not page.is_closed():
-                                    await page.close()
-                            except Exception:
-                                pass
-                            try:
-                                dispose_mailbox = DisposeLolInbox(context=context)
-                                await dispose_mailbox.create()
-                                mailbox = dispose_mailbox
-                                break
-                            except Exception as _de:
-                                print(f"⚠️  dispose.lol also failed ({str(_de)[:60]}), falling back to mail.tm API...")
-                                mailbox = MailTmInbox(context=context, target_domain=target_domain, recovery_email=recovery_email)
+                                mailbox = TempTfInbox(context=context, variant="gmail")
                                 await mailbox.create()
                                 break
+                            except Exception as _te:
+                                print(f"  temp.tf gmail fail: {str(_te)[:60]}")
+                            try:
+                                mailbox = TempTfInbox(context=context, variant="high")
+                                await mailbox.create()
+                                break
+                            except Exception as _th:
+                                print(f"  temp.tf high fail: {str(_th)[:60]}")
+                            try:
+                                mailbox = MailTmInbox(
+                                    context=context, target_domain=target_domain,
+                                    recovery_email=recovery_email,
+                                )
+                                await mailbox.create()
+                                break
+                            except Exception as _me:
+                                print(f"  mail.tm fail: {str(_me)[:60]}")
+                                if not _is_crash:
+                                    raise
                         if _is_crash:
-                            print(f"💥 crash detected (attempt {_crash_attempt+1}/3): {_msg[:180]} — retrying fresh tab/handler")
+                            print(f"💥 crash detected (attempt {_crash_attempt+1}/3): {_msg[:180]} — retrying")
                             try:
                                 if not page.is_closed():
                                     await page.close()
@@ -2265,12 +2402,10 @@ async def run(use_warp=False, cloud_mode=False):
                                 page.on("close", lambda _: print("❌ tab closed — safe will retry"))
                             except Exception:
                                 pass
-                            if not target_domain and not recovery_email:
-                                print("🔄 retrying with new random handler")
                             continue
                         raise
                 else:
-                    raise RuntimeError("tab crashed 3x — aborting run")
+                    raise RuntimeError("tab crashed 3x / mail chain exhausted — aborting run")
             
             # Recreate page if it was closed during fallback
             if page.is_closed():
@@ -2390,45 +2525,62 @@ async def run(use_warp=False, cloud_mode=False):
                             browser = await p3.chromium.connect_over_cdp(new_wss)
                             context = browser.contexts[0] if browser.contexts else await browser.new_context()
                             page = await context.new_page()
-                        # next mailbox: 22.do -> mail.tm -> temp.tf (dispose hidden)
+                        # next mailbox: 22.do one-dot → temptf gmail → temptf high → mail.tm
                         mailbox = None
-                        for _prov in range(3):
+                        for _prov in range(4):
                             if _prov == 0:
-                                # 22.do primary
-                                _dom_list = [] if os.environ.get("HOLY_SKIP_22DO") == "1" else ["@gmail.com", "@outlook.com", "@hotmail.com"]
-                                if not _dom_list:
+                                if os.environ.get("HOLY_SKIP_22DO") == "1":
                                     print("  skip 22.do breaker (HOLY_SKIP_22DO)")
-                                for dom2 in _dom_list:
-                                    try:
-                                        print(f"🔄 [breaker {attempt+1}/8] Trying 22.do {dom2}...")
-                                        from playwright.async_api import async_playwright as _p5
-                                        import uuid as _uuid5
-                                        if "zenrows.com" in (new_wss or ""):
-                                            wss_22b = new_wss
-                                        else:
-                                            wss_22b = (new_wss or "").split("?")[0] + f"?sessionId={_uuid5.uuid4()}"
-                                        p22b = await _p5().start()
-                                        b22b = await p22b.chromium.connect_over_cdp(wss_22b)
-                                        ctx22b = b22b.contexts[0] if b22b.contexts else await b22b.new_context()
-                                        tmp_mb2 = TwoTwoDoInbox(context=ctx22b, target_domain=dom2)
-                                        await tmp_mb2.create()
-                                        mailbox = tmp_mb2
-                                        mailbox._22_browser = b22b
-                                        mailbox._22_playwright = p22b
-                                        mailbox._22_context = ctx22b
-                                        print(f"🔄 22.do {dom2} -> {mailbox.address}")
-                                        break
-                                    except Exception as _ex2:
-                                        print(f"  22.do {dom2} failed: {str(_ex2)[:60]}")
-                                        try:
-                                            await b22b.close()
-                                            await p22b.stop()
-                                        except: pass
-                                        continue
-                                if mailbox:
+                                    continue
+                                try:
+                                    print(f"🔄 [breaker {attempt+1}/8] Trying 22.do one-dot Gmail (PRIMARY)...")
+                                    from playwright.async_api import async_playwright as _p5
+                                    import uuid as _uuid5
+                                    if "zenrows.com" in (new_wss or ""):
+                                        wss_22b = new_wss
+                                    else:
+                                        wss_22b = (new_wss or "").split("?")[0] + f"?sessionId={_uuid5.uuid4()}"
+                                    p22b = await _p5().start()
+                                    b22b = await p22b.chromium.connect_over_cdp(wss_22b)
+                                    ctx22b = b22b.contexts[0] if b22b.contexts else await b22b.new_context()
+                                    tmp_mb2 = TwoTwoDoInbox(context=ctx22b)
+                                    await tmp_mb2.create_onedot_gmail()
+                                    mailbox = tmp_mb2
+                                    mailbox._22_browser = b22b
+                                    mailbox._22_playwright = p22b
+                                    mailbox._22_context = ctx22b
+                                    print(f"🔄 22.do one-dot -> {mailbox.address}")
                                     break
+                                except Exception as _ex2:
+                                    print(f"  22.do one-dot failed: {str(_ex2)[:80]}")
+                                    try:
+                                        await b22b.close()
+                                        await p22b.stop()
+                                    except Exception:
+                                        pass
                             elif _prov == 1:
-                                # mail.tm
+                                try:
+                                    print(f"🔄 [breaker {attempt+1}/8] Trying temp.tf Gmail one-dot...")
+                                    if os.environ.get("HOLY_SKIP_TEMPTF") == "1":
+                                        raise RuntimeError("skipped via HOLY_SKIP_TEMPTF")
+                                    mailbox = TempTfInbox(context=context, variant="gmail")
+                                    await mailbox.create()
+                                    print(f"🔄 temp.tf gmail -> {mailbox.address}")
+                                    break
+                                except Exception as _ttf_e2:
+                                    print(f"  temp.tf gmail failed: {str(_ttf_e2)[:60]}")
+                            elif _prov == 2:
+                                try:
+                                    print(f"🔄 [breaker {attempt+1}/8] Trying temp.tf @high.edu.pl...")
+                                    if os.environ.get("HOLY_SKIP_TEMPTF") == "1":
+                                        raise RuntimeError("skipped via HOLY_SKIP_TEMPTF")
+                                    mailbox = TempTfInbox(context=context, variant="high")
+                                    await mailbox.create()
+                                    print(f"🔄 temp.tf high.edu -> {mailbox.address}")
+                                    break
+                                except Exception as _tth_e2:
+                                    print(f"  temp.tf high.edu failed: {str(_tth_e2)[:60]}")
+                            elif _prov == 3:
                                 try:
                                     print(f"🔄 [breaker {attempt+1}/8] Trying mail.tm...")
                                     if os.environ.get("HOLY_SKIP_MAILTM") == "1":
@@ -2438,19 +2590,7 @@ async def run(use_warp=False, cloud_mode=False):
                                     print(f"🔄 mail.tm -> {mailbox.address}")
                                     break
                                 except Exception as _mtm_e2:
-                                    print(f"  mail.tm failed: {str(_mtm_e2)[:60]}")
-                            elif _prov == 2:
-                                # temp.tf last
-                                try:
-                                    print(f"🔄 [breaker {attempt+1}/8] Trying temp.tf [last]...")
-                                    if os.environ.get("HOLY_SKIP_TEMPTF") == "1":
-                                        raise RuntimeError("skipped via HOLY_SKIP_TEMPTF")
-                                    mailbox = TempTfInbox(context=context)
-                                    await mailbox.create()
-                                    print(f"🔄 temp.tf -> {mailbox.address}")
-                                    break
-                                except Exception as _ttf_e:
-                                    print(f"  temp.tf failed: {str(_ttf_e)[:60]} — cycling...")
+                                    print(f"  mail.tm failed: {str(_mtm_e2)[:60]} — cycling...")
                                     await asyncio.sleep(3)
                             # dispose.lol hidden
                         if mailbox is None:
@@ -2780,7 +2920,7 @@ if __name__ == "__main__":
         print(f"🌐 OnKernel: KEY set={bool(os.environ.get('KERNEL_API_KEY'))} proxy={KERNEL_PROXY or '-'}")
     elif CLOUD_MODE:
         print(f"🌐 Cloud WSS: {str(BRD_WSS)[:40]}***")
-    print(f"📧 22.do handlers: {len(HANDLERS)} (random/pool)" + (f" — enforced: {args.domain or args.recov}" if (args.domain or args.recov) else ""))
+    print(f"📧 Mail chain: {MAIL_CHAIN_ORDER}" + (f" — enforced: {args.domain or args.recov}" if (args.domain or args.recov) else ""))
     if args.recov:
         print(f"♻️  Recovery mode: {args.recov} → https://22.do/inbox/#/{args.recov}")
     print("="*60)
