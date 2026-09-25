@@ -20,10 +20,41 @@ Sandbox = compute. Laptop = thin boss (CDP/SSH only). No local farming.
 
 ## Status (2026-09-25)
 
-* **UP_GOOD = 524** banked, 0 bad.
+* **UP_GOOD = 524** banked, 0 bad, pending full re-verification.
 * Fleet was **paused** after Railway started auto-restricting new workspaces
   (~16:30 UTC). See Incident below.
 * Round-2 expansion: 28/30 hosts checkpointed (`holy-ready-v1`), launch not run.
+
+## Health is verified-NOW, not verified-once
+
+**`UP_GOOD` is a point-in-time stamp, not a durable guarantee.** It means
+"passed `railway up` → SUCCESS → down" *at that moment*. Railway restricts
+workspaces on a **delay**, so a marker written at 15:00 can sit on a workspace
+that Railway kills at 17:00. Counting marker files therefore drifts from
+reality.
+
+`recheck_good.py` re-runs the real deploy gate and **fresh-stamps** on success:
+
+| Outcome | Effect |
+|---|---|
+| deploy succeeds | `UP_GOOD` rewritten with the current timestamp |
+| restricted / undeployable | `RECHECK_FAIL` written; `UP_GOOD` **kept** but no longer counted |
+| link/whoami fail | `RECHECK_FAIL` written |
+
+`count_ready.py` subtracts `RECHECK_FAIL`, so the headline number is
+verified-now. **Never report `UP_GOOD` as current health without a recheck
+pass** — that is how a stale number becomes a false claim.
+
+Sampling caveat: a 24-account sample cannot resolve a small bad fraction (at a
+5% bad rate it misses entirely ~70% of the time). Small claims need
+`--all`; samples only rule out *widespread* breakage.
+
+```bash
+# full health sweep (re-stamps every UP_GOOD, ~35 min at par 12)
+python3 /home/alae/onk-rail-1k/recheck_good.py --all --par 12
+# spot sample instead
+python3 /home/alae/onk-rail-1k/recheck_good.py --ids-file /tmp/sample.txt --par 8
+```
 
 ## Incident 2026-09-25 — mass workspace restriction
 
@@ -65,8 +96,11 @@ pool until Railway's restriction window closes and they verify again.
 ## Commands
 
 ```bash
-# progress (the only truth)
+# progress (the only truth) — subtracts recheck_dead
 python3 /home/alae/onk-rail-1k/count_ready.py
+
+# health sweep: re-verify + fresh-stamp every UP_GOOD
+python3 /home/alae/onk-rail-1k/recheck_good.py --all --par 12
 
 # resume fleet (atomic; this IS the pause switch)
 mv /home/alae/onk-rail-1k/refill_all.py.PAUSED /home/alae/onk-rail-1k/refill_all.py
@@ -124,6 +158,10 @@ Skip pooled domains rather than burning deploys on them.
   key, not reset.
 * **`ThreadPoolExecutor(max_workers=0)`** crashes when all sandbox creates fail
   (e.g. quota full) — it looks like a crash but means "no capacity".
+* **A marker file is not a health check.** `UP_GOOD` is stamped once and, left
+  alone, silently decays as Railway restricts workspaces behind it. Reporting
+  it as "current healthy" without a recheck is a false claim — see
+  "Health is verified-NOW" above.
 
 ## OnK key budget
 

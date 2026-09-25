@@ -29,16 +29,24 @@ def main() -> None:
 
     good = 0
     bad = 0
+    dead = 0
     for d in DEST.glob("session-*"):
         if (d / "UP_GOOD").is_file():
-            good += 1
+            # a recheck that later found the workspace restricted/undeployable
+            # no longer counts as healthy
+            if (d / "RECHECK_FAIL").is_file():
+                dead += 1
+            else:
+                good += 1
         elif (d / "UP_BAD").is_file():
             bad += 1
     print(
-        f"{time.strftime('%H:%M:%S')} UP_GOOD={good} UP_BAD={bad} salvaged={moved}",
+        f"{time.strftime('%H:%M:%S')} UP_GOOD={good} UP_BAD={bad} "
+        f"recheck_dead={dead} salvaged={moved}",
         flush=True,
     )
-    OUT.write_text(json.dumps({"up_good": good, "up_bad": bad, "ts": time.time()}, indent=2))
+    OUT.write_text(json.dumps(
+        {"up_good": good, "up_bad": bad, "recheck_dead": dead, "ts": time.time()}, indent=2))
     if good >= 1000:
         DONE.write_text(json.dumps({"up_good": good, "done": True, "ts": time.time()}, indent=2))
 

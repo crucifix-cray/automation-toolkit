@@ -11,7 +11,8 @@ in-repo files (this bit us: patched tools silently reverted mid-run).
 | `refill_all.py` | per-host worker refill: restart stale, destroy dead, top up to 8. **Pause switch = rename to `.PAUSED`** |
 | `materialize_jars.py` | merged jars (`finals/sessions/farmed-*`) → `session-N` dirs, dedup by email |
 | `verify_up_down.py` | the UP_GOOD gate: link → `railway up -d` → build → mark GOOD/BAD → down |
-| `count_ready.py` | the only truth on progress (UP_GOOD count) |
+| `count_ready.py` | progress = UP_GOOD minus `recheck_dead` (verified-now, not verified-once) |
+| `recheck_good.py` | health sweep — re-runs the deploy gate, fresh-stamps UP_GOOD, flags `RECHECK_FAIL` |
 | `org_reset_fixed.py` | OnK org-reset via remote CDP browser; restore over `src/onkernel/org_reset.py` if `--host-key` disappears |
 
 See `docs/FARM-1K.md` for the full runbook.
