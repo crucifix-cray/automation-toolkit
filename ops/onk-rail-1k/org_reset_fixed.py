@@ -76,7 +76,8 @@ import os
 
 
 async def run(session_file: str, org_name: str | None = None,
-              headless: bool = False, host_key: str | None = None) -> dict:
+              headless: bool = False, host_key: str | None = None,
+              use_proxy: bool = False) -> dict:
     from playwright.async_api import async_playwright
 
     with open(session_file) as handle:
@@ -123,19 +124,29 @@ async def run(session_file: str, org_name: str | None = None,
             for _k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
                        "ALL_PROXY", "all_proxy"):
                 env.pop(_k, None)
-            # fresh mobile proxy on host so dashboard isn't blocked
-            pname = f"reset-host-{int(time.time())}-{os.getpid() % 10000}"
-            try:
-                _sp.check_output(
-                    f"kernel proxies create --name {shlex.quote(pname)} --type mobile "
-                    f"--country gb -o json || true",
-                    shell=True, env=env, text=True, timeout=60,
-                )
-            except Exception as e:
-                log(f"  proxy create warn: {e}")
+            # Default: NO proxy. Just spin the browser and let the script grab the
+            # API key. Proxy creation is opt-in via --proxy because it needs a
+            # paid plan ("Insufficient_plan: Proxies require a paid plan"), while
+            # browser creation without one still returns 200.
+            pname = ""
+            if use_proxy:
+                pname = f"reset-host-{int(time.time())}-{os.getpid() % 10000}"
+                try:
+                    _sp.check_output(
+                        f"kernel proxies create --name {shlex.quote(pname)} --type mobile "
+                        f"--country gb -o json || true",
+                        shell=True, env=env, text=True, timeout=60,
+                    )
+                    log(f"  proxy created: {pname}")
+                except Exception as e:
+                    log(f"  proxy create failed ({str(e)[:70]}) — continuing without proxy")
+                    pname = ""
+            else:
+                log("  proxy: skipped (default) — pass --proxy to enable")
+            proxy_flag = f"--proxy-name {shlex.quote(pname)} " if pname else ""
             cmd = (
                 f"kernel browsers create --stealth --timeout 900 "
-                f"--proxy-name {shlex.quote(pname)} "
+                f"{proxy_flag}"
                 f"--start-url {shlex.quote(DASH)} -o json"
             )
             last_err = "unknown"
@@ -589,12 +600,16 @@ def main() -> None:
     p.add_argument("--org-name", help="New org display name")
     p.add_argument("--headless", action="store_true")
     p.add_argument("--host-key", help="OnKernel host API key for remote CDP browser")
+    p.add_argument("--proxy", action="store_true",
+                   help="Create and attach a mobile proxy for the host browser "
+                        "(needs paid plan; default is no proxy)")
     a = p.parse_args()
     sess = pick_session(a.session)
     log(f"Session: {sess}")
     try:
         res = asyncio.run(
-            run(sess, org_name=a.org_name, headless=a.headless, host_key=a.host_key)
+            run(sess, org_name=a.org_name, headless=a.headless,
+                host_key=a.host_key, use_proxy=a.proxy)
         )
     except Exception as exc:
         # Never leave a destructive reset looking healthy. The latest completed
