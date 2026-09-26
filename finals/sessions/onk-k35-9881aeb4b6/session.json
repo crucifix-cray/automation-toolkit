@@ -3,10 +3,31 @@
   "password": "GmailK01!",
   "first": "Genev",
   "last": "Aochea",
-  "api_key": "sk_acee064b-c5ef-d116-9a0b-9a5ad3aa65a2.cYJZRTxrHDYvQ7AtxgUBXll-y-u-W1s_WshlWC1CHQ4",
+  "api_key": "sk_e61edbc4-88e9-6313-08da-78324ad579eb.U_738vemOS2WFr0wD5LyDLXtjjeUoaoKe9eg0U1ecUo",
   "created_at": "2026-09-23T17:18:46.337261+00:00",
   "onk_session_id": "h3nynjympfg3jx93y5iyxopd",
   "browser_live_url": "https://prod-iad-hypeman-26.kernel.sh:8443/browser/live/FeNaUIpEpCIh",
   "trial_unlocked": false,
-  "mail_provider": "dispose"
+  "mail_provider": "dispose",
+  "credential_history": [
+    {
+      "api_key": "sk_acee064b-c5ef-d116-9a0b-9a5ad3aa65a2.cYJZRTxrHDYvQ7AtxgUBXll-y-u-W1s_WshlWC1CHQ4"
+    }
+  ],
+  "status": "needs_recovery",
+  "reset_started_at": "2026-09-26T18:08:22Z",
+  "backup_dir": "/home/alan/Documents/railways/finals/sessions/onk-k35-9881aeb4b6/backups/session/20260926T180821Z-before-org-reset",
+  "last_error": "Reset reached a recoverable partial state: Start-Up trial was not unlocked. Original credentials: /home/alan/Documents/railways/finals/sessions/onk-k35-9881aeb4b6/backups/session/20260926T180821Z-before-org-reset",
+  "reset_from_org": "Genev Aochea e952",
+  "reset_target_org": "Genev Aochea",
+  "org": "Genev Aochea",
+  "org_slug": "genev-46184",
+  "updated_at": "2026-09-26T18:11:17Z",
+  "custom_proxies": {
+    "enabled": false
+  },
+  "api_key_status": "active",
+  "proxy_id": "laxrshj61625522kaxh9rgsc",
+  "trial": null,
+  "reset_at": "2026-09-26T18:11:16Z"
 }

@@ -4,15 +4,15 @@
   "first": "Genev",
   "last": "Aochea",
   "org": "Genev Aochea",
-  "org_slug": "genev-78841",
-  "api_key": "sk_26b3be8c-7812-6968-757f-75b932d003bc.4zGFmNpBbFvdC2q4ra5ml2lrhL8z2KlY_uHV_xOtN4Y",
+  "org_slug": "genev-46390",
+  "api_key": "sk_0ddaa4ce-4067-b230-768e-219113e25003.DRT5cSJ8SjRb7CQMEAGdTq-8fv6ejMfyITef_Mnn654",
   "created_at": "2026-09-09T22:46:00Z",
-  "reset_at": "2026-09-23T15:54:57Z",
+  "reset_at": "2026-09-26T18:14:57Z",
   "custom_proxies": {
-    "enabled": true
+    "enabled": false
   },
-  "proxy_id": "rhzfroehilh3mgb1cm75kgly",
-  "trial": "startup",
+  "proxy_id": "pmat2j965d1hy6s8igqgkidd",
+  "trial": null,
   "credential_history": [
     {
       "org": "Genev Unlock 2",
@@ -21,15 +21,23 @@
       "proxy_id": "irca2qs0lszlb7j69e6aoidc",
       "trial": "startup",
       "reset_at": "2026-09-22T23:16:43Z"
+    },
+    {
+      "org": "Genev Aochea",
+      "org_slug": "genev-78841",
+      "api_key": "sk_26b3be8c-7812-6968-757f-75b932d003bc.4zGFmNpBbFvdC2q4ra5ml2lrhL8z2KlY_uHV_xOtN4Y",
+      "proxy_id": "rhzfroehilh3mgb1cm75kgly",
+      "trial": "startup",
+      "reset_at": "2026-09-23T15:54:57Z"
     }
   ],
-  "status": "ready",
-  "reset_started_at": "2026-09-23T15:53:18Z",
-  "backup_dir": "finals/sessions/backups/onk_1788993960/20260923T155318Z-before-org-reset",
-  "last_error": null,
-  "reset_from_org": "Genev Unlock 2",
+  "status": "needs_recovery",
+  "reset_started_at": "2026-09-26T18:11:55Z",
+  "backup_dir": "/home/alan/Documents/railways/finals/sessions/onk-onk-0a809cf91f/backups/session/20260926T181155Z-before-org-reset",
+  "last_error": "Reset reached a recoverable partial state: Start-Up trial was not unlocked. Original credentials: /home/alan/Documents/railways/finals/sessions/onk-onk-0a809cf91f/backups/session/20260926T181155Z-before-org-reset",
+  "reset_from_org": "Genev Aochea",
   "reset_target_org": "Genev Aochea",
-  "updated_at": "2026-09-23T15:54:57Z",
+  "updated_at": "2026-09-26T18:15:00Z",
   "api_key_status": "active",
   "tag": "unlocked",
   "probe_at": "2026-09-23T17:26:58Z",

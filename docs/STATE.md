@@ -93,20 +93,24 @@ the fleet by 42%. Unique email is the only honest denominator.
 
 ## 3. OnKernel
 
-**101 account sessions. 101/101 healthy. 101/101 full credentials.**
+**101 account sessions. 101/101 WRITE-verified. 101/101 full credentials.**
 
-Re-verified live 2026-09-26 against `GET api.onkernel.com/proxies` (Bearer auth).
-Per-account: `finals/onk_fleet.json`.
+2026-09-26: all 101 org-banned (`Organization plan is canceled or unpaid` on
+write) → every account org-reset (delete org → fresh `Genev Aochea` org →
+lifetime API key → proxy). Verified live per-key via `POST /browsers`
+(create = 200, then delete). Per-account: `finals/onk_fleet.json`,
+probe: `finals/onk_probe_20260926T1732.json` + final 101-probe (`/tmp/probe101.json`).
 
 | Check | Result |
 |---|---|
-| API healthy (HTTP 200) | **101 / 101** |
-| hit-limit (HTTP 401) | **0** |
+| API write-healthy (`POST /browsers` → 200) | **101 / 101** |
+| Banned / restricted | **0** |
 | Unique emails | **101** (1:1 with dirs, no dupes) |
 | Has password | 101 / 101 |
 | Has cookies (`cookies.json`) | 101 / 101 |
 | Has storage (`storage.json`, origins+cookies) | 101 / 101 |
-| FULL + healthy (all three) | **101** |
+| Has refresh token | 101 / 101 |
+| Fresh org + lifetime key + proxy | 101 / 101 |
 | `trial_unlocked` flag | 48 (flag only — all 101 authenticate regardless) |
 | `browser_live_url` | 94 |
 

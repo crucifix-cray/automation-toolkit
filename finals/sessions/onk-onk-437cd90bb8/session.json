@@ -3,17 +3,35 @@
   "password": "GmailK01!",
   "first": "Genev",
   "last": "Aochea",
-  "api_key": "sk_3fbba3d6-6030-2149-85a1-9120ec4a2209.zK53lhvz8qzKZf3TPWKF9Ds3I7Y2lShL7pbh-j8MY2A",
-  "org": "Genev Unlock 1",
-  "org_slug": "genev-18824",
-  "reset_at": "2026-09-22T23:14:41Z",
+  "api_key": "sk_cfe2a9ea-9491-421a-3284-abc77cf020be.J0W0-rkoO1K3GNvvjeChK0ALiLARjc9V5t0cK3RCAuo",
+  "org": "Genev Aochea",
+  "org_slug": "genev-46731",
+  "reset_at": "2026-09-26T18:20:34Z",
   "custom_proxies": {
-    "enabled": true
+    "enabled": false
   },
-  "proxy_id": "w9mxl1og2zhi6x647ftq5mt4",
-  "trial": "startup",
+  "proxy_id": "zr8s8k8zyc83obx93xqjhyty",
+  "trial": null,
   "tag": "unlocked",
   "probe_at": "2026-09-23T17:26:57Z",
   "browsers_probe": 6,
-  "probe_ok": true
+  "probe_ok": true,
+  "credential_history": [
+    {
+      "org": "Genev Unlock 1",
+      "org_slug": "genev-18824",
+      "api_key": "sk_3fbba3d6-6030-2149-85a1-9120ec4a2209.zK53lhvz8qzKZf3TPWKF9Ds3I7Y2lShL7pbh-j8MY2A",
+      "proxy_id": "w9mxl1og2zhi6x647ftq5mt4",
+      "trial": "startup",
+      "reset_at": "2026-09-22T23:14:41Z"
+    }
+  ],
+  "status": "needs_recovery",
+  "reset_started_at": "2026-09-26T18:17:33Z",
+  "backup_dir": "/home/alan/Documents/railways/finals/sessions/onk-onk-437cd90bb8/backups/session/20260926T181733Z-before-org-reset",
+  "last_error": "Reset reached a recoverable partial state: Start-Up trial was not unlocked. Original credentials: /home/alan/Documents/railways/finals/sessions/onk-onk-437cd90bb8/backups/session/20260926T181733Z-before-org-reset",
+  "reset_from_org": "Genev Unlock 1",
+  "reset_target_org": "Genev Aochea",
+  "updated_at": "2026-09-26T18:20:36Z",
+  "api_key_status": "active"
 }
