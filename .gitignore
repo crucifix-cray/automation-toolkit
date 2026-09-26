@@ -77,3 +77,13 @@ sessions/*/.railway/staged-update/
 
 # per-jar health tag written by scripts/audit_state.py census
 finals/sessions/*/HEALTH
+
+# runtime logs + compiled artifacts (never commit)
+*.log
+logs/
+wss-bridge
+bl*.txt
+torlogs.txt
+whatmem.log
+fleet_supervisor_state.json
+cleanup_log.json

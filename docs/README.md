@@ -1,17 +1,21 @@
 # Docs index
 
-**[STATE.md](STATE.md) = every count, measured.** If another doc disagrees with
-STATE.md on a number, STATE.md is right.
+**Read in this order:**
 
-**[PLAN-1.2K.md](PLAN-1.2K.md) = how we get from 482 to 1200**, and the one gate
-that must not be skipped.
+1. **[GOALS.md](GOALS.md)** — what we are actually here for: 500k → 1M → 10M → 40M hashes
+2. **[TOOLS.md](TOOLS.md)** — the pipeline end to end, what works, what is missing
+3. **[STATE.md](STATE.md)** — every count, measured. Beats any other doc on a number.
+4. **[PLAN-1.2K.md](PLAN-1.2K.md)** — the account-side plan (482 → 1200 Railway)
 
 ## Active
 
 | Doc | Covers |
 |---|---|
+| **[GOALS.md](GOALS.md)** | **The product: XMR hashes.** 500k floor / 1M stretch today, 10M, 40M. Current: 0 shares. |
+| **[TOOLS.md](TOOLS.md)** | Pipeline map, what works, the 3 blockers, what to build, what not to do yet |
+| [REPO-MAP.md](REPO-MAP.md) | Where everything lives, live endpoints, commands, conventions |
 | [STATE.md](STATE.md) | Canonical counts: Railway census, Lovable inventory, OnK fleet, ZenRows |
-| [PLAN-1.2K.md](PLAN-1.2K.md) | 1.2k target: 505 browsers/wave, 2 waves, mail-pacing gate, proxy risk |
+| [PLAN-1.2K.md](PLAN-1.2K.md) | 1.2k Railway accounts: 505 browsers/wave, 2 waves, mail-pacing gate |
 | [FARM-1K.md](FARM-1K.md) | Railway farm runbook — **PAUSED**, the 2026-09-25 restriction incident, `mail_rotate.py`, all commands |
 | [HOWTO-RAILWAY.md](HOWTO-RAILWAY.md) | CLI usage, Tor wrapper, true-verify (init/delete) |
 | [SESSIONS.md](SESSIONS.md) | Railway session layout, token homes |
@@ -36,8 +40,13 @@ purpose.
 | OnKernel keys | **101**, all HTTP 200 → 505 browser slots/wave |
 | Lovable unique accounts | **36** (51 session dirs, 15 duplicate emails) |
 | Cells mining | 7 |
+| **Hashes submitted** | **0** — bridge live, 18–36 churning connections, 0 shares |
 | ZenRows keys | 4, validity unknown (Cloudflare blocks curl) |
 | Shortfall to 1.2k Railway | **718** |
+
+Proxying is **optional and off by default** (`62e62e30`). The farm mints its own
+country-targeted OnK mobile proxies when needed. Do not read proxy concentration
+as a live gate.
 
 ## Traps that keep producing false claims
 

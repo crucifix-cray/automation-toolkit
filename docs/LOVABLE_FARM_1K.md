@@ -3,7 +3,8 @@
 **Status (2026-09-24):** inventory + farm scripts ready. Next = deploy Ubuntu
 services on farmed jars and run `farm_lovable_ultimate.py` on them.
 
-> **Corrected 2026-09-25.** Jar count is **1724**, not 1236. OnKernel capacity is
+> **Corrected 2026-09-25.** Jar count is **1724**, not 1236 — and after the
+> 2026-09-26 census only **478** of those can create projects. OnKernel capacity is
 > **101 keys, all verified** (not the 17 seen mid-audit). Most *old* jars answer
 > `restricted`; the 2026-09-25 run does not. See **[STATE.md](STATE.md)** for
 > measured numbers, **[PLAN-1.2K.md](PLAN-1.2K.md)** for the wave plan, and
@@ -18,7 +19,7 @@ services on farmed jars and run `farm_lovable_ultimate.py` on them.
 | **Compute** | Persistent **Ubuntu services** on each jar (not sandboxes) |
 | **Browsers** | OnKernel: **101** verified keys × 5 mobile browsers = **505** slots/wave |
 | **Script** | `src/lovable/farm_lovable_ultimate.py --once` (mail chain → signup → soft-2FA → `farm/lov-*` GH push) |
-| **Proxies** | OnK `type=mobile`, multi-country (not US-only): `gb,de,fr,nl,ie,es,it,be,at,se` |
+| **Proxies** | Optional. Farm mints its own country-targeted OnK mobile proxies on demand; platform proxying is opt-in and defaults to off (`62e62e30`). |
 
 Each farmed jar already has: CLI tokens (`.railway` + `railway_cli_config.json`),
 `verified.json` (project + `hlth-*` service ids), email. Those are the 1k Ubuntu
@@ -65,14 +66,15 @@ api_keys). Early keys were used on preflight waves.
 
 ## Next (ordered)
 
-1. **Deploy Ubuntu** persistent service on each of `jars[236:]` (1k).
+1. **Deploy Ubuntu** persistent service on each VERIFIED jar (see
+   `finals/railway_healthy.json`, 478 of them).
 2. **Inject** secrets (`HOLY_SECRET_KEY`, decrypted GH token, one OnK key per
-   ~10 workers) + run `farm_lovable_ultimate.py --once` with multi-country mobile.
+   ~10 workers) + run `farm_lovable_ultimate.py --once`.
 3. **Watch** `farm/lov-*` branches / MADE session count; soft-2FA jars count as kept.
 4. Do **not** re-blast from jar index 0; do **not** treat Documents/railways×44 as the 1k fleet.
 
 ## Preflight already done
 
-- Soft-2FA save path, multi-country mobile, last-OnK key pick, random zenvex.
+- Soft-2FA save path, last-OnK key pick, random zenvex.
 - Small Railway sandbox waves on `Documents/railways/session-1` (warmup only).
-- Jar inventory confirmed: **1236** farmed, **1000** from offset 236.
+- Jar inventory confirmed: **478 canary-verified** usable (see STATE.md).

@@ -57,21 +57,19 @@ wave. That is the same concentration that burned run #1.
 - **B — widen the pool.** Add mail providers until no provider sees >40 signups
   per wave. 2 waves. Requires new providers.
 
-## Second risk — proxy geography
+## Second risk — retired
 
-Sampled 15 live keys: **22 `us`, 1 `es`**. `LOVABLE_FARM_1K.md` requires
-multi-country mobile (`gb,de,fr,nl,ie,es,it,be,at,se`) specifically to avoid
-egress concentration. 101 keys all drawing US mobile can collapse onto the same
-small IP set and reproduce the incident even with mail pacing correct.
-
-Confirm before wave 1: `GET /proxies` across all 101 keys must yield **≥19
-distinct countries**, or the per-IP pacing cannot be met.
+Proxy geography was a listed gate here. It is **no longer one**: the farm mints
+its own country-targeted proxies on demand (`ensure_mobile_proxy(country="gb")`)
+and the platform removed the proxy dependency — commit `62e62e30` makes proxying
+opt-in via `--proxy`, default none. The US proxies visible in the OnK inventory
+are pre-existing leftovers, not a constraint.
 
 ## Run order
 
 1. Re-census the host pool — health drifts, Railway restricts on a delay.
    `python3 scripts/audit_state.py --census`
-2. Satisfy the mail gate (A or B) and the proxy-geography check.
+2. Satisfy the mail gate (A or B).
 3. Wave 1 — 505 accounts, `--par` sized to respect the 10-sandbox/account cap
    (`refill_all.py SLOTS = 8`; Railway enforces 10 hard per account).
 4. `materialize_jars.py` — **dedups by email**; run #1 produced duplicate emails,
