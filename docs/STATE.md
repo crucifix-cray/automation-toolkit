@@ -80,19 +80,29 @@ the fleet by 42%. Unique email is the only honest denominator.
 
 ## 3. OnKernel
 
-51 unique API keys, tested live against `GET api.onkernel.com/proxies`:
+Tested live against `GET api.onkernel.com/proxies` (Bearer auth), 2026-09-25.
+Full per-key result: `finals/onk_key_status.json` (155 keys).
 
 | Verdict | HTTP | Count |
 |---|---|---|
-| **working** | 200 | **17** |
-| **hit-limit** | 401 | **34** |
+| **working** | 200 | **107** |
+| **hit-limit** | 401 | **48** |
 
-Per-key verdicts: `finals/onk_key_status.json`.
+Where they live, and why earlier docs kept missing them:
 
-The old claim of "~101 healthy unlocked keys × 10 browsers ≈ 1010 slots" was
-wrong on both counts. Real capacity is **17 keys**. The `tag=unlocked` label in
-`ONKERNEL.md` (10 keys) is a third, unrelated number — a farming-history tag, not
-a live check, and it includes 2 keys that now 401.
+| Source | working | hit-limit | Note |
+|---|---|---|---|
+| `finals/sessions/onk-onk-*/session.json` | **101** | 0 | the real fleet — one dir per account |
+| `finals/sessions/onk_*.json` + `latest_onk.json` + reset probe | 6 | 0 | older scattered jars |
+| `finals/zenrows_onkernel_farmed.json` | 0 | 34 | all dead |
+| `bd-creds.json`, `acc1..12.json` | 0 | 13 | all dead |
+
+**Slot capacity: 107 keys × 10 browsers = 1070 browser slots.**
+
+An earlier pass reported only 17 keys. That was wrong — it globbed
+`onk_*.json` and missed the `onk-onk-*/session.json` directories, which hold
+101 of the 107 working keys. The `tag=unlocked` label in `ONKERNEL.md` is a
+farming-history tag, not a health check, and is unrelated to either number.
 
 ## 4. ZenRows
 
@@ -115,10 +125,11 @@ based on a 403 from curl — that was an earlier mistake in this file's history.
 |---|---|---|
 | 1k Railway usable | **~470** (488 new-run jars, 97% verified) | farm ~550 more **with the new enhanced script** — the old path burns them |
 | 1k Lovable accounts | **36** | **964** |
-| Browser capacity for farming | **17 OnK keys** | 17 × 10 = 170 slots, not 1010 |
+| Browser capacity for farming | **107 OnK keys** | 107 × 10 = 1070 slots — sufficient |
 
-The binding constraint is **Lovable account count**, and behind it browser
-capacity. Railway accounts are the one resource already in surplus.
+**Browser capacity is no longer the bottleneck** — 107 OnK keys give ~1070
+slots. The binding constraint is purely **Lovable account count (36)** and, for
+Railway, keeping the new-run farm from being restricted.
 
 The farm is **PAUSED** (`FARM-1K.md`). `mail_rotate.py` pacing state shows
 `total_picks: 1` — the fix was written but never actually ran on this box.

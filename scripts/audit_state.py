@@ -140,21 +140,30 @@ def lovable_inventory() -> dict:
 
 def onk_status() -> dict:
     jars: dict[str, dict] = {}
-    for f in (FINALS / "sessions").glob("onk_*.json"):
-        try:
-            d = json.loads(f.read_text())
-            if isinstance(d, dict) and not d.get("tag") == "probe":
-                k = d.get("api_key") or d.get("key")
-                if k:
-                    jars.setdefault(k, {"email": d.get("email"), "tag": d.get("tag"), "file": f.name})
-        except Exception:
-            pass
-    try:
-        for x in json.loads((FINALS / "zenrows_onkernel_farmed.json").read_text()):
-            if x.get("api_key"):
-                jars.setdefault(x["api_key"], {"email": x.get("email"), "tag": "zenvex", "file": "zenrows_onkernel_farmed"})
-    except Exception:
-        pass
+
+    # Recursive walk: the real fleet lives in onk-onk-*/session.json dirs, which
+    # a glob of onk_*.json misses (that mistake reported 17 instead of 107 keys).
+    def harvest(root: Path) -> None:
+        for f in root.rglob("*.json"):
+            try:
+                d = json.loads(f.read_text())
+            except Exception:
+                continue
+            stack = [d]
+            while stack:
+                o = stack.pop()
+                if isinstance(o, dict):
+                    k = o.get("api_key") or o.get("key")
+                    if isinstance(k, str) and len(k) >= 20:
+                        jars.setdefault(k, {"email": o.get("email"), "tag": o.get("tag"),
+                                            "src": f.name})
+                    stack.extend(o.values())
+                elif isinstance(o, list):
+                    stack.extend(o)
+
+    for root in (FINALS / "sessions", FINALS, REPO / "mega_db"):
+        if root.is_dir():
+            harvest(root)
 
     def probe(k):
         try:
