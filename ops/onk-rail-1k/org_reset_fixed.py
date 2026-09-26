@@ -77,7 +77,7 @@ import os
 
 async def run(session_file: str, org_name: str | None = None,
               headless: bool = False, host_key: str | None = None,
-              use_proxy: bool = False) -> dict:
+              use_proxy: bool = False, get_api_only: bool = False) -> dict:
     from playwright.async_api import async_playwright
 
     with open(session_file) as handle:
@@ -252,8 +252,31 @@ async def run(session_file: str, org_name: str | None = None,
           const sw = [...document.querySelectorAll('button')].map(x=>x.innerText.trim()).find(t=>t && !/switch|create|manage/i.test(t) && t.length < 40);
           return sw || null; }""")
         log(f"Current org hint: {cur_org}")
+        slug = (acc.get("org_slug") or "").strip() or None
+        if get_api_only:
+            # --get-api: keep the current org, go straight to key minting.
+            # No delete, no create. The ban is org-level, so the kept org must
+            # be a fresh one (from a prior partial reset), not the banned one.
+            if not slug:
+                raise FlowError("No org_slug in session — run a full reset first")
+            log(f"🔑 get-api mode: keeping org {acc.get('org')} ({slug}), skipping delete/create")
+            acc.update({"status": "get_api_org_kept"})
+            await save_session_bundle(session_file, acc, ctx)
+            if "select-org" in (page.url or ""):
+                # step into the kept org before touching api-keys
+                try:
+                    await page.goto(DASH + "/select-org", wait_until="domcontentloaded", timeout=60_000)
+                    await page.wait_for_timeout(4000)
+                    try:
+                        await page.get_by_text(slug, exact=False).first.click(timeout=10_000)
+                    except Exception:
+                        await page.locator('a[href*="/genev-"]').first.click(timeout=10_000)
+                    await page.wait_for_timeout(6000)
+                    log(f"  entered org @ {page.url}")
+                except Exception as e:
+                    log(f"  org enter issue: {e}")
         # Already org-less (prior partial reset) → skip delete, create fresh
-        if "select-org" in (page.url or ""):
+        if "select-org" in (page.url or "") and not get_api_only:
             log("ℹ️ Already on select-org (no org) — skipping delete, creating fresh org")
             acc.update({
                 "status": "old_org_deleted",
@@ -261,7 +284,7 @@ async def run(session_file: str, org_name: str | None = None,
                 "reset_target_org": new_org,
             })
             await save_session_bundle(session_file, acc, ctx)
-        else:
+        elif not get_api_only:
             # open switcher -> manage (Clerk cl-organizationSwitcherTrigger)
             try:
                 await page.locator('.cl-organizationSwitcherTrigger').first.click(timeout=8000)
@@ -355,37 +378,45 @@ async def run(session_file: str, org_name: str | None = None,
             acc["status"] = "old_org_deleted"
             await save_session_bundle(session_file, acc, ctx)
         # create new org (select-org flow or switcher -> create organization)
-        if "select-org" not in page.url:
+        if get_api_only:
+            log(f"⏭️ get-api: org create skipped, staying in kept {slug}")
             try:
-                await page.goto(DASH + "/select-org", wait_until="domcontentloaded", timeout=60_000)
-                await page.wait_for_timeout(5000)
+                await page.goto(f"{DASH}/{slug}/browsers", wait_until="domcontentloaded", timeout=60_000)
+                await page.wait_for_timeout(4000)
             except Exception as e:
-                log(f"  select-org goto: {e}")
-        if "select-org" not in page.url and "create" not in (await page.evaluate("() => document.body.innerText")).lower():
-            await page.screenshot(path="/tmp/onk-reset-no-create.png")
-            raise FlowError(f"No org-create page: {page.url}")
-        slug = f"genev-{int(time.time()) % 100000}"
-        inputs = page.locator('input[type="text"], input:not([type])')
-        if await inputs.count():
-            await inputs.nth(0).fill(new_org)
-            await page.wait_for_timeout(1000)
-            if await inputs.count() > 1:
-                await inputs.nth(1).fill(slug)
-        await page.locator('button', has_text="create organization").first.click(timeout=10_000)
-        await page.wait_for_timeout(8000)
-        skip = page.locator('button', has_text="skip")
-        if await skip.count():
-            await skip.first.click(timeout=8000)
+                log(f"  kept-org goto: {e}")
+        else:
+            if "select-org" not in page.url:
+                try:
+                    await page.goto(DASH + "/select-org", wait_until="domcontentloaded", timeout=60_000)
+                    await page.wait_for_timeout(5000)
+                except Exception as e:
+                    log(f"  select-org goto: {e}")
+            if "select-org" not in page.url and "create" not in (await page.evaluate("() => document.body.innerText")).lower():
+                await page.screenshot(path="/tmp/onk-reset-no-create.png")
+                raise FlowError(f"No org-create page: {page.url}")
+            slug = f"genev-{int(time.time()) % 100000}"
+            inputs = page.locator('input[type="text"], input:not([type])')
+            if await inputs.count():
+                await inputs.nth(0).fill(new_org)
+                await page.wait_for_timeout(1000)
+                if await inputs.count() > 1:
+                    await inputs.nth(1).fill(slug)
+            await page.locator('button', has_text="create organization").first.click(timeout=10_000)
             await page.wait_for_timeout(8000)
-        log(f"✅ New org → {page.url}")
-        acc.update({
-            "org": new_org,
-            "org_slug": slug,
-            "status": "new_org_created",
-            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        })
-        await save_session_bundle(session_file, acc, ctx)
-        save_latest_pointer(session_file, acc)
+            skip = page.locator('button', has_text="skip")
+            if await skip.count():
+                await skip.first.click(timeout=8000)
+                await page.wait_for_timeout(8000)
+            log(f"✅ New org → {page.url}")
+            acc.update({
+                "org": new_org,
+                "org_slug": slug,
+                "status": "new_org_created",
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            })
+            await save_session_bundle(session_file, acc, ctx)
+            save_latest_pointer(session_file, acc)
 
         # ── 1) Unlock Start-Up TRIAL (proxies / region / higher limits) ──
         trial_ok = False
@@ -603,13 +634,17 @@ def main() -> None:
     p.add_argument("--proxy", action="store_true",
                    help="Create and attach a mobile proxy for the host browser "
                         "(needs paid plan; default is no proxy)")
+    p.add_argument("--get-api", action="store_true",
+                   help="Skip org delete/create; mint a lifetime API key in the "
+                        "current org (resume point for partial resets)")
     a = p.parse_args()
     sess = pick_session(a.session)
     log(f"Session: {sess}")
     try:
         res = asyncio.run(
             run(sess, org_name=a.org_name, headless=a.headless,
-                host_key=a.host_key, use_proxy=a.proxy)
+                host_key=a.host_key, use_proxy=a.proxy,
+                get_api_only=a.get_api)
         )
     except Exception as exc:
         # Never leave a destructive reset looking healthy. The latest completed
