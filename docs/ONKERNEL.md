@@ -32,9 +32,14 @@ API-verified: `GET/POST https://api.onkernel.com/proxies` → mobile US availabl
 
 ## Lovable 1k (2026-09-24) — primary use of OnK slots
 
-See **[LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md)**. ~101 healthy unlocked keys × 10
-mobile browsers ≈ 1010. Prefer **last** keys; multi-country mobile (not US-only).
-Browsers run from Ubuntu services on `farmed-*[236:]`.
+See **[LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md)** and **[STATE.md](STATE.md)**.
+
+> **Corrected 2026-09-25.** The "~101 healthy unlocked keys ≈ 1010 slots" figure
+> below was never true. A live test of all 51 keys against
+> `GET api.onkernel.com/proxies` returns **17 × HTTP 200 (working)** and
+> **34 × 401 (hit limit)**. Real browser capacity is **17 keys**, not 101.
+> `tag=unlocked` is a farming-history tag, not a health check. Per-key verdicts:
+> `finals/onk_key_status.json`.
 
 ## Railway spreader plan (51 workers → ~1k MADE jars) — legacy / paused
 

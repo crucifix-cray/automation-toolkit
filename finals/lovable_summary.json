@@ -1,0 +1,16 @@
+{
+ "sessions": 51,
+ "unique_accounts": 36,
+ "duplicate_emails": {
+  "altonlehman16@gmail.com": 2,
+  "dakarihickmanhickman@gmail.com": 2,
+  "jakesparosam@gmail.com": 6,
+  "johngriffin62w@gmail.com": 8,
+  "zakarmmusa832@gmail.com": 2
+ },
+ "with_password": 51,
+ "with_totp": 51,
+ "with_cookies": 51,
+ "with_project_id": 2,
+ "note": "session dirs != accounts; unique email is the only honest denominator"
+}

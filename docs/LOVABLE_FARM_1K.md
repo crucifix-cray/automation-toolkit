@@ -3,14 +3,19 @@
 **Status (2026-09-24):** inventory + farm scripts ready. Next = deploy Ubuntu
 services on farmed jars and run `farm_lovable_ultimate.py` on them.
 
+> **Corrected 2026-09-25.** Jar count is **1724**, not 1236. OnKernel capacity is
+> **17 keys**, not ~101. Most jars answer `restricted` to a canary create, so
+> usable capacity is far below the raw count. See **[STATE.md](STATE.md)** for
+> the measured numbers and **[FARM-1K.md](FARM-1K.md)** for the PAUSED status.
+
 ## Architecture (owner decision)
 
 | Layer | What |
 |---|---|
-| **Hosts** | `finals/sessions/farmed-*` Railway CLI jars (**1236** total) |
+| **Hosts** | `finals/sessions/farmed-*` Railway CLI jars (**1724** on disk, was 1236) |
 | **Slice** | Sorted list, **skip first 236** → take **`jars[236:]` = 1000** |
 | **Compute** | Persistent **Ubuntu services** on each jar (not sandboxes) |
-| **Browsers** | OnKernel: ~**101** healthy unlocked keys × **10** mobile browsers ≈ **1010** slots |
+| **Browsers** | OnKernel: **17** working keys (tested) × 10 mobile browsers ≈ **170** slots — see STATE.md |
 | **Script** | `src/lovable/farm_lovable_ultimate.py --once` (mail chain → signup → soft-2FA → `farm/lov-*` GH push) |
 | **Proxies** | OnK `type=mobile`, multi-country (not US-only): `gb,de,fr,nl,ie,es,it,be,at,se` |
 

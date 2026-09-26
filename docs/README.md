@@ -1,18 +1,43 @@
-# Index (updated 2026-09-22)
+# Index
+
+**[STATE.md](STATE.md) is the single source of truth for counts.** Every number
+in it was measured live on 2026-09-25. Other docs may describe *how*; if they
+disagree with STATE.md on a *count*, STATE.md wins.
 
 | Doc | Covers |
 |---|---|
-| `FARM-1K.md` | **1k Railway farm ops runbook** — 524 UP_GOOD (312 re-verified), mass-restriction incident + mail rotation fix, all commands, gotchas |
-| `ONKERNEL.md` | **Canonical OnK DB** — Batch B 10 unlocked; **100 browsers spread on Railway fleet** |
-| `SESSIONS.md` | Railway verified pool — **44** under `Documents/railways/session-*` |
-| `PIPELINE.md` | Quickstart paths (OnK + Railway + bridge) |
-| `SCALING-PLAN.md` | 100→1k→10k→40k roadmap (Railway-only, remote CDP) |
-| `ARCHITECTURE.md` | Remote CDP farm (no WARP), headless 1280x720, viral bridge |
-| `LOVABLE_ACCOUNTS.md` | Lovable GB signup + Kernel fallback (archived reset flow) |
-| `RAILWAY_AUTOMATION.md` | Railway farm scripts + PKCE notes |
-| `TEMPMAIL_API.md` | dispose / 22.do mailbox notes |
-| `CHIMERA_BRIDGE.md` | Bridge 1000 clients → sharded 40 for 40k |
-| `WARP_PROXY.md` | **[DEPRECATED]** WARP netns → replaced by remote CDP |
-| `BROWSER_HARDENING.md` | Headless stealth + swap 8G |
-| `SECURITY.md` | What must never be committed |
-| `HANDOFF.md` | Legacy handoff → prefer `ONKERNEL.md` + `SESSIONS.md` |
+| **[STATE.md](STATE.md)** | **Canonical counts** — Railway census, Lovable inventory, OnK verdicts, ZenRows status |
+| [FARM-1K.md](FARM-1K.md) | 1k Railway farm runbook — **PAUSED**, mass-restriction incident, `mail_rotate.py` fix, all commands |
+| [ONKERNEL.md](ONKERNEL.md) | OnK farming history + how keys were made (live counts live in STATE.md) |
+| [SESSIONS.md](SESSIONS.md) | Railway session layout + token homes + true-verify rules |
+| [HANDOFF-BLAST.md](HANDOFF-BLAST.md) | Legacy 50×10 Lovable blast (superseded — never produced projects) |
+| [LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md) | 1k Lovable farm architecture (counts corrected, see STATE.md) |
+| [PIPELINE.md](PIPELINE.md) | Quickstart paths (OnK + Railway + bridge) |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Remote CDP farm, headless, viral bridge |
+| [RAILWAY_AUTOMATION.md](RAILWAY_AUTOMATION.md) | Railway farm scripts + PKCE notes |
+| [HOWTO-RAILWAY.md](HOWTO-RAILWAY.md) | CLI usage, Tor wrapper, true-verify (init/delete) |
+| [ONKERNEL_ACCOUNTS_2026-09-09.md](ONKERNEL_ACCOUNTS_2026-09-09.md) | Historical OnK snapshot |
+
+Evidence files (machine-readable, regenerable):
+
+| File | Contents |
+|---|---|
+| `finals/railway_census.json` | per-account canary verdict across 1775 accounts |
+| `finals/lovable_inventory.json` | per-session mail/pwd/totp/cookies |
+| `finals/lovable_summary.json` | session count vs unique-account count |
+| `finals/onk_key_status.json` | per-key working / hit-limit |
+| `finals/zenrows_key_status.json` | per-key status + why curl can't test it |
+
+## Traps that keep causing false claims
+
+1. **`whoami` is not health.** Every token resolves. Health = canary
+   `railway init` → `railway delete`. See HOWTO-RAILWAY.md.
+2. **Session dirs ≠ accounts.** 51 Lovable session dirs hold only **36 unique
+   emails**. Always divide by unique email.
+3. **`UP_GOOD` is a stale stamp.** Railway restricts on a delay; a marker from
+   15:00 can sit on a workspace Railway kills at 17:00. Never quote it as
+   current health.
+4. **ZenRows 403 from curl is Cloudflare, not auth failure.** Needs a real
+   browser to test.
+5. **Marker counts drift, GitHub is not a live mirror.** Farm branches get
+   deleted upstream; `git fetch --prune`.
