@@ -1,52 +1,53 @@
 {
-  "email": "xyr.renesadenas@gmail.com",
-  "password": "GmailK01!",
-  "first": "Genev",
-  "last": "Aochea",
-  "api_key": "sk_7150c13e-a563-6624-3b9b-e447849fd414.qHlwUl2uF1bwUOxUq3iakbsAKqwQFDz0sP2cJYZK51I",
-  "created_at": "2026-09-23T16:30:53.597676+00:00",
-  "onk_session_id": "ti6ipvidn5p567nljgeeaj4v",
-  "browser_live_url": "https://proxy.yul-zealous-edison.onkernel.com:8443/browser/live/vbCTSkJyuurn",
-  "trial_unlocked": false,
-  "mail_provider": "dispose",
-  "tag": "unlocked",
-  "probe_at": "2026-09-23T17:33:38Z",
-  "browsers_probe": 5,
-  "probe_err": "429:{\"code\":\"org_limit_exceeded\",\"message\":\"org limit exceeded for unified_concurrent_sessions: limit=5, utilization=5, requested=1\"}\n",
-  "credential_history": [
-    {
-      "api_key": "sk_84357d6c-b3fd-9edf-dc0c-0e9c71e484e4.szMyYDHPbTpBYViP6wa5ZFgUelZimja_M_Ht9SHZ29k"
-    },
-    {
-      "org": "Genev Aochea",
-      "org_slug": "genev-84597",
-      "api_key": "sk_84357d6c-b3fd-9edf-dc0c-0e9c71e484e4.szMyYDHPbTpBYViP6wa5ZFgUelZimja_M_Ht9SHZ29k"
-    },
-    {
-      "org": "Genev Aochea",
-      "org_slug": "genev-86310",
-      "api_key": "sk_7150c13e-a563-6624-3b9b-e447849fd414.qHlwUl2uF1bwUOxUq3iakbsAKqwQFDz0sP2cJYZK51I",
-      "proxy_id": "d4xrmzbvorxu35l5oszhrz8f",
-      "trial": "startup",
-      "reset_at": "2026-09-23T17:59:25Z"
-    }
-  ],
-  "status": "needs_recovery",
-  "reset_started_at": "2026-09-26T16:53:03Z",
-  "backup_dir": "finals/sessions/onk-onk-6451a240c4/backups/session/20260926T165303Z-before-org-reset",
-  "last_error": "OnK browser create failed: Command 'kernel browsers create --stealth --timeout 900 --start-url https://dashboard.onkernel.com -o json' returned non-zero exit status 1.",
-  "reset_from_org": "Genev Aochea",
-  "reset_target_org": "Genev Aochea",
-  "org": "Genev Aochea",
-  "org_slug": "genev-86310",
-  "updated_at": "2026-09-26T16:53:31Z",
-  "probe_ok": true,
-  "probe_note": "retagged: org concurrent cap is 5; 5/6 was healthy",
-  "custom_proxies": {
-    "enabled": true
+ "email": "xyr.renesadenas@gmail.com",
+ "password": "GmailK01!",
+ "first": "Genev",
+ "last": "Aochea",
+ "api_key": "sk_dbb37384-53f2-63bf-3768-07b4eb631429.gqxyqJldvLrTM_V6j8sOdJQ9d_LYUKkRteMLz_GVm7c",
+ "created_at": "2026-09-23T16:30:53.597676+00:00",
+ "onk_session_id": "ti6ipvidn5p567nljgeeaj4v",
+ "browser_live_url": "https://proxy.yul-zealous-edison.onkernel.com:8443/browser/live/vbCTSkJyuurn",
+ "trial_unlocked": false,
+ "mail_provider": "dispose",
+ "tag": "unlocked",
+ "probe_at": "2026-09-23T17:33:38Z",
+ "browsers_probe": 5,
+ "probe_err": "429:{\"code\":\"org_limit_exceeded\",\"message\":\"org limit exceeded for unified_concurrent_sessions: limit=5, utilization=5, requested=1\"}\n",
+ "credential_history": [
+  {
+   "api_key": "sk_84357d6c-b3fd-9edf-dc0c-0e9c71e484e4.szMyYDHPbTpBYViP6wa5ZFgUelZimja_M_Ht9SHZ29k"
   },
-  "api_key_status": "active",
-  "proxy_id": "d4xrmzbvorxu35l5oszhrz8f",
-  "trial": "startup",
-  "reset_at": "2026-09-23T17:59:25Z"
+  {
+   "org": "Genev Aochea",
+   "org_slug": "genev-84597",
+   "api_key": "sk_84357d6c-b3fd-9edf-dc0c-0e9c71e484e4.szMyYDHPbTpBYViP6wa5ZFgUelZimja_M_Ht9SHZ29k"
+  },
+  {
+   "org": "Genev Aochea",
+   "org_slug": "genev-86310",
+   "api_key": "sk_7150c13e-a563-6624-3b9b-e447849fd414.qHlwUl2uF1bwUOxUq3iakbsAKqwQFDz0sP2cJYZK51I",
+   "proxy_id": "d4xrmzbvorxu35l5oszhrz8f",
+   "trial": "startup",
+   "reset_at": "2026-09-23T17:59:25Z"
+  }
+ ],
+ "status": "reset_ok",
+ "reset_started_at": "2026-09-26T17:14:53Z",
+ "backup_dir": "finals/sessions/onk-onk-6451a240c4/backups/session/20260926T171453Z-before-org-reset",
+ "last_error": null,
+ "reset_from_org": "Genev Aochea",
+ "reset_target_org": "Genev Aochea",
+ "org": "Genev Aochea",
+ "org_slug": "genev-42962",
+ "updated_at": "2026-09-26T17:17:36Z",
+ "probe_ok": true,
+ "probe_note": "retagged: org concurrent cap is 5; 5/6 was healthy",
+ "custom_proxies": {
+  "enabled": false
+ },
+ "api_key_status": "active",
+ "proxy_id": "lhy01fgzepkp4avk34rgxkmn",
+ "trial": null,
+ "reset_at": "2026-09-26T17:17:34Z",
+ "reset_write_http": "200"
 }

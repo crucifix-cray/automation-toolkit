@@ -1,0 +1,500 @@
+[2026-09-26 14:40:31,257] connection closed
+[2026-09-26 14:40:31,257] connection closed
+[2026-09-26 14:40:31,258] connection closed
+[2026-09-26 14:40:31,258] connection closed
+[2026-09-26 14:40:31,259] connection closed
+[2026-09-26 14:40:31,260] [('100.64.0.14', 45014)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:31,260] [-] client ('100.64.0.14', 45014) (active 0)
+[2026-09-26 14:40:31,263] connection closed
+[2026-09-26 14:40:31,293] connection closed
+[2026-09-26 14:40:31,305] connection open
+[2026-09-26 14:40:31,305] [+] client ('100.64.0.20', 25030) (active 1/400)
+[2026-09-26 14:40:31,318] [->] pool pool.supportxmr.com:3333 for ('100.64.0.20', 25030)
+[2026-09-26 14:40:31,346] connection closed
+[2026-09-26 14:40:31,346] [-] client ('100.64.0.20', 25030) (active 0)
+[2026-09-26 14:40:31,357] connection open
+[2026-09-26 14:40:31,357] [+] client ('100.64.0.6', 31148) (active 1/400)
+[2026-09-26 14:40:31,376] [->] pool pool.supportxmr.com:3333 for ('100.64.0.6', 31148)
+[2026-09-26 14:40:31,393] [('100.64.0.6', 31148)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:31,393] [-] client ('100.64.0.6', 31148) (active 0)
+[2026-09-26 14:40:31,395] connection open
+[2026-09-26 14:40:31,395] [+] client ('100.64.0.8', 44902) (active 1/400)
+[2026-09-26 14:40:31,397] connection closed
+[2026-09-26 14:40:31,409] connection open
+[2026-09-26 14:40:31,410] [+] client ('100.64.0.19', 48108) (active 2/400)
+[2026-09-26 14:40:31,410] [->] pool pool.supportxmr.com:3333 for ('100.64.0.8', 44902)
+[2026-09-26 14:40:31,411] connection open
+[2026-09-26 14:40:31,411] [+] client ('100.64.0.12', 47946) (active 3/400)
+[2026-09-26 14:40:31,424] [->] pool pool.supportxmr.com:3333 for ('100.64.0.19', 48108)
+[2026-09-26 14:40:31,424] [->] pool pool.supportxmr.com:3333 for ('100.64.0.12', 47946)
+[2026-09-26 14:40:31,429] connection closed
+[2026-09-26 14:40:31,430] [-] client ('100.64.0.8', 44902) (active 2)
+[2026-09-26 14:40:31,436] [('100.64.0.19', 48108)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:31,436] [-] client ('100.64.0.19', 48108) (active 1)
+[2026-09-26 14:40:31,437] [('100.64.0.12', 47946)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:31,437] [-] client ('100.64.0.12', 47946) (active 0)
+[2026-09-26 14:40:31,466] connection open
+[2026-09-26 14:40:31,466] [+] client ('100.64.0.14', 45016) (active 1/400)
+[2026-09-26 14:40:31,467] connection open
+[2026-09-26 14:40:31,468] [+] client ('100.64.0.17', 50908) (active 2/400)
+[2026-09-26 14:40:31,469] connection open
+[2026-09-26 14:40:31,469] [+] client ('100.64.0.21', 18746) (active 3/400)
+[2026-09-26 14:40:31,469] connection open
+[2026-09-26 14:40:31,469] [+] client ('100.64.0.6', 31154) (active 4/400)
+[2026-09-26 14:40:31,479] [->] pool pool.supportxmr.com:3333 for ('100.64.0.14', 45016)
+[2026-09-26 14:40:31,481] connection closed
+[2026-09-26 14:40:31,482] [->] pool pool.supportxmr.com:3333 for ('100.64.0.21', 18746)
+[2026-09-26 14:40:31,482] [->] pool pool.supportxmr.com:3333 for ('100.64.0.6', 31154)
+[2026-09-26 14:40:31,483] connection closed
+[2026-09-26 14:40:31,483] connection closed
+[2026-09-26 14:40:31,483] [->] pool pool.supportxmr.com:3333 for ('100.64.0.17', 50908)
+[2026-09-26 14:40:31,484] connection open
+[2026-09-26 14:40:31,484] [+] client ('100.64.0.5', 56840) (active 5/400)
+[2026-09-26 14:40:31,485] connection open
+[2026-09-26 14:40:31,485] [+] client ('100.64.0.15', 23212) (active 6/400)
+[2026-09-26 14:40:31,485] connection open
+[2026-09-26 14:40:31,485] [+] client ('100.64.0.16', 14128) (active 7/400)
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 321
+[2026-09-26 14:40:32,185] connection open
+[2026-09-26 14:40:32,185] [+] client ('100.64.0.19', 48148) (active 1/400)
+[2026-09-26 14:40:32,199] [->] pool pool.supportxmr.com:3333 for ('100.64.0.19', 48148)
+[2026-09-26 14:40:32,211] [('100.64.0.19', 48148)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,211] [-] client ('100.64.0.19', 48148) (active 0)
+[2026-09-26 14:40:32,241] connection open
+[2026-09-26 14:40:32,241] [+] client ('100.64.0.15', 23250) (active 1/400)
+[2026-09-26 14:40:32,244] connection closed
+[2026-09-26 14:40:32,250] connection closed
+[2026-09-26 14:40:32,255] [->] pool pool.supportxmr.com:3333 for ('100.64.0.15', 23250)
+[2026-09-26 14:40:32,260] connection open
+[2026-09-26 14:40:32,261] [+] client ('100.64.0.2', 19174) (active 2/400)
+[2026-09-26 14:40:32,261] connection open
+[2026-09-26 14:40:32,261] [+] client ('100.64.0.20', 25050) (active 3/400)
+[2026-09-26 14:40:32,265] connection open
+[2026-09-26 14:40:32,265] [+] client ('100.64.0.12', 48002) (active 4/400)
+[2026-09-26 14:40:32,266] connection open
+[2026-09-26 14:40:32,266] [+] client ('100.64.0.13', 10102) (active 5/400)
+[2026-09-26 14:40:32,267] connection open
+[2026-09-26 14:40:32,267] [+] client ('100.64.0.19', 48154) (active 6/400)
+[2026-09-26 14:40:32,267] [('100.64.0.15', 23250)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,267] [-] client ('100.64.0.15', 23250) (active 5)
+[2026-09-26 14:40:32,268] connection open
+[2026-09-26 14:40:32,268] [+] client ('100.64.0.17', 50944) (active 6/400)
+[2026-09-26 14:40:32,269] connection open
+[2026-09-26 14:40:32,269] [+] client ('100.64.0.21', 18782) (active 7/400)
+[2026-09-26 14:40:32,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.2', 19174)
+[2026-09-26 14:40:32,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.20', 25050)
+[2026-09-26 14:40:32,279] [->] pool pool.supportxmr.com:3333 for ('100.64.0.13', 10102)
+[2026-09-26 14:40:32,280] [->] pool pool.supportxmr.com:3333 for ('100.64.0.19', 48154)
+[2026-09-26 14:40:32,281] [->] pool pool.supportxmr.com:3333 for ('100.64.0.17', 50944)
+[2026-09-26 14:40:32,281] connection open
+[2026-09-26 14:40:32,281] [+] client ('100.64.0.18', 31986) (active 8/400)
+[2026-09-26 14:40:32,281] [->] pool pool.supportxmr.com:3333 for ('100.64.0.12', 48002)
+[2026-09-26 14:40:32,284] [->] pool pool.supportxmr.com:3333 for ('100.64.0.21', 18782)
+[2026-09-26 14:40:32,285] connection open
+[2026-09-26 14:40:32,285] [+] client ('100.64.0.15', 23256) (active 9/400)
+[2026-09-26 14:40:32,286] [('100.64.0.2', 19174)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,287] [-] client ('100.64.0.2', 19174) (active 8)
+[2026-09-26 14:40:32,287] [('100.64.0.20', 25050)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,287] [-] client ('100.64.0.20', 25050) (active 7)
+[2026-09-26 14:40:32,289] connection open
+[2026-09-26 14:40:32,289] [+] client ('100.64.0.1', 24130) (active 8/400)
+[2026-09-26 14:40:32,292] [('100.64.0.19', 48154)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,292] [-] client ('100.64.0.19', 48154) (active 7)
+[2026-09-26 14:40:32,293] [('100.64.0.17', 50944)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,293] [-] client ('100.64.0.17', 50944) (active 6)
+[2026-09-26 14:40:32,295] [->] pool pool.supportxmr.com:3333 for ('100.64.0.18', 31986)
+[2026-09-26 14:40:32,296] [('100.64.0.12', 48002)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,296] [-] client ('100.64.0.12', 48002) (active 5)
+[2026-09-26 14:40:32,298] connection open
+[2026-09-26 14:40:32,298] [+] client ('100.64.0.5', 56888) (active 6/400)
+[2026-09-26 14:40:32,303] [->] pool pool.supportxmr.com:3333 for ('100.64.0.15', 23256)
+[2026-09-26 14:40:32,304] [->] pool pool.supportxmr.com:3333 for ('100.64.0.1', 24130)
+[2026-09-26 14:40:32,307] [('100.64.0.18', 31986)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,307] [-] client ('100.64.0.18', 31986) (active 5)
+[2026-09-26 14:40:32,311] [->] pool pool.supportxmr.com:3333 for ('100.64.0.5', 56888)
+[2026-09-26 14:40:32,319] [('100.64.0.13', 10102)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,319] [('100.64.0.21', 18782)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,319] [-] client ('100.64.0.13', 10102) (active 4)
+[2026-09-26 14:40:32,319] [-] client ('100.64.0.21', 18782) (active 3)
+[2026-09-26 14:40:32,321] [('100.64.0.15', 23256)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,321] [-] client ('100.64.0.15', 23256) (active 2)
+[2026-09-26 14:40:32,321] [('100.64.0.1', 24130)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,321] [-] client ('100.64.0.1', 24130) (active 1)
+[2026-09-26 14:40:32,323] [('100.64.0.5', 56888)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,323] [-] client ('100.64.0.5', 56888) (active 0)
+[2026-09-26 14:40:32,441] connection open
+[2026-09-26 14:40:32,441] [+] client ('100.64.0.11', 29240) (active 1/400)
+[2026-09-26 14:40:32,443] connection open
+[2026-09-26 14:40:32,443] [+] client ('100.64.0.21', 18788) (active 2/400)
+[2026-09-26 14:40:32,454] [->] pool pool.supportxmr.com:3333 for ('100.64.0.11', 29240)
+[2026-09-26 14:40:32,456] [->] pool pool.supportxmr.com:3333 for ('100.64.0.21', 18788)
+[2026-09-26 14:40:32,468] [('100.64.0.21', 18788)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,468] [-] client ('100.64.0.21', 18788) (active 1)
+[2026-09-26 14:40:32,479] [('100.64.0.11', 29240)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,480] [-] client ('100.64.0.11', 29240) (active 0)
+[2026-09-26 14:40:32,483] connection closed
+[2026-09-26 14:40:32,484] connection closed
+[2026-09-26 14:40:32,512] connection open
+[2026-09-26 14:40:32,512] [+] client ('100.64.0.1', 24142) (active 1/400)
+[2026-09-26 14:40:32,528] [->] pool pool.supportxmr.com:3333 for ('100.64.0.1', 24142)
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 445
+[2026-09-26 14:40:32,543] [('100.64.0.1', 24142)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,543] [-] client ('100.64.0.1', 24142) (active 0)
+[2026-09-26 14:40:32,544] connection closed
+[2026-09-26 14:40:32,599] connection open
+[2026-09-26 14:40:32,599] [+] client ('100.64.0.1', 24148) (active 1/400)
+[2026-09-26 14:40:32,612] [->] pool pool.supportxmr.com:3333 for ('100.64.0.1', 24148)
+[2026-09-26 14:40:32,625] [('100.64.0.1', 24148)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,625] [-] client ('100.64.0.1', 24148) (active 0)
+[2026-09-26 14:40:32,643] connection closed
+[2026-09-26 14:40:32,653] connection open
+[2026-09-26 14:40:32,654] [+] client ('100.64.0.3', 60344) (active 1/400)
+[2026-09-26 14:40:32,672] [->] pool pool.supportxmr.com:3333 for ('100.64.0.3', 60344)
+[2026-09-26 14:40:32,690] [('100.64.0.3', 60344)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:32,690] [-] client ('100.64.0.3', 60344) (active 0)
+[2026-09-26 14:40:32,718] connection closed
+[2026-09-26 14:40:32,721] connection open
+[2026-09-26 14:40:32,721] [+] client ('100.64.0.15', 23270) (active 1/400)
+[2026-09-26 14:40:32,734] [->] pool pool.supportxmr.com:3333 for ('100.64.0.15', 23270)
+[2026-09-26 14:40:32,747] [('100.64.0.15', 23270)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,292] [->] pool pool.supportxmr.com:3333 for ('100.64.0.7', 23132)
+[2026-09-26 14:40:33,292] [->] pool pool.supportxmr.com:3333 for ('100.64.0.2', 19186)
+[2026-09-26 14:40:33,292] [->] pool pool.supportxmr.com:3333 for ('100.64.0.17', 50964)
+[2026-09-26 14:40:33,292] [->] pool pool.supportxmr.com:3333 for ('100.64.0.6', 31212)
+[2026-09-26 14:40:33,293] [->] pool pool.supportxmr.com:3333 for ('100.64.0.18', 31998)
+[2026-09-26 14:40:33,293] [->] pool pool.supportxmr.com:3333 for ('100.64.0.17', 50970)
+[2026-09-26 14:40:33,294] [->] pool pool.supportxmr.com:3333 for ('100.64.0.3', 60354)
+[2026-09-26 14:40:33,294] [->] pool pool.supportxmr.com:3333 for ('100.64.0.6', 31214)
+[2026-09-26 14:40:33,294] [->] pool pool.supportxmr.com:3333 for ('100.64.0.10', 61028)
+[2026-09-26 14:40:33,294] [->] pool pool.supportxmr.com:3333 for ('100.64.0.14', 45084)
+[2026-09-26 14:40:33,294] [->] pool pool.supportxmr.com:3333 for ('100.64.0.11', 29250)
+[2026-09-26 14:40:33,295] [->] pool pool.supportxmr.com:3333 for ('100.64.0.9', 62582)
+[2026-09-26 14:40:33,296] [->] pool pool.supportxmr.com:3333 for ('100.64.0.11', 29268)
+[2026-09-26 14:40:33,296] [->] pool pool.supportxmr.com:3333 for ('100.64.0.6', 31228)
+[2026-09-26 14:40:33,298] [('100.64.0.17', 50950)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,298] [-] client ('100.64.0.17', 50950) (active 42)
+[2026-09-26 14:40:33,299] [->] pool pool.supportxmr.com:3333 for ('100.64.0.10', 61026)
+[2026-09-26 14:40:33,300] [('100.64.0.13', 10154)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,300] [-] client ('100.64.0.13', 10154) (active 41)
+[2026-09-26 14:40:33,301] [('100.64.0.13', 10134)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,301] [('100.64.0.3', 60346)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,301] [-] client ('100.64.0.13', 10134) (active 40)
+[2026-09-26 14:40:33,301] [('100.64.0.16', 50650)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,301] [-] client ('100.64.0.3', 60346) (active 39)
+[2026-09-26 14:40:33,301] [-] client ('100.64.0.16', 50650) (active 38)
+[2026-09-26 14:40:33,302] [('100.64.0.21', 18800)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.1', 24166)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.4', 12740)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.7', 23116)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.4', 12750)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.5', 56898)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.4', 12734)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.8', 44948)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [-] client ('100.64.0.21', 18800) (active 37)
+[2026-09-26 14:40:33,302] [('100.64.0.11', 29242)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.20', 25076)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [('100.64.0.14', 45072)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,302] [-] client ('100.64.0.1', 24166) (active 36)
+[2026-09-26 14:40:33,302] [-] client ('100.64.0.4', 12740) (active 35)
+[2026-09-26 14:40:33,302] [-] client ('100.64.0.7', 23116) (active 34)
+[2026-09-26 14:40:33,302] [-] client ('100.64.0.4', 12750) (active 33)
+[2026-09-26 14:40:33,302] [-] client ('100.64.0.5', 56898) (active 32)
+[2026-09-26 14:40:33,302] [-] client ('100.64.0.4', 12734) (active 31)
+[2026-09-26 14:40:33,302] [-] client ('100.64.0.8', 44948) (active 30)
+[2026-09-26 14:40:33,303] [-] client ('100.64.0.11', 29242) (active 29)
+[2026-09-26 14:40:33,303] [-] client ('100.64.0.20', 25076) (active 28)
+[2026-09-26 14:40:33,303] [-] client ('100.64.0.14', 45072) (active 27)
+[2026-09-26 14:40:33,304] [('100.64.0.15', 23284)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,304] [-] client ('100.64.0.15', 23284) (active 26)
+[2026-09-26 14:40:33,304] [('100.64.0.20', 25080)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,304] [('100.64.0.11', 29258)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,304] [-] client ('100.64.0.20', 25080) (active 25)
+[2026-09-26 14:40:33,304] [-] client ('100.64.0.11', 29258) (active 24)
+[2026-09-26 14:40:33,304] [('100.64.0.7', 23122)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,304] [('100.64.0.7', 23132)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,305] [-] client ('100.64.0.7', 23122) (active 23)
+[2026-09-26 14:40:33,305] [-] client ('100.64.0.7', 23132) (active 22)
+[2026-09-26 14:40:33,305] [('100.64.0.16', 50654)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,305] [-] client ('100.64.0.16', 50654) (active 21)
+[2026-09-26 14:40:33,306] [('100.64.0.18', 31998)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [-] client ('100.64.0.18', 31998) (active 20)
+[2026-09-26 14:40:33,306] [('100.64.0.17', 50970)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [('100.64.0.3', 60354)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [('100.64.0.6', 31214)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [-] client ('100.64.0.17', 50970) (active 19)
+[2026-09-26 14:40:33,306] [-] client ('100.64.0.3', 60354) (active 18)
+[2026-09-26 14:40:33,306] [-] client ('100.64.0.6', 31214) (active 17)
+[2026-09-26 14:40:33,306] [('100.64.0.13', 10142)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [-] client ('100.64.0.13', 10142) (active 16)
+[2026-09-26 14:40:33,306] [('100.64.0.21', 18790)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [('100.64.0.10', 61028)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [('100.64.0.10', 61004)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [-] client ('100.64.0.21', 18790) (active 15)
+[2026-09-26 14:40:33,306] [('100.64.0.14', 45084)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,306] [('100.64.0.20', 25064)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,307] [-] client ('100.64.0.10', 61028) (active 14)
+[2026-09-26 14:40:33,307] [-] client ('100.64.0.10', 61004) (active 13)
+[2026-09-26 14:40:33,307] [-] client ('100.64.0.14', 45084) (active 12)
+[2026-09-26 14:40:33,307] [-] client ('100.64.0.20', 25064) (active 11)
+[2026-09-26 14:40:33,307] [('100.64.0.2', 19186)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,307] [('100.64.0.17', 50964)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,307] [('100.64.0.9', 62582)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,307] [-] client ('100.64.0.2', 19186) (active 10)
+[2026-09-26 14:40:33,307] [-] client ('100.64.0.17', 50964) (active 9)
+[2026-09-26 14:40:33,307] [-] client ('100.64.0.9', 62582) (active 8)
+[2026-09-26 14:40:33,308] [('100.64.0.2', 19176)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,308] [-] client ('100.64.0.2', 19176) (active 7)
+[2026-09-26 14:40:33,310] [('100.64.0.6', 31212)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,310] [-] client ('100.64.0.6', 31212) (active 6)
+[2026-09-26 14:40:33,311] [('100.64.0.6', 31228)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,311] [('100.64.0.10', 61018)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,311] [-] client ('100.64.0.6', 31228) (active 5)
+[2026-09-26 14:40:33,311] [('100.64.0.11', 29268)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,311] [-] client ('100.64.0.10', 61018) (active 4)
+[2026-09-26 14:40:33,311] [-] client ('100.64.0.11', 29268) (active 3)
+[2026-09-26 14:40:33,312] [('100.64.0.11', 29250)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,312] [-] client ('100.64.0.11', 29250) (active 2)
+[2026-09-26 14:40:33,316] [('100.64.0.5', 56906)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:33,316] [-] client ('100.64.0.5', 56906) (active 1)
+[2026-09-26 14:40:33,316] [('100.64.0.10', 61026)] POOL CLOSED (clean EOF) — tearing session down
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 202
+[2026-09-26 14:40:34,238] connection open
+[2026-09-26 14:40:34,238] [+] client ('100.64.0.9', 62606) (active 1/400)
+[2026-09-26 14:40:34,245] connection open
+[2026-09-26 14:40:34,245] [+] client ('100.64.0.2', 19212) (active 2/400)
+[2026-09-26 14:40:34,246] connection closed
+[2026-09-26 14:40:34,251] [->] pool pool.supportxmr.com:3333 for ('100.64.0.9', 62606)
+[2026-09-26 14:40:34,259] [->] pool pool.supportxmr.com:3333 for ('100.64.0.2', 19212)
+[2026-09-26 14:40:34,264] [('100.64.0.9', 62606)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,264] [-] client ('100.64.0.9', 62606) (active 1)
+[2026-09-26 14:40:34,271] [('100.64.0.2', 19212)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,271] [-] client ('100.64.0.2', 19212) (active 0)
+[2026-09-26 14:40:34,277] connection closed
+[2026-09-26 14:40:34,320] connection open
+[2026-09-26 14:40:34,320] [+] client ('100.64.0.16', 50670) (active 1/400)
+[2026-09-26 14:40:34,320] connection open
+[2026-09-26 14:40:34,320] [+] client ('100.64.0.10', 61044) (active 2/400)
+[2026-09-26 14:40:34,321] connection open
+[2026-09-26 14:40:34,321] [+] client ('100.64.0.18', 32004) (active 3/400)
+[2026-09-26 14:40:34,321] connection open
+[2026-09-26 14:40:34,321] [+] client ('100.64.0.5', 56928) (active 4/400)
+[2026-09-26 14:40:34,321] connection open
+[2026-09-26 14:40:34,322] [+] client ('100.64.0.11', 29302) (active 5/400)
+[2026-09-26 14:40:34,323] connection open
+[2026-09-26 14:40:34,323] [+] client ('100.64.0.9', 62618) (active 6/400)
+[2026-09-26 14:40:34,328] connection open
+[2026-09-26 14:40:34,328] [+] client ('100.64.0.2', 19224) (active 7/400)
+[2026-09-26 14:40:34,333] [->] pool pool.supportxmr.com:3333 for ('100.64.0.16', 50670)
+[2026-09-26 14:40:34,335] [->] pool pool.supportxmr.com:3333 for ('100.64.0.11', 29302)
+[2026-09-26 14:40:34,335] [->] pool pool.supportxmr.com:3333 for ('100.64.0.5', 56928)
+[2026-09-26 14:40:34,335] [->] pool pool.supportxmr.com:3333 for ('100.64.0.9', 62618)
+[2026-09-26 14:40:34,335] [->] pool pool.supportxmr.com:3333 for ('100.64.0.10', 61044)
+[2026-09-26 14:40:34,337] [->] pool pool.supportxmr.com:3333 for ('100.64.0.18', 32004)
+[2026-09-26 14:40:34,337] connection closed
+[2026-09-26 14:40:34,338] connection open
+[2026-09-26 14:40:34,338] [+] client ('100.64.0.20', 25114) (active 8/400)
+[2026-09-26 14:40:34,339] connection open
+[2026-09-26 14:40:34,339] [+] client ('100.64.0.1', 12642) (active 9/400)
+[2026-09-26 14:40:34,343] [->] pool pool.supportxmr.com:3333 for ('100.64.0.2', 19224)
+[2026-09-26 14:40:34,348] [('100.64.0.9', 62618)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,343] connection open
+[2026-09-26 14:40:34,348] [-] client ('100.64.0.9', 62618) (active 10)
+[2026-09-26 14:40:34,343] [+] client ('100.64.0.20', 25116) (active 10/400)
+[2026-09-26 14:40:34,344] connection open
+[2026-09-26 14:40:34,344] [+] client ('100.64.0.19', 48192) (active 11/400)
+[2026-09-26 14:40:34,344] connection open
+[2026-09-26 14:40:34,344] [+] client ('100.64.0.17', 50978) (active 12/400)
+[2026-09-26 14:40:34,345] connection open
+[2026-09-26 14:40:34,345] [+] client ('100.64.0.16', 50678) (active 13/400)
+[2026-09-26 14:40:34,346] [('100.64.0.16', 50670)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,346] [-] client ('100.64.0.16', 50670) (active 12)
+[2026-09-26 14:40:34,346] connection open
+[2026-09-26 14:40:34,346] [+] client ('100.64.0.10', 61054) (active 13/400)
+[2026-09-26 14:40:34,347] [('100.64.0.11', 29302)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,347] [('100.64.0.5', 56928)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,347] [-] client ('100.64.0.11', 29302) (active 12)
+[2026-09-26 14:40:34,347] [-] client ('100.64.0.5', 56928) (active 11)
+[2026-09-26 14:40:34,350] [->] pool pool.supportxmr.com:3333 for ('100.64.0.20', 25114)
+[2026-09-26 14:40:34,350] [('100.64.0.10', 61044)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,350] [-] client ('100.64.0.10', 61044) (active 9)
+[2026-09-26 14:40:34,351] [('100.64.0.18', 32004)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,351] [-] client ('100.64.0.18', 32004) (active 8)
+[2026-09-26 14:40:34,351] connection open
+[2026-09-26 14:40:34,351] [+] client ('100.64.0.7', 23138) (active 9/400)
+[2026-09-26 14:40:34,352] [->] pool pool.supportxmr.com:3333 for ('100.64.0.1', 12642)
+[2026-09-26 14:40:34,356] connection open
+[2026-09-26 14:40:34,356] [+] client ('100.64.0.7', 23152) (active 10/400)
+[2026-09-26 14:40:34,358] [->] pool pool.supportxmr.com:3333 for ('100.64.0.17', 50978)
+[2026-09-26 14:40:34,358] [('100.64.0.2', 19224)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,358] [-] client ('100.64.0.2', 19224) (active 9)
+[2026-09-26 14:40:34,358] [->] pool pool.supportxmr.com:3333 for ('100.64.0.16', 50678)
+[2026-09-26 14:40:34,361] [->] pool pool.supportxmr.com:3333 for ('100.64.0.10', 61054)
+[2026-09-26 14:40:34,362] [->] pool pool.supportxmr.com:3333 for ('100.64.0.19', 48192)
+[2026-09-26 14:40:34,362] [->] pool pool.supportxmr.com:3333 for ('100.64.0.20', 25116)
+[2026-09-26 14:40:34,363] [('100.64.0.20', 25114)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,363] [-] client ('100.64.0.20', 25114) (active 8)
+[2026-09-26 14:40:34,364] [->] pool pool.supportxmr.com:3333 for ('100.64.0.7', 23138)
+[2026-09-26 14:40:34,365] [('100.64.0.1', 12642)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,365] [-] client ('100.64.0.1', 12642) (active 7)
+[2026-09-26 14:40:34,369] [->] pool pool.supportxmr.com:3333 for ('100.64.0.7', 23152)
+[2026-09-26 14:40:34,370] [('100.64.0.17', 50978)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,370] [-] client ('100.64.0.17', 50978) (active 6)
+[2026-09-26 14:40:34,371] [('100.64.0.16', 50678)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,371] [-] client ('100.64.0.16', 50678) (active 5)
+[2026-09-26 14:40:34,376] [('100.64.0.10', 61054)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,376] [-] client ('100.64.0.10', 61054) (active 4)
+[2026-09-26 14:40:34,377] [('100.64.0.7', 23138)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,377] [-] client ('100.64.0.7', 23138) (active 3)
+[2026-09-26 14:40:34,379] [('100.64.0.19', 48192)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,379] [-] client ('100.64.0.19', 48192) (active 2)
+[2026-09-26 14:40:34,379] [('100.64.0.20', 25116)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,379] [-] client ('100.64.0.20', 25116) (active 1)
+[2026-09-26 14:40:34,394] [('100.64.0.7', 23152)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:34,394] [-] client ('100.64.0.7', 23152) (active 0)
+[2026-09-26 14:40:34,406] connection closed
+[2026-09-26 14:40:34,406] connection closed
+[2026-09-26 14:40:34,409] connection closed
+[2026-09-26 14:40:34,415] connection closed
+[2026-09-26 14:40:34,451] connection closed
+[2026-09-26 14:40:34,452] connection closed
+[2026-09-26 14:40:34,452] connection closed
+[2026-09-26 14:40:34,453] connection closed
+[2026-09-26 14:40:34,454] connection closed
+[2026-09-26 14:40:34,514] connection open
+[2026-09-26 14:40:34,514] [+] client ('100.64.0.5', 56944) (active 1/400)
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 190
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.21', 18864)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.1', 12674)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.8', 11382)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.6', 31310)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.14', 16870)
+[2026-09-26 14:40:35,275] [->] pool pool.supportxmr.com:3333 for ('100.64.0.17', 26818)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.1', 12690)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.5', 56998)
+[2026-09-26 14:40:35,275] [->] pool pool.supportxmr.com:3333 for ('100.64.0.9', 62664)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.6', 31286)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.10', 61076)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.20', 25146)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.14', 16874)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.16', 50700)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.2', 19324)
+[2026-09-26 14:40:35,274] [->] pool pool.supportxmr.com:3333 for ('100.64.0.15', 21104)
+[2026-09-26 14:40:35,275] [->] pool pool.supportxmr.com:3333 for ('100.64.0.13', 10214)
+[2026-09-26 14:40:35,275] [->] pool pool.supportxmr.com:3333 for ('100.64.0.5', 57014)
+[2026-09-26 14:40:35,275] [->] pool pool.supportxmr.com:3333 for ('100.64.0.4', 12802)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.17', 26800)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.5', 56980)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.9', 62680)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.5', 56990)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.9', 62692)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.2', 19294)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.13', 10216)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.18', 32026)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.1', 12686)
+[2026-09-26 14:40:35,276] [->] pool pool.supportxmr.com:3333 for ('100.64.0.21', 18848)
+[2026-09-26 14:40:35,277] [->] pool pool.supportxmr.com:3333 for ('100.64.0.14', 16882)
+[2026-09-26 14:40:35,278] [->] pool pool.supportxmr.com:3333 for ('100.64.0.14', 16854)
+[2026-09-26 14:40:35,279] connection open
+[2026-09-26 14:40:35,279] [+] client ('100.64.0.15', 21110) (active 46/400)
+[2026-09-26 14:40:35,279] [->] pool pool.supportxmr.com:3333 for ('100.64.0.2', 19292)
+[2026-09-26 14:40:35,279] connection open
+[2026-09-26 14:40:35,280] [+] client ('100.64.0.2', 19326) (active 47/400)
+[2026-09-26 14:40:35,280] connection open
+[2026-09-26 14:40:35,280] [+] client ('100.64.0.7', 23216) (active 48/400)
+[2026-09-26 14:40:35,283] connection open
+[2026-09-26 14:40:35,283] [+] client ('100.64.0.13', 10230) (active 49/400)
+[2026-09-26 14:40:35,284] [('100.64.0.19', 48228)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,284] [-] client ('100.64.0.19', 48228) (active 48)
+[2026-09-26 14:40:35,285] connection open
+[2026-09-26 14:40:35,285] [+] client ('100.64.0.16', 50714) (active 49/400)
+[2026-09-26 14:40:35,285] connection open
+[2026-09-26 14:40:35,286] [+] client ('100.64.0.19', 48244) (active 50/400)
+[2026-09-26 14:40:35,286] [('100.64.0.18', 32020)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,286] [('100.64.0.7', 23194)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,286] [-] client ('100.64.0.18', 32020) (active 49)
+[2026-09-26 14:40:35,286] [-] client ('100.64.0.7', 23194) (active 48)
+[2026-09-26 14:40:35,287] connection open
+[2026-09-26 14:40:35,287] [+] client ('100.64.0.9', 62708) (active 49/400)
+[2026-09-26 14:40:35,287] [('100.64.0.10', 61070)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,287] [('100.64.0.4', 12780)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,287] [('100.64.0.8', 11372)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,287] [('100.64.0.12', 62408)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,287] [('100.64.0.17', 26810)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,287] [('100.64.0.2', 19308)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,287] [('100.64.0.7', 23208)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,287] [('100.64.0.6', 31286)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,287] [('100.64.0.1', 12690)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.10', 61070) (active 48)
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.4', 12780) (active 47)
+[2026-09-26 14:40:35,288] [('100.64.0.20', 25146)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,288] [('100.64.0.15', 21104)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,288] [('100.64.0.2', 19324)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.8', 11372) (active 46)
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.12', 62408) (active 45)
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.17', 26810) (active 44)
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.2', 19308) (active 43)
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.7', 23208) (active 42)
+[2026-09-26 14:40:35,288] [('100.64.0.1', 12674)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,288] [('100.64.0.14', 16870)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,288] [('100.64.0.16', 50700)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.6', 31286) (active 41)
+[2026-09-26 14:40:35,288] [-] client ('100.64.0.1', 12690) (active 40)
+[2026-09-26 14:40:35,289] [('100.64.0.21', 18864)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.17', 26818)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.14', 16874)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.10', 61076)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.5', 56998)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.8', 11376)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.8', 11382)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [-] client ('100.64.0.20', 25146) (active 39)
+[2026-09-26 14:40:35,290] [-] client ('100.64.0.21', 18864) (active 33)
+[2026-09-26 14:40:35,289] [-] client ('100.64.0.15', 21104) (active 38)
+[2026-09-26 14:40:35,290] [-] client ('100.64.0.17', 26818) (active 32)
+[2026-09-26 14:40:35,289] [('100.64.0.9', 62664)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,290] [-] client ('100.64.0.14', 16874) (active 31)
+[2026-09-26 14:40:35,289] [('100.64.0.6', 31310)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,290] [-] client ('100.64.0.10', 61076) (active 30)
+[2026-09-26 14:40:35,289] [('100.64.0.13', 10214)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.4', 12802)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.15', 21100)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [('100.64.0.5', 57014)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:35,289] [-] client ('100.64.0.2', 19324) (active 37)
+[2026-09-26 14:40:35,289] [-] client ('100.64.0.1', 12674) (active 36)
+[2026-09-26 14:40:35,289] [-] client ('100.64.0.14', 16870) (active 35)
+[2026-09-26 14:40:35,289] [-] client ('100.64.0.16', 50700) (active 34)
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 513
+[2026-09-26 14:40:36,353] [('100.64.0.6', 31332)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:36,361] [('100.64.0.1', 12738)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:36,361] [-] client ('100.64.0.11', 29348) (active 2)
+[2026-09-26 14:40:36,365] [-] client ('100.64.0.9', 62728) (active 1)
+[2026-09-26 14:40:36,371] connection closed
+[2026-09-26 14:40:36,377] connection closed
+[2026-09-26 14:40:36,382] connection closed
+[2026-09-26 14:40:36,383] connection closed
+[2026-09-26 14:40:36,403] connection closed
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 309
+[2026-09-26 14:40:36,605] [+] client ('100.64.0.12', 62426) (active 1/400)
+[2026-09-26 14:40:36,606] [+] client ('100.64.0.8', 11398) (active 2/400)
+[2026-09-26 14:40:36,606] connection open
+[2026-09-26 14:40:36,606] [+] client ('100.64.0.3', 56324) (active 3/400)
+[2026-09-26 14:40:36,606] connection open
+[2026-09-26 14:40:36,623] [+] client ('100.64.0.15', 21134) (active 6/400)
+[2026-09-26 14:40:36,628] connection open
+[2026-09-26 14:40:36,624] [+] client ('100.64.0.20', 14336) (active 9/400)
+[2026-09-26 14:40:36,629] [+] client ('100.64.0.19', 48276) (active 14/400)
+[2026-09-26 14:40:36,636] connection open
+[2026-09-26 14:40:36,638] connection open
+[2026-09-26 14:40:36,662] [->] pool pool.supportxmr.com:3333 for ('100.64.0.3', 56338)
+[2026-09-26 14:40:36,662] [->] pool pool.supportxmr.com:3333 for ('100.64.0.20', 14344)
+[2026-09-26 14:40:36,662] [->] pool pool.supportxmr.com:3333 for ('100.64.0.6', 31354)
+[2026-09-26 14:40:36,664] [->] pool pool.supportxmr.com:3333 for ('100.64.0.4', 12850)
+[2026-09-26 14:40:36,666] [->] pool pool.supportxmr.com:3333 for ('100.64.0.20', 14336)
+[2026-09-26 14:40:36,673] [-] client ('100.64.0.3', 56324) (active 16)
+[2026-09-26 14:40:36,674] [('100.64.0.6', 31348)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:36,673] [('100.64.0.12', 62426)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:36,673] [-] client ('100.64.0.12', 62426) (active 15)
+[2026-09-26 14:40:36,674] [('100.64.0.4', 12834)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:36,674] [-] client ('100.64.0.4', 12834) (active 14)
+[2026-09-26 14:40:36,674] [('100.64.0.3', 56338)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:36,674] [('100.64.0.15', 21134)] POOL CLOSED (clean EOF) — tearing session down
+[2026-09-26 14:40:36,674] [('100.64.0.6', 31354)] POOL CLOSED (clean EOF) — tearing session down

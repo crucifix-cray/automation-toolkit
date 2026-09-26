@@ -1,36 +1,48 @@
 {
-  "email": "errolnati.jalon@gmail.com",
-  "password": "GmailK01!",
-  "first": "Genev",
-  "last": "Aochea",
-  "api_key": "sk_d68be818-973c-6aa7-94f2-17fe877f2360.JPh2j_XISrgUSDByy0VrNb57VUeK5Ld-pp5hxF9qd3E",
-  "status": "authenticated_before_reset",
-  "browser_provider": "onk_1788991878",
-  "created_at": "2026-09-22T23:41:09.692533Z",
-  "updated_at": "2026-09-26T16:52:14Z",
-  "attempt": 1,
-  "org": "Genev Aochea",
-  "org_slug": "genev-20563",
-  "trial": "startup",
-  "bootstrap_key_created": true,
-  "proxy_id": "mc8ffcsnryoiqr16g56he552",
-  "custom_proxies": {
-    "enabled": true
+ "email": "errolnati.jalon@gmail.com",
+ "password": "GmailK01!",
+ "first": "Genev",
+ "last": "Aochea",
+ "api_key": "sk_5216f10b-8099-ccfb-0e9d-22d20f3c42ba.gq5fp4XjZphgFcbQyo1YTIWIpf-0momXa-fsNLiHlK8",
+ "status": "reset_ok",
+ "browser_provider": "onk_1788991878",
+ "created_at": "2026-09-22T23:41:09.692533Z",
+ "updated_at": "2026-09-26T17:12:01Z",
+ "attempt": 1,
+ "org": "Genev Aochea",
+ "org_slug": "genev-42634",
+ "trial": null,
+ "bootstrap_key_created": true,
+ "proxy_id": "efikqen82qklqxwsm4ad6c58",
+ "custom_proxies": {
+  "enabled": false
+ },
+ "last_error": null,
+ "tag": "unlocked",
+ "probe_at": "2026-09-23T17:26:57Z",
+ "browsers_probe": 6,
+ "probe_ok": true,
+ "credential_history": [
+  {
+   "org": "Genev Aochea",
+   "org_slug": "genev-20563",
+   "api_key": "sk_d68be818-973c-6aa7-94f2-17fe877f2360.JPh2j_XISrgUSDByy0VrNb57VUeK5Ld-pp5hxF9qd3E",
+   "proxy_id": "mc8ffcsnryoiqr16g56he552",
+   "trial": "startup"
   },
-  "last_error": null,
-  "tag": "unlocked",
-  "probe_at": "2026-09-23T17:26:57Z",
-  "browsers_probe": 6,
-  "probe_ok": true,
-  "credential_history": [
-    {
-      "org": "Genev Aochea",
-      "org_slug": "genev-20563",
-      "api_key": "sk_d68be818-973c-6aa7-94f2-17fe877f2360.JPh2j_XISrgUSDByy0VrNb57VUeK5Ld-pp5hxF9qd3E",
-      "proxy_id": "mc8ffcsnryoiqr16g56he552",
-      "trial": "startup"
-    }
-  ],
-  "reset_started_at": "2026-09-26T17:01:16Z",
-  "backup_dir": "finals/sessions/onk-onk-1f48b75e52/backups/session/20260926T170116Z-before-org-reset"
+  {
+   "org": "Genev Aochea",
+   "org_slug": "genev-42150",
+   "api_key": "sk_0e7c9cda-cee8-2b37-83bb-07f9c24d7f87.apEXaTZNsGCqe2rlHBGlK3iur0Q6K8EcY-0n3NxKWLE",
+   "proxy_id": "xbkrl54nkdzmytdgt4lw5ky5",
+   "reset_at": "2026-09-26T17:03:58Z"
+  }
+ ],
+ "reset_started_at": "2026-09-26T17:09:28Z",
+ "backup_dir": "finals/sessions/onk-onk-1f48b75e52/backups/session/20260926T170928Z-before-org-reset",
+ "reset_from_org": "Genev Aochea",
+ "reset_target_org": "Genev Aochea",
+ "api_key_status": "active",
+ "reset_at": "2026-09-26T17:11:59Z",
+ "reset_write_http": "200"
 }

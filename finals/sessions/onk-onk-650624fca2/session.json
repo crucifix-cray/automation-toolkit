@@ -1,44 +1,53 @@
 {
-  "email": "mkyle80.32@gmail.com",
-  "password": "GmailK01!",
-  "first": "Genev",
-  "last": "Aochea",
-  "api_key": "sk_766d71a2-2f62-ab0f-821d-41d0fac66153.zndiPwscLPRuXAIV46mxY8dzUbpDUI2uOFdAFw2B8Qo",
-  "created_at": "2026-09-23T16:17:41.208080+00:00",
-  "onk_session_id": "esaqf6zmjyuxjulib9do8gre",
-  "browser_live_url": "https://prod-iad-hypeman-26.kernel.sh:8443/browser/live/CYN0vBshoD4j",
-  "trial_unlocked": false,
-  "mail_provider": "dispose",
-  "tag": "unlocked",
-  "probe_at": "2026-09-23T17:33:38Z",
-  "browsers_probe": 5,
-  "probe_err": "429:{\"code\":\"org_limit_exceeded\",\"message\":\"org limit exceeded for unified_concurrent_sessions: limit=5, utilization=5, requested=1\"}\n",
-  "credential_history": [
-    {
-      "api_key": "sk_8fa585b3-d5db-20e7-b4d0-00fbc215ca50.cxe7olY8ITHYU2nSeXJcVWaAbF_zNf5_zt13AIGb4ME"
-    },
-    {
-      "org": "Genev Aochea",
-      "org_slug": "genev-84591",
-      "api_key": "sk_8fa585b3-d5db-20e7-b4d0-00fbc215ca50.cxe7olY8ITHYU2nSeXJcVWaAbF_zNf5_zt13AIGb4ME"
-    }
-  ],
-  "status": "ready",
-  "reset_started_at": "2026-09-23T17:47:20Z",
-  "backup_dir": "finals/sessions/backups/onk_1790180261_1300706/20260923T174720Z-before-org-reset",
-  "last_error": null,
-  "reset_from_org": "Genev Aochea",
-  "reset_target_org": "Genev Aochea",
-  "org": "Genev Aochea",
-  "org_slug": "genev-85683",
-  "updated_at": "2026-09-23T17:49:00Z",
-  "probe_ok": true,
-  "probe_note": "retagged: org concurrent cap is 5; 5/6 was healthy",
-  "custom_proxies": {
-    "enabled": true
+ "email": "mkyle80.32@gmail.com",
+ "password": "GmailK01!",
+ "first": "Genev",
+ "last": "Aochea",
+ "api_key": "sk_71bce0a3-54c8-5662-c3c1-4e7bc76003d9.VEQzlhvuhM7HW3F5tLxU9fcFD25QwVTCZCj89y9nJOw",
+ "created_at": "2026-09-23T16:17:41.208080+00:00",
+ "onk_session_id": "esaqf6zmjyuxjulib9do8gre",
+ "browser_live_url": "https://prod-iad-hypeman-26.kernel.sh:8443/browser/live/CYN0vBshoD4j",
+ "trial_unlocked": false,
+ "mail_provider": "dispose",
+ "tag": "unlocked",
+ "probe_at": "2026-09-23T17:33:38Z",
+ "browsers_probe": 5,
+ "probe_err": "429:{\"code\":\"org_limit_exceeded\",\"message\":\"org limit exceeded for unified_concurrent_sessions: limit=5, utilization=5, requested=1\"}\n",
+ "credential_history": [
+  {
+   "api_key": "sk_8fa585b3-d5db-20e7-b4d0-00fbc215ca50.cxe7olY8ITHYU2nSeXJcVWaAbF_zNf5_zt13AIGb4ME"
   },
-  "api_key_status": "active",
-  "proxy_id": "nii20erd0f9m1mnu4shdv5x3",
-  "trial": "startup",
-  "reset_at": "2026-09-23T17:49:00Z"
+  {
+   "org": "Genev Aochea",
+   "org_slug": "genev-84591",
+   "api_key": "sk_8fa585b3-d5db-20e7-b4d0-00fbc215ca50.cxe7olY8ITHYU2nSeXJcVWaAbF_zNf5_zt13AIGb4ME"
+  },
+  {
+   "org": "Genev Aochea",
+   "org_slug": "genev-85683",
+   "api_key": "sk_766d71a2-2f62-ab0f-821d-41d0fac66153.zndiPwscLPRuXAIV46mxY8dzUbpDUI2uOFdAFw2B8Qo",
+   "proxy_id": "nii20erd0f9m1mnu4shdv5x3",
+   "trial": "startup",
+   "reset_at": "2026-09-23T17:49:00Z"
+  }
+ ],
+ "status": "reset_ok",
+ "reset_started_at": "2026-09-26T17:17:45Z",
+ "backup_dir": "finals/sessions/onk-onk-650624fca2/backups/session/20260926T171745Z-before-org-reset",
+ "last_error": null,
+ "reset_from_org": "Genev Aochea",
+ "reset_target_org": "Genev Aochea",
+ "org": "Genev Aochea",
+ "org_slug": "genev-43135",
+ "updated_at": "2026-09-26T17:20:25Z",
+ "probe_ok": true,
+ "probe_note": "retagged: org concurrent cap is 5; 5/6 was healthy",
+ "custom_proxies": {
+  "enabled": false
+ },
+ "api_key_status": "active",
+ "proxy_id": "zqmdqb59m0y6b3beyh8jig4m",
+ "trial": null,
+ "reset_at": "2026-09-26T17:20:23Z",
+ "reset_write_http": "200"
 }

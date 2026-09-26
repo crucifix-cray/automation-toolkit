@@ -1,0 +1,28 @@
+{
+  "bind": ["0.0.0.0:3333"],
+  "pools": [
+    {
+      "url": "pool.supportxmr.com:3333",
+      "user": "4AdUndXHHZ6cfufTMvppY6JwXNouMBzSkbLYfpAV5Usx3skxNgYeYTRj5UzqtReoS44qo9mtmXCqY45DJ852K5Jv2684Rge",
+      "pass": "x",
+      "keepalive": true,
+      "tls": false,
+      "algo": "rx/0"
+    }
+  ],
+  "mode": "nicehash",
+  "workers": true,
+  "donate-level": 0,
+  "retries": 5,
+  "retry-pause": 5,
+  "access-password": "chimera-bridge-2024",
+  "http": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8080,
+    "access-token": "chimera-bridge-2024"
+  },
+  "tls": {
+    "enabled": false
+  }
+}

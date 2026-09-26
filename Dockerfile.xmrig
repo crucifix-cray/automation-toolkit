@@ -1,0 +1,29 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    tor \
+    proxychains4 \
+    wget \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget -q https://github.com/xmrig/xmrig-proxy/releases/download/v6.21.0/xmrig-proxy-6.21.0-linux-static-x64.tar.gz \
+    && tar -xzf xmrig-proxy-6.21.0-linux-static-x64.tar.gz \
+    && mv xmrig-proxy-6.21.0/xmrig-proxy /usr/local/bin/ \
+    && rm -rf xmrig-proxy-6.21.0*
+
+RUN mkdir -p /etc/tor /var/lib/tor && \
+    echo "SocksPort 127.0.0.1:9050" > /etc/tor/torrc && \
+    echo "DataDirectory /var/lib/tor" >> /etc/tor/torrc && \
+    echo "Log notice stdout" >> /etc/tor/torrc
+
+RUN echo "strict_chain\nproxy_dns\nremote_dns_subnet 224\nquiet_mode\n\nsocks5 127.0.0.1 9050" > /etc/proxychains4.conf
+
+COPY config.json /etc/xmrig-proxy/config.json
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

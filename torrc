@@ -1,0 +1,7 @@
+SocksPort 127.0.0.1:9050
+DataDirectory /var/lib/tor
+Log notice stdout
+Log notice file /var/log/tor/tor.log
+MaxCircuitDirtiness 600
+CircuitBuildTimeout 60
+LearnCircuitBuildTimeout 1
