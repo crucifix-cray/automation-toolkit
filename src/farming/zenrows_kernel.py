@@ -157,7 +157,7 @@ async def run_once():
                 await page.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(5000)
             body = await page.evaluate("() => document.body.innerText")
-            # Multi-provider rotation (round-robin file): 22do -> temptf -> hub -> dispose.
+            # 22.do one-dot Gmail ONLY (dispose/temp.tf/hub hidden for now).
             # One provider per run (fresh IP each run); creation is cheap, registration is not.
             import importlib.util as _ilu
             _mspec = _ilu.spec_from_file_location("mail_providers", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils", "mail_providers.py"))
@@ -167,8 +167,8 @@ async def run_once():
                 _rot = int(open(_zp("/tmp/zen_provider_rot.txt")).read().strip())
             except Exception:
                 _rot = 0
-            open(_zp("/tmp/zen_provider_rot.txt"), "w").write(str((_rot + 1) % 4))
-            _order = ["22do", "temptf", "hub", "dispose"][_rot:] + ["22do", "temptf", "hub", "dispose"][:_rot]
+            open(_zp("/tmp/zen_provider_rot.txt"), "w").write(str((_rot + 1) % 1))
+            _order = ["22do"]
             print(f"provider order: {_order}", file=sys.stderr)
             email = None
             email_source = "dispose"
@@ -206,19 +206,12 @@ async def run_once():
                 elif _prov == "dispose":
                     break
             if not email:
-                # Gmail ONLY: astroai.eu.cc + mail.tm blocked ("Email domain not allowed").
-                # Fallback = dispose.lol page Gmail (must have exactly 1 dot, no plus).
-                print("22.do miss, fallback to dispose.lol Gmail (astroai/mail.tm blocked)", file=sys.stderr)
-                _gm = [m for m in re.findall(r"[a-z0-9._%+-]+@gmail\.com", body, re.I)
-                       if m.split("@")[0].count(".") == 1 and "+" not in m]
-                if not _gm:
-                    print("No valid dispose Gmail (1 dot, no plus) — fresh browser", file=sys.stderr)
-                    await page.screenshot(path=_zp("/tmp/zen_no_email_found.png"), full_page=True)
-                    await browser.close()
-                    cleanup_kernel(session_id)
-                    raise RuntimeError("retry-next-attempt")
-                email = _gm[0]
-                print(f"dispose Gmail {email}", file=sys.stderr)
+                # 22.do miss -> fail the attempt (no dispose fallback while hidden).
+                print("22.do miss, no fallback -> next attempt", file=sys.stderr)
+                await page.screenshot(path=_zp("/tmp/zen_no_email_found.png"), full_page=True)
+                await browser.close()
+                cleanup_kernel(session_id)
+                raise RuntimeError("retry-next-attempt")
             password = "Test1234!AbcZ2026"
             print(f"EMAIL: {email} | PASS: {password} | SRC: {email_source}", file=sys.stderr)
             try:
