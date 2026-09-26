@@ -14,6 +14,13 @@ import asyncio, os, json, re, subprocess, sys, time, random
 KERNEL_API_KEY = os.environ.get("KERNEL_API_KEY", "sk_729ff0c8-8973-8dcb-9c53-7288178dbc13.jO62-M4NtqELqARSxGY1Ar7BPyjSIU6OhdoHMjdt0Ow")
 os.environ["PATH"] = os.environ.get("PATH","") + f":{os.path.expanduser('~')}/.local/bin"
 
+# Parallel-farm isolation: ZEN_TAG env suffixes all /tmp state so N workers
+# can share one box without clobbering rot cursor / account output / shots.
+_ZEN_TAG = os.environ.get("ZEN_TAG", "")
+_ZT = ("_" + _ZEN_TAG) if _ZEN_TAG else ""
+def _zp(p):
+    return p.replace("/tmp/zen_", f"/tmp/zen{_ZT}_") if _ZT else p
+
 def create_kernel_browser():
     if os.environ.get("KERNEL_CDP_WS"):
         wss = os.environ["KERNEL_CDP_WS"]
@@ -157,10 +164,10 @@ async def run_once():
             _mp = _ilu.module_from_spec(_mspec)
             _mspec.loader.exec_module(_mp)
             try:
-                _rot = int(open("/tmp/zen_provider_rot.txt").read().strip())
+                _rot = int(open(_zp("/tmp/zen_provider_rot.txt")).read().strip())
             except Exception:
                 _rot = 0
-            open("/tmp/zen_provider_rot.txt", "w").write(str((_rot + 1) % 4))
+            open(_zp("/tmp/zen_provider_rot.txt"), "w").write(str((_rot + 1) % 4))
             _order = ["22do", "temptf", "hub", "dispose"][_rot:] + ["22do", "temptf", "hub", "dispose"][:_rot]
             print(f"provider order: {_order}", file=sys.stderr)
             email = None
@@ -206,7 +213,7 @@ async def run_once():
                        if m.split("@")[0].count(".") == 1 and "+" not in m]
                 if not _gm:
                     print("No valid dispose Gmail (1 dot, no plus) — fresh browser", file=sys.stderr)
-                    await page.screenshot(path="/tmp/zen_no_email_found.png", full_page=True)
+                    await page.screenshot(path=_zp("/tmp/zen_no_email_found.png"), full_page=True)
                     await browser.close()
                     cleanup_kernel(session_id)
                     sys.exit(1)
@@ -500,13 +507,13 @@ async def run_once():
                 if "Too many accounts detected from your IP" in content:
                     print("IP FLAGGED (too many accounts) -> kill browser, fresh IP next run", file=sys.stderr)
                     _flag_ip(egress_ip)
-                    await page.screenshot(path="/tmp/zen_ip_flagged.png", full_page=True)
+                    await page.screenshot(path=_zp("/tmp/zen_ip_flagged.png"), full_page=True)
                     await browser.close()
                     cleanup_kernel(session_id)
                     sys.exit(1)
                 if "Email domain not allowed" in content or "Invalid email address" in content:
                     print(f"DOMAIN/EMAIL REJECTED for {email} (try {_em_try}) -> retry same browser", file=sys.stderr)
-                    await page.screenshot(path=f"/tmp/zen_domain_blocked_{_em_try}.png", full_page=True)
+                    await page.screenshot(path=_zp(f"/tmp/zen_domain_blocked_{_em_try}.png"), full_page=True)
                     continue
                 if "email/verify" not in url and "verify" not in content.lower():
                     try:
@@ -515,7 +522,7 @@ async def run_once():
                     except Exception:
                         pass
                     print(f"Register failed, url={url} (try {_em_try}) -> retry same browser", file=sys.stderr)
-                    await page.screenshot(path=f"/tmp/zen_register_failed_{_em_try}.png", full_page=True)
+                    await page.screenshot(path=_zp(f"/tmp/zen_register_failed_{_em_try}.png"), full_page=True)
                     continue
                 _registered = True
                 break
@@ -847,7 +854,7 @@ async def run_once():
                         pass
             if not (found22 or found_tf or found_dispose):
                 print("No verification email after 20 polls", file=sys.stderr)
-                await page.screenshot(path="/tmp/zen_no_email.png", full_page=True)
+                await page.screenshot(path=_zp("/tmp/zen_no_email.png"), full_page=True)
                 await browser.close()
                 cleanup_kernel(session_id)
                 sys.exit(1)
@@ -1071,7 +1078,7 @@ async def run_once():
                     m = re.search(r"\b([a-f0-9]{40})\b", _clean)
             if not m:
                 print(f"No API key found at {url} body={body_text[:2000]}", file=sys.stderr)
-                await page.screenshot(path="/tmp/zen_no_apikey.png", full_page=True)
+                await page.screenshot(path=_zp("/tmp/zen_no_apikey.png"), full_page=True)
                 await browser.close()
                 cleanup_kernel(session_id)
                 sys.exit(1)
@@ -1079,10 +1086,10 @@ async def run_once():
             print(f"SUCCESS {email} / {password} / {api_key} → {url}", file=sys.stderr)
             result = {"email": email, "password": password, "api_key": api_key, "url": url, "live_url": live_url, "session_id": session_id, "egress_ip": egress_ip}
             print(json.dumps(result, indent=2))
-            with open("/tmp/zen_kernel_account.txt","w") as f:
+            with open(_zp("/tmp/zen_kernel_account.txt"),"w") as f:
                 f.write(f"EMAIL={email}\nPASSWORD={password}\nAPI_KEY={api_key}\nURL={url}\nLIVE={live_url}\nSID={session_id}\n")
-            await page.screenshot(path="/tmp/zen_verified.png", full_page=True)
-            print(f"Saved /tmp/zen_kernel_account.txt and /tmp/zen_verified.png", file=sys.stderr)
+            await page.screenshot(path=_zp("/tmp/zen_verified.png"), full_page=True)
+            print(f"Saved {_zp('/tmp/zen_kernel_account.txt')} and {_zp('/tmp/zen_verified.png')}", file=sys.stderr)
             if os.environ.get("ZEN_KEEP_OPEN", "0") == "1":
                 print(f"Browser kept open for manual inspection: {live_url} (session {session_id}) — sleeping 10min", file=sys.stderr)
                 await asyncio.sleep(600)
