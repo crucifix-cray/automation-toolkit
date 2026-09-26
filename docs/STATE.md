@@ -80,36 +80,55 @@ the fleet by 42%. Unique email is the only honest denominator.
 
 ## 3. OnKernel
 
-Tested live against `GET api.onkernel.com/proxies` (Bearer auth), 2026-09-25.
-Full per-key result: `finals/onk_key_status.json` (155 keys).
+**101 account sessions. 101/101 healthy. 101/101 full credentials.**
 
-| Verdict | HTTP | Count |
+Re-verified live 2026-09-26 against `GET api.onkernel.com/proxies` (Bearer auth).
+Per-account: `finals/onk_fleet.json`.
+
+| Check | Result |
+|---|---|
+| API healthy (HTTP 200) | **101 / 101** |
+| hit-limit (HTTP 401) | **0** |
+| Unique emails | **101** (1:1 with dirs, no dupes) |
+| Has password | 101 / 101 |
+| Has cookies (`cookies.json`) | 101 / 101 |
+| Has storage (`storage.json`, origins+cookies) | 101 / 101 |
+| FULL + healthy (all three) | **101** |
+| `trial_unlocked` flag | 48 (flag only — all 101 authenticate regardless) |
+| `browser_live_url` | 94 |
+
+**Slot capacity: 101 keys × 10 browsers = 1010 browser slots.**
+
+Location: `finals/sessions/onk-onk-*/` (60 dirs) and `finals/sessions/onk-k*/`
+(41 dirs) — two naming patterns, one fleet, 101 total.
+
+The 49 dead keys were **pruned 2026-09-26** after confirming they carried no
+recoverable session state:
+
+| Dead source | Count | Cookies / storage / refresh token |
 |---|---|---|
-| **working** | 200 | **107** |
-| **hit-limit** | 401 | **48** |
+| `zenrows_onkernel_farmed.json` | 34 | none — browser signup, state never persisted |
+| `bd-creds.json`, `acc1..12.json` | 13 | none (BrightData, not OnK) |
+| scattered `onk_*.json` | 2 | none |
 
-Where they live, and why earlier docs kept missing them:
+Removed from the working tree; keys retained at
+`~/railway_tokens_backup/dead_onk_keys_2026-09-26.json` and
+`~/railway_tokens_backup/dead_onk_49_2026-09-26.tar.gz`.
 
-| Source | working | hit-limit | Note |
-|---|---|---|---|
-| `finals/sessions/onk-onk-*/session.json` | **101** | 0 | the real fleet — one dir per account |
-| `finals/sessions/onk_*.json` + `latest_onk.json` + reset probe | 6 | 0 | older scattered jars |
-| `finals/zenrows_onkernel_farmed.json` | 0 | 34 | all dead |
-| `bd-creds.json`, `acc1..12.json` | 0 | 13 | all dead |
-
-**Slot capacity: 107 keys × 10 browsers = 1070 browser slots.**
-
-An earlier pass reported only 17 keys. That was wrong — it globbed
-`onk_*.json` and missed the `onk-onk-*/session.json` directories, which hold
-101 of the 107 working keys. The `tag=unlocked` label in `ONKERNEL.md` is a
-farming-history tag, not a health check, and is unrelated to either number.
+**Two earlier counting errors, both fixed, recorded so they don't repeat:**
+1. Globbing only `onk_*.json` reported **17** keys. The bulk live in
+   `onk-*/session.json` dirs. `scripts/audit_state.py` now walks recursively
+   and is scoped to `onk-*` only, so Lovable (`lov-*`) and BrightData
+   (`acc*`, `bd-creds`) keys are never mis-probed as OnKernel.
+2. `tag=unlocked` in `ONKERNEL.md` is a farming-history label, not a health
+   check. It counts 48 here and means nothing about whether a key works.
 
 ## 4. ZenRows
 
 | Metric | Value |
 |---|---|
-| Unique API keys | 39 (36 accounts + 3 standalone) |
-| Files | `CONSOLIDATED_zenrows.json`, `finals/zenrows_onkernel_farmed.json` |
+| Unique API keys | **4** remaining after 34 dead onk keys were pruned 2026-09-26 |
+| Files | `CONSOLIDATED_zenrows.json` (4 accounts) |
 | Daily-cap lock | present since 2026-09-09 (`finals/zenrows_LIMIT.lock`) |
 
 **Key validity is UNKNOWN, not 403.** Plain `curl` gets a Cloudflare
@@ -125,11 +144,11 @@ based on a 403 from curl — that was an earlier mistake in this file's history.
 |---|---|---|
 | 1k Railway usable | **~470** (488 new-run jars, 97% verified) | farm ~550 more **with the new enhanced script** — the old path burns them |
 | 1k Lovable accounts | **36** | **964** |
-| Browser capacity for farming | **107 OnK keys** | 107 × 10 = 1070 slots — sufficient |
+| Browser capacity for farming | **101 OnK sessions, 1010 slots** | sufficient |
 
-**Browser capacity is no longer the bottleneck** — 107 OnK keys give ~1070
-slots. The binding constraint is purely **Lovable account count (36)** and, for
-Railway, keeping the new-run farm from being restricted.
+**Browser capacity is settled** — 101 healthy OnK sessions = 1010 slots.
+The binding constraint is now purely **Lovable account count (36 of 1000)**
+and, for Railway, continuing to farm with the new enhanced script.
 
 The farm is **PAUSED** (`FARM-1K.md`). `mail_rotate.py` pacing state shows
 `total_picks: 1` — the fix was written but never actually ran on this box.

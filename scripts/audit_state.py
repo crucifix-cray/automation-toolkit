@@ -161,9 +161,30 @@ def onk_status() -> dict:
                 elif isinstance(o, list):
                     stack.extend(o)
 
-    for root in (FINALS / "sessions", FINALS, REPO / "mega_db"):
-        if root.is_dir():
-            harvest(root)
+    for root in (FINALS / "sessions", REPO / "finals" / "sessions"):
+        if not root.is_dir():
+            continue
+        for f in root.rglob("*.json"):
+            # only onk-onk-* account dirs and onk_*.json jars; never lov-* (Lovable
+            # sessions) or acc*/bd-creds (BrightData) which carry unrelated keys
+            n = f.name
+            if not (n == "session.json" and f.parent.name.startswith("onk-")) and not n.startswith("onk_"):
+                continue
+            try:
+                d = json.loads(f.read_text())
+            except Exception:
+                continue
+            stack = [d]
+            while stack:
+                o = stack.pop()
+                if isinstance(o, dict):
+                    k = o.get("api_key") or o.get("key")
+                    if isinstance(k, str) and len(k) >= 20:
+                        jars.setdefault(k, {"email": o.get("email"), "tag": o.get("tag"),
+                                            "src": f.parent.name if n == "session.json" else n})
+                    stack.extend(o.values())
+                elif isinstance(o, list):
+                    stack.extend(o)
 
     def probe(k):
         try:
