@@ -3,20 +3,21 @@
 | What | Where |
 |---|---|
 | OnKernel unlocked jars | `finals/sessions/onk_*.json` + [ONKERNEL.md](ONKERNEL.md) |
-| **Lovable 1k farm** | [LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md) — Ubuntu services on `farmed-*` |
-| Railway MADE jars | `finals/sessions/farmed-*` (**1236**; use **`[236:]` = 1000**) |
+| **Lovable 1k farm** | [LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md) — Ubuntu services on VERIFIED jars |
+| Railway VERIFIED jars | `finals/railway_healthy.json` (**478 verified**, use these) |
 | Bridge | `wss://chimera-bridge-production-0703.up.railway.app` |
 | Org credit reset | `src/onkernel/org_reset.py` |
 
-**OnK pool:** ~101 healthy unlocked × 10 mobile browsers ≈ 1010 slots. Prefer **last**
-keys (early ones burned on preflight). Probe: `/tmp/onk-credit-probe.json`.
+**OnK pool:** **101 keys, 101/101 verified HTTP 200** with full creds
+(`finals/onk_fleet.json`). At 5 browsers/key = **505 slots per wave**.
+Registry: `finals/onk_fleet.json` — read capacity there, not from tag labels.
 
-**1k Lovable (current plan):** each of `farmed-*[236:]` gets a persistent **Ubuntu
-service**; run `farm_lovable_ultimate.py --once` on it (multi-country mobile, soft
-2FA, shuffled zenvex). See [LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md).
+**Counts live in [STATE.md](STATE.md).** Two farm runs exist: the 2026-09-23 run
+is **burned** (1220/1236 restricted), the 2026-09-25 enhanced run is **95.5%
+healthy** (466/488). Only farm from the healthy registry.
 
-**Older Railway MADE path** (Holy account farm via sandboxes on Documents/railways)
-is separate; do not confuse with the Lovable 1k Ubuntu-service fleet.
+**1.2k target plan:** [PLAN-1.2K.md](PLAN-1.2K.md) — 505 browsers/wave, 2 waves,
+with the mail-pacing gate that must run first.
 
 **Must scrub `RAILWAY_*`** inside workers or service-verify steals the host identity.
 

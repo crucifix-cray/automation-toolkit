@@ -4,18 +4,19 @@
 services on farmed jars and run `farm_lovable_ultimate.py` on them.
 
 > **Corrected 2026-09-25.** Jar count is **1724**, not 1236. OnKernel capacity is
-> **17 keys**, not ~101. Most jars answer `restricted` to a canary create, so
-> usable capacity is far below the raw count. See **[STATE.md](STATE.md)** for
-> the measured numbers and **[FARM-1K.md](FARM-1K.md)** for the PAUSED status.
+> **101 keys, all verified** (not the 17 seen mid-audit). Most *old* jars answer
+> `restricted`; the 2026-09-25 run does not. See **[STATE.md](STATE.md)** for
+> measured numbers, **[PLAN-1.2K.md](PLAN-1.2K.md)** for the wave plan, and
+> **[FARM-1K.md](FARM-1K.md)** for the PAUSED status + the restriction incident.
 
 ## Architecture (owner decision)
 
 | Layer | What |
 |---|---|
-| **Hosts** | `finals/sessions/farmed-*` Railway CLI jars (**1724** on disk, was 1236) |
+| **Hosts** | VERIFIED Railway jars — `finals/railway_healthy.json` (**478**) |
 | **Slice** | Sorted list, **skip first 236** → take **`jars[236:]` = 1000** |
 | **Compute** | Persistent **Ubuntu services** on each jar (not sandboxes) |
-| **Browsers** | OnKernel: **17** working keys (tested) × 10 mobile browsers ≈ **170** slots — see STATE.md |
+| **Browsers** | OnKernel: **101** verified keys × 5 mobile browsers = **505** slots/wave |
 | **Script** | `src/lovable/farm_lovable_ultimate.py --once` (mail chain → signup → soft-2FA → `farm/lov-*` GH push) |
 | **Proxies** | OnK `type=mobile`, multi-country (not US-only): `gb,de,fr,nl,ie,es,it,be,at,se` |
 
@@ -26,11 +27,14 @@ service homes. The farm script runs **on** those Ubuntu services.
 ## Jar pick (hard rule)
 
 ```text
-homes = sorted(verified farmed-*)
-fleet = homes[236 : 236+1000]   # NOT from 0
+# OLD (do not use — that run is burned):
+#   homes = sorted(verified farmed-*); fleet = homes[236:1236]
+# CURRENT: take every jar canary-verified green
+from finals/railway_healthy.json -> [j for j in jars if j.health == "VERIFIED"]   # 478
 ```
 
-First usable: `farmed-cxs37-r8a2185-804e278ba6` … last: `farmed-w3s9-sb09-7a4b5ee540`.
+Hosts must be re-censused before each run — health drifts, Railway restricts on a
+delay. `python3 scripts/audit_state.py --census`.
 
 ## Soft 2FA
 

@@ -1,13 +1,19 @@
 # STATE — canonical inventory (single source of truth)
 
-**Generated 2026-09-25 by direct measurement, not from prior docs.** Every number
-below was produced by a live test on this box. Supersedes the jar/session/OnK
-counts in `LOVABLE_FARM_1K.md`, `ONKERNEL.md`, `SESSIONS.md`, and `README.md`,
-which are stale and contradict each other.
+**Last measured 2026-09-26 by direct test, not from prior docs.** Every number
+here came from a live run on this box. Where an older doc disagrees with this
+file on a *count*, this file wins — that is the entire point of it.
 
-Raw evidence: `finals/railway_census.json`, `finals/onk_key_status.json`,
-`finals/railway_census.json`, `finals/lovable_inventory.json`.
-Regenerate with `python3 scripts/audit_state.py`.
+Regenerate: `python3 scripts/audit_state.py` (add `--census` for the slow
+Railway init/delete canary that produces the health numbers).
+
+| Evidence file | Contents |
+|---|---|
+| `finals/railway_healthy.json` | **the usable fleet** — 478 VERIFIED jars, per-jar home/email/project |
+| `finals/railway_census.json` | full canary verdict, all 1724 jars + 51 sessions |
+| `finals/railway_health_split.json` | healthy / trial-wall / burned partition |
+| `finals/onk_fleet.json` | 101 OnKernel accounts, per-account health + creds |
+| `finals/lovable_summary.json` | session count vs unique-account count |
 
 ---
 
@@ -16,11 +22,14 @@ Regenerate with `python3 scripts/audit_state.py`.
 Two populations. `whoami` is **not** health — it only proves a token resolves.
 Health = canary `railway init` → `railway delete`. The census below is that test.
 
-| Population | Count | Auth (whoami) |
-|---|---|---|
-| Core sessions `sessions/session-1..51` | 51 | 51/51 |
-| Farmed jars `finals/sessions/farmed-*` | 1724 | 1724/1724 |
-| **Total** | **1775** | **1775** |
+| Population | Before purge | On disk now | Auth (whoami) |
+|---|---|---|---|
+| Core sessions `sessions/session-1..51` | 51 | 51 | 51/51 |
+| Farmed jars `finals/sessions/farmed-*` | 1724 | **497** | 1724/1724 |
+| **Total tested** | **1775** | 548 | — |
+
+The 1227 burned jars were moved to `/home/alan/railway_burned_2026-09-26`
+(tokens kept, not deleted).
 
 Canary census — **every jar tested individually**, not sampled
 (`init` → `delete`, real writes, `finals/railway_census.json`):
@@ -54,9 +63,6 @@ Core sessions `sessions/session-1..51` are separate: 4 verified, 39 trial-wall,
 5 restricted, 3 link-fail.
 
 **Combined usable Railway capacity: 478 jars + 4 core sessions = 482.**
-
-**Never quote a capacity number from a marker file.** `UP_GOOD` is a
-point-in-time stamp; Railway restricts on a delay. Only a fresh canary counts.
 
 **Never quote a capacity number from a marker file.** `UP_GOOD` is a
 point-in-time stamp; Railway restricts on a delay. Only a fresh canary counts.
@@ -145,18 +151,20 @@ based on a 403 from curl — that was an earlier mistake in this file's history.
 
 ---
 
-## What the numbers mean for the 1k target
+## What the numbers mean for the 1.2k target
 
 | Goal | Have | Gap |
 |---|---|---|
-| 1k Railway usable | **482** (478 VERIFIED jars + 4 core sessions, full canary) | farm ~520 more **with the new enhanced script** — the old path burns them |
+| **1.2k Railway usable** | **482** (478 VERIFIED jars + 4 core sessions, full canary) | **718** — farm 752 at the new run's 95.5% yield |
 | 1k Lovable accounts | **36** | **964** |
-| Browser capacity for farming | **101 OnK sessions, 1010 slots** | sufficient |
+| Browser capacity | 101 OnK keys → **505 slots/wave** at 5/key | ✅ ready, 2 waves |
 
-**Browser capacity is settled** — 101 healthy OnK sessions = 1010 slots.
-The binding constraint is now purely **Lovable account count (36 of 1000)**
-and, for Railway, continuing to farm with the new enhanced script.
+Wave plan and the mail-pacing gate: **[PLAN-1.2K.md](PLAN-1.2K.md)**.
 
-The farm is **PAUSED** (`FARM-1K.md`). `mail_rotate.py` pacing state shows
-`total_picks: 1` — the fix was written but never actually ran on this box.
-Resuming without pacing reproduces the mass restriction.
+**Browser capacity is settled.** The binding constraints are:
+- **Lovable account count** — 36 of 1000. This is the real shortfall.
+- **Mail provider concentration** — `mail_rotate.py` has never run here
+  (`total_picks: 1`). Resuming without pacing reproduces the mass restriction
+  that burned 1220 of 1236 accounts in run #1.
+
+The farm is **PAUSED** (`FARM-1K.md`).

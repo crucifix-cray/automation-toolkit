@@ -34,12 +34,17 @@ API-verified: `GET/POST https://api.onkernel.com/proxies` → mobile US availabl
 
 See **[LOVABLE_FARM_1K.md](LOVABLE_FARM_1K.md)** and **[STATE.md](STATE.md)**.
 
-> **Corrected 2026-09-25.** The "~101 healthy unlocked keys ≈ 1010 slots" figure
-> below was never true. A live test of all 51 keys against
-> `GET api.onkernel.com/proxies` returns **17 × HTTP 200 (working)** and
-> **34 × 401 (hit limit)**. Real browser capacity is **17 keys**, not 101.
-> `tag=unlocked` is a farming-history tag, not a health check. Per-key verdicts:
-> `finals/onk_key_status.json`.
+> **Corrected twice — read this.** The "~101 healthy × 10 browsers" figure in the
+> table below was aspirational. Measured state:
+>
+> * 2026-09-25 audit of 51 keys: 17 working / 34 hit-limit.
+> * 2026-09-26 the missing keys were acquired and 49 dead ones pruned
+>   (commit `f08a6931`): **101 keys, 101/101 HTTP 200, all with full creds.**
+>   Re-verified on this box: 60/60 green, 0 dead.
+> * Fleet registry: `finals/onk_fleet.json`. Per-key: `finals/onk_key_status.json`.
+>
+> `tag=unlocked` is a farming-history label, not a health check — do not read
+> capacity off it.
 
 ## Railway spreader plan (51 workers → ~1k MADE jars) — legacy / paused
 

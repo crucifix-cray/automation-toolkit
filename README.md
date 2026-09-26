@@ -7,7 +7,7 @@ Automated farm for Lovable.dev + Railway.com using remote browsers (ZenRows / On
 | Phase | Accounts | Goal | Browser Stack |
 |-------|----------|------|---------------|
 | **P0: Seed 100** | 100 Lovable + 30 Railway | Validate viral farm + bridge 1000 clients | ZenRows GB (Lovable) + ZenRows GF (Railway) |
-| **P1: 1k** | 1k Lovable + 300 Railway | Prove headless sandbox mining (moly) stable | ZenRows GB/GF + Kernel fallback (8GiB jfk) |
+| **P1: 1k** | 1k Lovable + 300 Railway | Prove headless sandbox mining (moly) stable | **OnKernel 101 keys × 5** |
 | **P2: 10k** | 10k Lovable + 3.3k Railway | Viral `1→8192 in 26min` ×2, 10 bridges | ZenRows + OnKernel + BrightData pool (ASN rotation) |
 | **P3: 40k** | 40k Lovable + 13k Railway | 40 bridges, sharded Mega DB | All 3 providers + self-farm ZenRows/BrightData accounts via `astroai.eu.cc` / duckspam |
 
@@ -15,7 +15,13 @@ Automated farm for Lovable.dev + Railway.com using remote browsers (ZenRows / On
 
 See [docs/archive/SCALING-PLAN.md](./docs/archive/SCALING-PLAN.md) and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for full pipeline.
 
-107 live Railway CLI sessions: [`sessions/`](sessions/) — index [`docs/SESSIONS.md`](docs/SESSIONS.md), howto [`docs/HOWTO-RAILWAY.md`](docs/HOWTO-RAILWAY.md).
+**Read [`docs/STATE.md`](docs/STATE.md) first — it holds every measured count.**
+[`docs/PLAN-1.2K.md`](docs/PLAN-1.2K.md) is the current target plan. The phase
+table above is the original ambition, not current state.
+
+Railway: 51 core sessions ([`sessions/`](sessions/), index [`docs/SESSIONS.md`](docs/SESSIONS.md))
++ **478 canary-verified jars** ([`finals/railway_healthy.json`](finals/railway_healthy.json)).
+OnKernel: **101 keys** → 505 browser slots/wave. CLI howto: [`docs/HOWTO-RAILWAY.md`](docs/HOWTO-RAILWAY.md).
 
 ## 🚀 Quick Start (Inside Railway Sandbox)
 
@@ -98,7 +104,7 @@ CHIMERA_MINER_DIR=/home/alan/Documents/repos/chimera-miner
 ## 🐛 Troubleshooting
 
 ### Lovable Turnstile 403 / suspicious
-Use ZenRows **GB** `proxy_country=gb` (BT Telford) — GF/F Orange still `suspicious activity 400` on Firebase. See `docs/ZENROWS_ADVANCEMENTS_2026-09-01.md:10`
+Use ZenRows **GB** `proxy_country=gb` (BT Telford) — GF/F Orange still `suspicious activity 400` on Firebase. See `docs/archive/ZENROWS_ADVANCEMENTS_2026-09-01.md:10`
 
 ### Railway OTP not arriving
 dispose.lol needs `?sessionId` fresh per poll on BrightData — use ZenRows GF instead. `railway-HOLY-zenrows.py:105` 80s short poll → breaker rotates.
