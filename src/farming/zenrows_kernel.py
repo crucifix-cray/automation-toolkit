@@ -216,7 +216,7 @@ async def run_once():
                     await page.screenshot(path=_zp("/tmp/zen_no_email_found.png"), full_page=True)
                     await browser.close()
                     cleanup_kernel(session_id)
-                    sys.exit(1)
+                    raise RuntimeError("retry-next-attempt")
                 email = _gm[0]
                 print(f"dispose Gmail {email}", file=sys.stderr)
             password = "Test1234!AbcZ2026"
@@ -228,7 +228,7 @@ async def run_once():
                     print(f"DUP email {email} already farmed -> fresh run", file=sys.stderr)
                     await browser.close()
                     cleanup_kernel(session_id)
-                    sys.exit(1)
+                    raise RuntimeError("retry-next-attempt")
             except SystemExit:
                 raise
             except Exception as _de:
@@ -313,7 +313,7 @@ async def run_once():
                 print("CF not solved", file=sys.stderr)
                 await browser.close()
                 cleanup_kernel(session_id)
-                sys.exit(1)
+                raise RuntimeError("retry-next-attempt")
 
             await page.wait_for_selector("#email", timeout=15000)
             # Human-like: mouse wander -> click field -> slow type (no instant fill)
@@ -364,7 +364,7 @@ async def run_once():
                         print(f"retry {_em_try}: no fresh email -> fresh run", file=sys.stderr)
                         await browser.close()
                         cleanup_kernel(session_id)
-                        sys.exit(1)
+                        raise RuntimeError("retry-next-attempt")
                     email = _ne
                     email_source = "22do"
                     _emails_tried.append(email)
@@ -377,19 +377,19 @@ async def run_once():
                         print(f"retry reload err {_rl} -> fresh run", file=sys.stderr)
                         await browser.close()
                         cleanup_kernel(session_id)
-                        sys.exit(1)
+                        raise RuntimeError("retry-next-attempt")
                 if not await _human_fill("#email", email):
                     print("EMAIL fill failed -> fresh run", file=sys.stderr)
                     await browser.close()
                     cleanup_kernel(session_id)
-                    sys.exit(1)
+                    raise RuntimeError("retry-next-attempt")
                 await page.wait_for_timeout(random.randint(500, 1100))
                 await page.mouse.move(random.randint(300, 700), random.randint(350, 550))
                 if not await _human_fill("#password", password):
                     print("PASSWORD fill failed -> fresh run", file=sys.stderr)
                     await browser.close()
                     cleanup_kernel(session_id)
-                    sys.exit(1)
+                    raise RuntimeError("retry-next-attempt")
                 await page.wait_for_timeout(random.randint(600, 1300))
                 # Kill cookie-banner overlays (HubSpot) that swallow the click
                 try:
@@ -424,12 +424,12 @@ async def run_once():
                             print(f"SUBMIT-IP FLAGGED {_sub_ip} -> fresh browser", file=sys.stderr)
                             await browser.close()
                             cleanup_kernel(session_id)
-                            sys.exit(1)
+                            raise RuntimeError("retry-next-attempt")
                         if _sub_ip in _load_ips():
                             print(f"SUBMIT-IP recent-dup {_sub_ip} -> fresh browser", file=sys.stderr)
                             await browser.close()
                             cleanup_kernel(session_id)
-                            sys.exit(1)
+                            raise RuntimeError("retry-next-attempt")
                         egress_ip = _sub_ip
                         _save_ip(egress_ip)
                     else:
@@ -510,7 +510,7 @@ async def run_once():
                     await page.screenshot(path=_zp("/tmp/zen_ip_flagged.png"), full_page=True)
                     await browser.close()
                     cleanup_kernel(session_id)
-                    sys.exit(1)
+                    raise RuntimeError("retry-next-attempt")
                 if "Email domain not allowed" in content or "Invalid email address" in content:
                     print(f"DOMAIN/EMAIL REJECTED for {email} (try {_em_try}) -> retry same browser", file=sys.stderr)
                     await page.screenshot(path=_zp(f"/tmp/zen_domain_blocked_{_em_try}.png"), full_page=True)
@@ -527,10 +527,10 @@ async def run_once():
                 _registered = True
                 break
             if not _registered:
-                print(f"3 emails rejected in same browser -> fresh run", file=sys.stderr)
+                print(f"3 emails rejected in same browser -> next attempt (rotates provider)", file=sys.stderr)
                 await browser.close()
                 cleanup_kernel(session_id)
-                sys.exit(1)
+                raise RuntimeError("3-rejected-in-browser")
             print(f"Registered {email} → email/verify, polling inbox...", file=sys.stderr)
             # Poll correct inbox: 22.do for 22do mails, temp.tf for dispose @gmail.com, dispose.lol for custom
             is_gmail = email.lower().endswith("@gmail.com")
@@ -754,7 +754,7 @@ async def run_once():
                                 pass
                             await browser.close()
                             cleanup_kernel(session_id)
-                            sys.exit(1)
+                            raise RuntimeError("retry-next-attempt")
                         email = _dg[0]
                         email_source = "dispose"
                         print(f"22.do empty -> re-register as dispose {email}", file=sys.stderr)
@@ -791,7 +791,7 @@ async def run_once():
                                     pass
                                 await browser.close()
                                 cleanup_kernel(session_id)
-                                sys.exit(1)
+                                raise RuntimeError("retry-next-attempt")
                             print(f"re-registered {email} -> email/verify", file=sys.stderr)
                             await pgD.goto("https://dispose.lol", wait_until="domcontentloaded", timeout=60000)
                             await pgD.wait_for_timeout(4000)
@@ -805,7 +805,7 @@ async def run_once():
                                 pass
                             await browser.close()
                             cleanup_kernel(session_id)
-                            sys.exit(1)
+                            raise RuntimeError("retry-next-attempt")
                     for i in range(20):
                         try:
                             bodyD = await pgD.evaluate("() => document.body.innerText")
@@ -857,7 +857,7 @@ async def run_once():
                 await page.screenshot(path=_zp("/tmp/zen_no_email.png"), full_page=True)
                 await browser.close()
                 cleanup_kernel(session_id)
-                sys.exit(1)
+                raise RuntimeError("retry-next-attempt")
 
             # For Gmail via temp.tf, verify_url already in window.__verifyUrl
             verify_url = await page.evaluate("() => window.__verifyUrl || ''")
@@ -930,7 +930,7 @@ async def run_once():
                     print(f"No verify_url found links={verify_links}", file=sys.stderr)
                     await browser.close()
                     cleanup_kernel(session_id)
-                    sys.exit(1)
+                    raise RuntimeError("retry-next-attempt")
             print(f"VERIFY_URL: {verify_url[:120]}...", file=sys.stderr)
 
             # The mail carries TWO distinct tracking URLs (Verify email button
@@ -1081,7 +1081,7 @@ async def run_once():
                 await page.screenshot(path=_zp("/tmp/zen_no_apikey.png"), full_page=True)
                 await browser.close()
                 cleanup_kernel(session_id)
-                sys.exit(1)
+                raise RuntimeError("retry-next-attempt")
             api_key = m.group(1) if m.groups() else m.group(0)
             print(f"SUCCESS {email} / {password} / {api_key} → {url}", file=sys.stderr)
             result = {"email": email, "password": password, "api_key": api_key, "url": url, "live_url": live_url, "session_id": session_id, "egress_ip": egress_ip}

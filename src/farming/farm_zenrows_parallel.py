@@ -107,8 +107,8 @@ def merge_registry(entry: dict) -> None:
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def worker(wid: int, key_row: dict, timeout: int, stagger: int) -> dict:
-    tag = f"w{wid}"
+def worker(wid: int, key_row: dict, timeout: int, stagger: int, rnd: str) -> dict:
+    tag = f"r{rnd}w{wid}"
     time.sleep(stagger * wid + random.uniform(0, stagger))
     # Spread provider rotation across workers (0..3 round-robin).
     try:
@@ -148,6 +148,8 @@ def main() -> None:
     ap.add_argument("--keys", type=int, default=0, help="use first K live keys (0 = all)")
     ap.add_argument("--timeout", type=int, default=1500)
     ap.add_argument("--stagger", type=int, default=10)
+    ap.add_argument("--round", type=str, default=time.strftime("%H%M"),
+                    help="round stamp; tags/logs isolate per round (default HHMM)")
     a = ap.parse_args()
 
     keys = load_keys()
@@ -164,7 +166,7 @@ def main() -> None:
 
     ok = fail = 0
     with ThreadPoolExecutor(max_workers=a.par) as ex:
-        futs = {ex.submit(worker, wid, krow, a.timeout, a.stagger): wid for wid, krow in jobs}
+        futs = {ex.submit(worker, wid, krow, a.timeout, a.stagger, a.round): wid for wid, krow in jobs}
         for f in as_completed(futs):
             try:
                 r = f.result()
