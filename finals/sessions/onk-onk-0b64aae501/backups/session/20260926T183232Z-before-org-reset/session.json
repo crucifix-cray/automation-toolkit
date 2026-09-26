@@ -1,0 +1,24 @@
+{
+  "email": "pashar.agin78@gmail.com",
+  "password": "GmailK01!",
+  "first": "Genev",
+  "last": "Aochea",
+  "api_key": "sk_4d7dc039-b681-a3ed-213c-eb4288533b4e.WLub6aMblRvaxZTStpYY1wmy3tyJ9qrYKeYPNw2UUpU",
+  "created_at": "2026-09-23T15:23:14.350908+00:00",
+  "onk_session_id": "hw3rs2j0xh1qu0vfqfboo978",
+  "browser_live_url": "https://prod-iad-hypeman-27.kernel.sh:8443/browser/live/8UpKc6zyCDJV",
+  "trial_unlocked": true,
+  "tag": "unlocked",
+  "credential_history": [
+    {
+      "api_key": "sk_4d7dc039-b681-a3ed-213c-eb4288533b4e.WLub6aMblRvaxZTStpYY1wmy3tyJ9qrYKeYPNw2UUpU"
+    }
+  ],
+  "status": "needs_recovery",
+  "reset_started_at": "2026-09-26T18:11:59Z",
+  "backup_dir": "/home/alan/Documents/railways/finals/sessions/onk-onk-0b64aae501/backups/session/20260926T181159Z-before-org-reset",
+  "last_error": "Locator.click: Timeout 8000ms exceeded.\nCall log:\n  - waiting for locator(\"button\").filter(has_text=\"skip\").first\n    - locator resolved to <button data-variant=\"ghost\" data-color=\"primary\" class=\"cl-formButtonReset cl-button \ud83d\udd12\ufe0f cl-internal-hk1x5n\" data-localization-key=\"createOrganization.invitePage.formButtonReset\">Skip</button>\n  - attempting click action\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n    - performing click action\n    - click action done\n    - waiting for scheduled navigations to finish\n",
+  "reset_from_org": "Genev Aochea 0ec3",
+  "reset_target_org": "Genev Aochea",
+  "updated_at": "2026-09-26T18:13:50Z"
+}
