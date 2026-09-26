@@ -59,6 +59,12 @@ async def handle(ws):
     except Exception as e:
         log.error(f'[!] pool connect failed: {e}')
         stats['clients'] -= 1
+        # Close the socket: returning here used to leave the client believing
+        # it was connected, so its relay sat half-open forever.
+        try:
+            await ws.close(code=1013, reason='pool unreachable')
+        except Exception:
+            pass
         return
 
     try:
@@ -114,7 +120,34 @@ async def handle(ws):
             except Exception as e:
                 log.debug(f'[pool→ws] ended: {e}')
 
-        await asyncio.gather(ws_to_pool(), pool_to_ws(), return_exceptions=True)
+        # Either direction ending MUST tear the session down. Previously
+        # gather() parked forever when the pool dropped (pool_to_ws ended,
+        # ws_to_pool stayed blocked on the idle client), so the handler never
+        # returned, stats['clients'] never decremented, and the coroutine
+        # leaked. Enough of those and the event loop saturates — Railway's
+        # edge then refuses every new connection with 1013 "at capacity".
+        done = asyncio.Event()
+
+        async def _ws_to_pool():
+            try:
+                await ws_to_pool()
+            finally:
+                done.set()
+
+        async def _pool_to_ws():
+            try:
+                await pool_to_ws()
+            finally:
+                # Pool side gone: drop the client too, else it keeps hashing
+                # into a dead pipe while looking connected.
+                log.info(f'[!] pool closed for {client_addr} — closing client')
+                done.set()
+
+        tasks = [asyncio.create_task(_ws_to_pool()), asyncio.create_task(_pool_to_ws())]
+        await done.wait()
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     finally:
         stats['clients'] -= 1
