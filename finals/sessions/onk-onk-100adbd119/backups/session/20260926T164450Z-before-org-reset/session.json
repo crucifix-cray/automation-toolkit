@@ -1,0 +1,46 @@
+{
+  "email": "hazellere.nabucas@gmail.com",
+  "password": "GmailK01!",
+  "first": "Genev",
+  "last": "Aochea",
+  "api_key": "sk_43e86d39-66a4-96ee-c267-e24198f99f2d.ddVDiVu-PQYC223MOqNIlKyEyin5RVvyQ5S6IwZEveM",
+  "created_at": "2026-09-09T22:48:07.114305Z",
+  "org": "Genev Aochea",
+  "org_slug": "genev-78842",
+  "reset_at": "2026-09-23T15:54:58Z",
+  "custom_proxies": {
+    "enabled": true
+  },
+  "proxy_id": "yq40z33a7robuvr5ogevfqhr",
+  "trial": "startup",
+  "credential_history": [
+    {
+      "org": "Genev Unlock 3",
+      "org_slug": "genev-19049",
+      "api_key": "sk_10cb7ca8-26ff-9bda-1021-d12f257560f3.7pDTEgGzlJGEwFF7dJqw8VqYgCJAq6RdMlvXkgrfkdE",
+      "proxy_id": "khtncworf1xuktgc1rikuz7g",
+      "trial": "startup",
+      "reset_at": "2026-09-22T23:18:25Z"
+    },
+    {
+      "org": "Genev Aochea",
+      "org_slug": "genev-78842",
+      "api_key": "sk_43e86d39-66a4-96ee-c267-e24198f99f2d.ddVDiVu-PQYC223MOqNIlKyEyin5RVvyQ5S6IwZEveM",
+      "proxy_id": "yq40z33a7robuvr5ogevfqhr",
+      "trial": "startup",
+      "reset_at": "2026-09-23T15:54:58Z"
+    }
+  ],
+  "status": "needs_recovery",
+  "reset_started_at": "2026-09-26T16:43:34Z",
+  "backup_dir": "finals/sessions/onk-onk-100adbd119/backups/session/20260926T164334Z-before-org-reset",
+  "last_error": "OnK browser create failed: Command 'kernel browsers create --stealth --timeout 900 --proxy-name reset-host-1790441016-968 --start-url https://dashboard.onkernel.com -o json' ret",
+  "reset_from_org": "Genev Unlock 3",
+  "reset_target_org": "Genev Aochea",
+  "updated_at": "2026-09-26T16:44:06Z",
+  "api_key_status": "active",
+  "tag": "unlocked",
+  "probe_at": "2026-09-23T17:26:58Z",
+  "browsers_probe": 6,
+  "probe_ok": true
+}

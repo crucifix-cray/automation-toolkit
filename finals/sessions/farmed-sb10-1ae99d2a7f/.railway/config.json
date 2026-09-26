@@ -5,6 +5,14 @@
   "editor": null,
   "linkedFunctions": null,
   "projects": {
+    "/tmp/cfull/sb10-1ae99d2a7f_67273": {
+      "environment": "3a5cce86-51e1-4064-9b15-1f578d2d0f44",
+      "environmentName": "production",
+      "name": "cf-80858",
+      "project": "b62d96b4-c3ed-40bf-b826-69a4886b126b",
+      "projectPath": "/tmp/cfull/sb10-1ae99d2a7f_67273",
+      "service": null
+    },
     "/tmp/cv2/farmed-sb10-1ae99d2a_1034": {
       "environment": "8148e274-00ce-487e-8cfc-7add9c79bd4d",
       "environmentName": "production",
@@ -25,10 +33,10 @@
   "sandboxTemplates": null,
   "sandboxes": null,
   "user": {
-    "accessToken": "YNmCpQFF8ZFQRmCDJoxXNlL7PbLD2K-7zvTwnoWSTKh",
+    "accessToken": "WqpKyLoacs5Hbe9fh8RlM4DMT6vdZnkGpwBrX08DI1R",
     "id": "0b35dbf5-0609-4fa6-9622-3b46c471d237",
     "refreshToken": "WhUl4x8XlP28sIib4n-3O5OT1xdoJEyZeGva7BnyANq",
     "token": null,
-    "tokenExpiresAt": 1790440602
+    "tokenExpiresAt": 1790444536
   }
 }

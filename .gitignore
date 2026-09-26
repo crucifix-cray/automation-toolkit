@@ -74,3 +74,6 @@ finals/secrets/holy_secret_key.local
 # 21MB CLI binary duplicated into all 1724 jars (36GB). We use /home/alan/.railway/bin/railway instead.
 finals/sessions/*/.railway/staged-update/
 sessions/*/.railway/staged-update/
+
+# per-jar health tag written by scripts/audit_state.py census
+finals/sessions/*/HEALTH

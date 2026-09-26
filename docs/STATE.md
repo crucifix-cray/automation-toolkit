@@ -32,15 +32,28 @@ Canary census — **every jar tested individually**, not sampled
 | **Total** | | **1724** | **478** | 1225 | 19 | 2 |
 
 **The first run is burned — 98.7% restricted.** Those 1220 workspaces were
-restricted by Railway and never recovered. Nothing to salvage.
+restricted by Railway and never recovered.
 
 **The new run is 95.5% verified (466/488).** The enhanced farm script did fix
 the restriction problem. This is the number that matters for capacity.
 
-Usable Railway accounts: **466 (new run) + 4 (verified core sessions) = 470**.
+### Current fleet after cleanup (2026-09-26)
 
-Core sessions `sessions/session-1..51` separately: 4 verified, 39 trial-wall,
+| Class | Count | Meaning |
+|---|---|---|
+| **VERIFIED** | **478** | canary created + deleted a project. **This is the usable fleet.** |
+| TRIAL_WALL | 19 | hosts existing projects, cannot create new ones |
+| on disk total | 497 | tagged with a `HEALTH` file per jar |
+| removed (burned) | 1227 | moved to `/home/alan/railway_burned_2026-09-26`, tokens recoverable |
+
+Registry: **`finals/railway_healthy.json`** (per-jar home path, email, project id,
+health). Split manifest: `finals/railway_health_split.json`.
+Spot check after cleanup: 25/25 kept jars re-verified green.
+
+Core sessions `sessions/session-1..51` are separate: 4 verified, 39 trial-wall,
 5 restricted, 3 link-fail.
+
+**Combined usable Railway capacity: 478 jars + 4 core sessions = 482.**
 
 **Never quote a capacity number from a marker file.** `UP_GOOD` is a
 point-in-time stamp; Railway restricts on a delay. Only a fresh canary counts.
@@ -136,7 +149,7 @@ based on a 403 from curl — that was an earlier mistake in this file's history.
 
 | Goal | Have | Gap |
 |---|---|---|
-| 1k Railway usable | **470** (466 new-run jars + 4 core sessions, full canary) | farm ~550 more **with the new enhanced script** — the old path burns them |
+| 1k Railway usable | **482** (478 VERIFIED jars + 4 core sessions, full canary) | farm ~520 more **with the new enhanced script** — the old path burns them |
 | 1k Lovable accounts | **36** | **964** |
 | Browser capacity for farming | **101 OnK sessions, 1010 slots** | sufficient |
 

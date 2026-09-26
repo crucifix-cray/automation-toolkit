@@ -22,7 +22,9 @@ Evidence files (machine-readable, regenerable):
 
 | File | Contents |
 |---|---|
-| `finals/railway_census.json` | per-account canary verdict across 1775 accounts |
+| `finals/railway_healthy.json` | **the usable fleet** — 478 VERIFIED jars, per-jar home/email/project |
+| `finals/railway_census.json` | full canary verdict for all 1724 jars + 51 sessions |
+| `finals/railway_health_split.json` | healthy / trial-wall / burned partition |
 | `finals/lovable_inventory.json` | per-session mail/pwd/totp/cookies |
 | `finals/lovable_summary.json` | session count vs unique-account count |
 | `finals/onk_key_status.json` | per-key working / hit-limit |
