@@ -153,7 +153,7 @@ async def run_once():
             # Multi-provider rotation (round-robin file): 22do -> temptf -> hub -> dispose.
             # One provider per run (fresh IP each run); creation is cheap, registration is not.
             import importlib.util as _ilu
-            _mspec = _ilu.spec_from_file_location("mail_providers", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mail_providers.py"))
+            _mspec = _ilu.spec_from_file_location("mail_providers", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils", "mail_providers.py"))
             _mp = _ilu.module_from_spec(_mspec)
             _mspec.loader.exec_module(_mp)
             try:
@@ -936,6 +936,18 @@ async def run_once():
                 if _l and "url4722" in _l and _l not in _cands:
                     _cands.append(_l)
             url = page.url
+            _chain = []
+            def _rec(resp):
+                try:
+                    u, s = resp.url, resp.status
+                    if "url4722" in u or "zenrows.com" in u:
+                        _chain.append(f"{s} {u[:130]}")
+                except Exception:
+                    pass
+            try:
+                page.on("response", _rec)
+            except Exception:
+                pass
             for _cand in _cands:
                 print(f"TRY {str(_cand)[:120]}", file=sys.stderr)
                 try:
@@ -948,6 +960,71 @@ async def run_once():
                 print(f"After verify URL: {url}", file=sys.stderr)
                 if "overview" in url:
                     break
+            try:
+                page.remove_listener("response", _rec)
+            except Exception:
+                pass
+            if _chain:
+                print(f"redirect chain: {' || '.join(_chain[:8])}", file=sys.stderr)
+            # TRY loop missed overview: token likely consumed (inbox prefetch).
+            # Resend a fresh verify mail, poll for the NEWEST link, TRY once.
+            if "overview" not in url:
+                try:
+                    await page.goto("https://app.zenrows.com/email/verify", wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(2000)
+                    _rs = await page.evaluate("""() => {
+                        const el=[...document.querySelectorAll('a,button')].find(x=>/resend/i.test(x.innerText||''));
+                        if(el){ el.click(); return 'resend-clicked'; } return 'resend-not-found';
+                    }""")
+                    print(f"resend: {_rs}", file=sys.stderr)
+                    await page.wait_for_timeout(45000)
+                    _seen = set(_cands)
+                    _fresh = None
+                    import importlib.util as _ilu2
+                    _ms2 = _ilu2.spec_from_file_location("mail_providers2", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils", "mail_providers.py"))
+                    _mp2 = _ilu2.module_from_spec(_ms2)
+                    _ms2.loader.exec_module(_mp2)
+                    _zf2 = _mp2.TabFetch(ctx)
+                    try:
+                        if email_source == "22do" and await _zf2.home("https://22.do/"):
+                            _fresh = await _mp2.poll_22do(_zf2, email, timeout_seconds=180)
+                        elif email_source == "temptf" and await _zf2.home("https://temp.tf/"):
+                            for _rp in range(36):
+                                _r = await _zf2.call("POST", "https://temp.tf/api/check", {"email": email}, {"Content-Type": "application/json"})
+                                try:
+                                    _items = (json.loads(_r["body"]).get("data", []) if _r["status"] == 200 else [])
+                                except Exception:
+                                    _items = []
+                                for _m in _items:
+                                    _mt = _mp2.ZEN_RE.search(str(_m.get("subject", "")) + " " + str(_m.get("body", "")))
+                                    if _mt:
+                                        _lk = _mp2._h.unescape(_mt.group(0)).replace("&amp;", "&")
+                                        if _lk not in _seen:
+                                            _fresh = _lk
+                                            break
+                                if _fresh:
+                                    break
+                                await asyncio.sleep(5)
+                        elif email_source == "hub" and await _zf2.home("https://tempmailhub.org/"):
+                            _fresh = await _mp2.poll_hub(_zf2, email_eid, timeout_seconds=180)
+                    finally:
+                        try:
+                            await _zf2.close()
+                        except Exception:
+                            pass
+                    if _fresh:
+                        print(f"RETRY {str(_fresh)[:120]}", file=sys.stderr)
+                        try:
+                            await page.goto(_fresh, wait_until="domcontentloaded", timeout=30000)
+                        except Exception as _nerr2:
+                            print(f"retry goto err {_nerr2}", file=sys.stderr)
+                        await page.wait_for_timeout(8000)
+                        url = page.url
+                        print(f"After retry URL: {url}", file=sys.stderr)
+                    else:
+                        print("no fresh link after resend", file=sys.stderr)
+                except Exception as _re:
+                    print(f"resend-retry err {str(_re)[:150]}", file=sys.stderr)
 
             if "app.zenrows.com/overview" not in url and "overview" not in url:
                 await page.goto("https://app.zenrows.com/overview", wait_until="domcontentloaded", timeout=30000)
