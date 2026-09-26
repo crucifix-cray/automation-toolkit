@@ -1,26 +1,42 @@
 {
-  "projects": {
-    "/tmp/rvwork/session-91": {
-      "projectPath": "/tmp/rvwork/session-91",
-      "name": "cell-91-2bff07",
-      "project": "4d24ec56-536b-4597-8888-a3b8ae1340a2",
-      "environment": "93531fee-6f65-438a-8384-2f78292914be",
-      "environmentName": "production",
-      "service": "0224f45a-abef-4812-8723-d50b8f06404f"
-    }
-  },
-  "user": {
-    "id": "7bc5f1b2-207f-4245-9583-54f53a7af635",
-    "token": null,
-    "accessToken": "BGhktEMr3_f5rCQQe7WRTArGzI5NhgXqvZTwUVlf4xz",
-    "refreshToken": "Oa_m0cTNFdgMPNhajARPKBNwt9uImkKNIVk8JmLEumv",
-    "tokenExpiresAt": 1790336545
-  },
+  "activeSandbox": null,
+  "agentBootstrapDefaults": null,
+  "codeAgents": null,
   "editor": null,
   "linkedFunctions": null,
-  "sandboxes": null,
-  "activeSandbox": null,
+  "projects": {
+    "/tmp/cv2/farmed-w-b0eefb1d2f_8405": {
+      "environment": "4db4f6ea-d0bb-4f79-bf55-ac411608df20",
+      "environmentName": "production",
+      "name": "cv2-11554",
+      "project": "5e031a1e-de0a-492b-8075-d1c5bed0af4f",
+      "projectPath": "/tmp/cv2/farmed-w-b0eefb1d2f_8405",
+      "service": null
+    },
+    "/tmp/rvwork/session-91": {
+      "environment": "93531fee-6f65-438a-8384-2f78292914be",
+      "environmentName": "production",
+      "name": "cell-91-2bff07",
+      "project": "4d24ec56-536b-4597-8888-a3b8ae1340a2",
+      "projectPath": "/tmp/rvwork/session-91",
+      "service": "0224f45a-abef-4812-8723-d50b8f06404f"
+    },
+    "/tmp/vn2/w-b0eefb1d2f_71748": {
+      "environment": "fd28eb9e-83c9-4c4a-adbd-8422f974660d",
+      "environmentName": "production",
+      "name": "vn-12289",
+      "project": "bf8d865e-ff4f-43b9-93af-ef5be0cda975",
+      "projectPath": "/tmp/vn2/w-b0eefb1d2f_71748",
+      "service": null
+    }
+  },
   "sandboxTemplates": null,
-  "verified": true,
-  "verified_at": "2026-09-25T10:42:29.279126+00:00"
+  "sandboxes": null,
+  "user": {
+    "accessToken": "DEXKisU6eV2T62jnJKMvG5BkwojOB2FWUYpRVjH9uTD",
+    "id": "7bc5f1b2-207f-4245-9583-54f53a7af635",
+    "refreshToken": "Oa_m0cTNFdgMPNhajARPKBNwt9uImkKNIVk8JmLEumv",
+    "token": null,
+    "tokenExpiresAt": 1790440688
+  }
 }

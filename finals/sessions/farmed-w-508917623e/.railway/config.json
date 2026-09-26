@@ -1,26 +1,34 @@
 {
+  "activeSandbox": null,
+  "agentBootstrapDefaults": null,
+  "codeAgents": null,
+  "editor": null,
+  "linkedFunctions": null,
   "projects": {
+    "/tmp/cv2/farmed-w-508917623e_6676": {
+      "environment": "c66075c7-1b77-4e99-bd73-65a945843272",
+      "environmentName": "production",
+      "name": "cv2-59722",
+      "project": "c24c9005-6998-4740-9636-55b2b422c0de",
+      "projectPath": "/tmp/cv2/farmed-w-508917623e_6676",
+      "service": null
+    },
     "/tmp/rvwork/session-93": {
-      "projectPath": "/tmp/rvwork/session-93",
-      "name": "cell-93-f8362c",
-      "project": "63c1cc25-1631-4aa8-8615-596852454ff6",
       "environment": "a229892d-540a-48a2-b812-6f83f7b41da8",
       "environmentName": "production",
+      "name": "cell-93-f8362c",
+      "project": "63c1cc25-1631-4aa8-8615-596852454ff6",
+      "projectPath": "/tmp/rvwork/session-93",
       "service": "7f761b37-f833-455d-8081-96f8bb19181e"
     }
   },
-  "user": {
-    "id": "69654c8f-0f57-4eea-aa95-3b65d964a70b",
-    "token": null,
-    "accessToken": "5aXi0poOIimYbxvtLhh6fYmDgVk_Rq33j1KWITBsZFe",
-    "refreshToken": "2FRUQn3OgMJZCOKobSNV5RzBY8eudDedqQw_ZCPcFyj",
-    "tokenExpiresAt": 1790336573
-  },
-  "editor": null,
-  "linkedFunctions": null,
-  "sandboxes": null,
-  "activeSandbox": null,
   "sandboxTemplates": null,
-  "verified": true,
-  "verified_at": "2026-09-25T10:42:57.081847+00:00"
+  "sandboxes": null,
+  "user": {
+    "accessToken": "YFRwQ9PBUwBvOF9aXwHyzSLxur-tToce0X7xH9QDxBW",
+    "id": "69654c8f-0f57-4eea-aa95-3b65d964a70b",
+    "refreshToken": "2FRUQn3OgMJZCOKobSNV5RzBY8eudDedqQw_ZCPcFyj",
+    "token": null,
+    "tokenExpiresAt": 1790440684
+  }
 }

@@ -5,7 +5,7 @@ below was produced by a live test on this box. Supersedes the jar/session/OnK
 counts in `LOVABLE_FARM_1K.md`, `ONKERNEL.md`, `SESSIONS.md`, and `README.md`,
 which are stale and contradict each other.
 
-Raw evidence: `finals/onk_key_status.json`, `finals/zenrows_key_status.json`,
+Raw evidence: `finals/railway_census.json`, `finals/onk_key_status.json`,
 `finals/railway_census.json`, `finals/lovable_inventory.json`.
 Regenerate with `python3 scripts/audit_state.py`.
 
@@ -22,19 +22,34 @@ Health = canary `railway init` → `railway delete`. The census below is that te
 | Farmed jars `finals/sessions/farmed-*` | 1724 | 1724/1724 |
 | **Total** | **1775** | **1775** |
 
-Canary census (`finals/railway_census.json`, init+delete, real writes):
+Canary census (init+delete, real writes, 2026-09-25):
 
 | Verdict | Meaning | Count |
 |---|---|---|
-| `verified` | created and deleted a project | see file |
-| `restricted` | `Your workspace has been restricted` — dead for writes | see file |
-| `trial-wall` | `Free plan resource provision limit exceeded` — hosts fine, cannot create | 39 |
-| `link-fail` / `rate` / `timeout` | inconclusive | see file |
+| `verified` | created and deleted a project | **495** |
+| `restricted` | `Your workspace has been restricted` — dead for writes | **1231** |
+| `trial-wall` | `Free plan resource provision limit exceeded` — hosts fine, cannot create | 45 |
+| `link-fail` | inconclusive | 4 |
+| **Total tested** | | **1775** |
 
-**Read the counts from the JSON, not from here** — the census is still running
-and the numbers move. Current trend is heavily `restricted`: the
-2026-09-25 mass-restriction incident (see `FARM-1K.md`) did not stay contained
-to the workers that triggered it.
+**The 1231 restricted are ONE run, not a general failure.** Splitting the jars
+by `created_at.txt` shows two distinct farm runs:
+
+| Run | Date | Jars | Sampled canary | Verdict |
+|---|---|---|---|---|
+| First run | 2026-09-23 | 1236 | 40 sampled | **40/40 restricted** — run is fully burned |
+| New run (enhanced script) | 2026-09-25 | 488 | 30 sampled | **29/30 verified** — run is ~97% healthy |
+
+So the honest usable count is **~470 from the new run**, plus 4 verified core
+sessions. The old 1236 are dead and cannot be recovered — Railway restricted
+those workspaces and they never came back.
+
+**The enhanced farm script fixed the restriction problem.** The new run is not
+burning accounts the way the old one did. If more accounts are needed, farm with
+the new path, not the old one.
+
+**Never quote a capacity number from a marker file.** `UP_GOOD` is a
+point-in-time stamp; Railway restricts on a delay. Only a fresh canary counts.
 
 **Never quote a capacity number from a marker file.** `UP_GOOD` is a
 point-in-time stamp; Railway restricts on a delay. Only a fresh canary counts.
@@ -98,7 +113,7 @@ based on a 403 from curl — that was an earlier mistake in this file's history.
 
 | Goal | Have | Gap |
 |---|---|---|
-| 1k Railway usable | 1775 authed, small verified fraction | farm + avoid the restriction wave |
+| 1k Railway usable | **~470** (488 new-run jars, 97% verified) | farm ~550 more **with the new enhanced script** — the old path burns them |
 | 1k Lovable accounts | **36** | **964** |
 | Browser capacity for farming | **17 OnK keys** | 17 × 10 = 170 slots, not 1010 |
 

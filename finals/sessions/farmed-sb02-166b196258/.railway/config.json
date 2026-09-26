@@ -5,6 +5,14 @@
   "editor": null,
   "linkedFunctions": null,
   "projects": {
+    "/tmp/cv2/farmed-sb02-166b1962_1012": {
+      "environment": "f40789c3-4c31-4505-9ca2-0bb3efa25bc1",
+      "environmentName": "production",
+      "name": "cv2-60968",
+      "project": "916d6804-99c1-405e-b859-6fa37124f842",
+      "projectPath": "/tmp/cv2/farmed-sb02-166b1962_1012",
+      "service": null
+    },
     "/tmp/rvwork/session-1": {
       "environment": "836379a7-74c0-4159-b253-d2ed8aa8ca0d",
       "environmentName": "production",
@@ -12,17 +20,23 @@
       "project": "75785e38-1e63-46b7-9b97-e2897fb0ffea",
       "projectPath": "/tmp/rvwork/session-1",
       "service": "5efa32eb-a3ea-431e-b4e2-25a274a9e863"
+    },
+    "/tmp/vn2/sb02-166b1962_44282": {
+      "environment": "b4201123-9b91-43b9-b96c-578c52c5df20",
+      "environmentName": "production",
+      "name": "vn-11081",
+      "project": "377d3815-9195-4aab-9370-1ca3e63f1ca5",
+      "projectPath": "/tmp/vn2/sb02-166b1962_44282",
+      "service": null
     }
   },
   "sandboxTemplates": null,
   "sandboxes": null,
   "user": {
-    "accessToken": "2Wcg5OJoJXzuU1FKSHeLu4VI0-lJk3GZA0klrDBL2x0",
+    "accessToken": "J3TUw9BpJdHgLDOSlD40NZzgs4yXwQnhtprSGBDeveZ",
     "id": "68b3f53d-59bf-491c-8d2f-324d4f1bc8fa",
     "refreshToken": "jBv2LezWqhesc00ELc8CcFgQHv_AeZRxoelgKMpKmVJ",
     "token": null,
-    "tokenExpiresAt": 1790355642
-  },
-  "verified": true,
-  "verified_at": "2026-09-25T16:00:43.863637+00:00"
+    "tokenExpiresAt": 1790441259
+  }
 }

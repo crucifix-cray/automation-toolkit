@@ -5,6 +5,30 @@
   "editor": null,
   "linkedFunctions": null,
   "projects": {
+    "/home/alan/Documents/railways": {
+      "environment": "75a60341-a826-4588-9456-01e1a1412566",
+      "environmentName": "production",
+      "name": "cell-106",
+      "project": "e975ab25-e2c5-4d33-8f05-6ad0dd81c1cf",
+      "projectPath": "/home/alan/Documents/railways",
+      "service": "328740b2-dd4d-4791-87a1-6ba1cc95d32e"
+    },
+    "/home/alan/Documents/railways/_diag": {
+      "environment": "75a60341-a826-4588-9456-01e1a1412566",
+      "environmentName": "production",
+      "name": "cell-106",
+      "project": "e975ab25-e2c5-4d33-8f05-6ad0dd81c1cf",
+      "projectPath": "/home/alan/Documents/railways/_diag",
+      "service": "328740b2-dd4d-4791-87a1-6ba1cc95d32e"
+    },
+    "/home/alan/Documents/railways/bridge-deploy": {
+      "environment": "75a60341-a826-4588-9456-01e1a1412566",
+      "environmentName": "production",
+      "name": "cell-106",
+      "project": "e975ab25-e2c5-4d33-8f05-6ad0dd81c1cf",
+      "projectPath": "/home/alan/Documents/railways/bridge-deploy",
+      "service": "328740b2-dd4d-4791-87a1-6ba1cc95d32e"
+    },
     "/tmp": {
       "environment": "a608ec01-9e1b-4b3f-9087-384a88c530a6",
       "environmentName": "production",
@@ -12,6 +36,14 @@
       "project": "4b126e30-b69f-4429-95c6-76575824ec0c",
       "projectPath": "/tmp",
       "service": null
+    },
+    "/tmp/bridgedeploy": {
+      "environment": "75a60341-a826-4588-9456-01e1a1412566",
+      "environmentName": "production",
+      "name": "cell-106",
+      "project": "e975ab25-e2c5-4d33-8f05-6ad0dd81c1cf",
+      "projectPath": "/tmp/bridgedeploy",
+      "service": "328740b2-dd4d-4791-87a1-6ba1cc95d32e"
     },
     "/tmp/cellwork/session-106": {
       "environment": "75a60341-a826-4588-9456-01e1a1412566",
@@ -48,10 +80,10 @@
     }
   ],
   "user": {
-    "accessToken": "sUkoHyKIdpen-DbNNwJ1OXc1yBqxCis1nhX8na7Ugra",
+    "accessToken": "Off5i4smvYZH052M0pPgm3O1AKJfRKqSQrvDkBeZDQC",
     "id": "a4585e94-d651-4db9-a7a9-85f17b8f0117",
     "refreshToken": "R5GlvBBLrEQRUXOjq1-HQjydcwwwC6NAGB_mFzEofhK",
     "token": null,
-    "tokenExpiresAt": 1790380920
+    "tokenExpiresAt": 1790440670
   }
 }
