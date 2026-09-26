@@ -22,31 +22,25 @@ Health = canary `railway init` → `railway delete`. The census below is that te
 | Farmed jars `finals/sessions/farmed-*` | 1724 | 1724/1724 |
 | **Total** | **1775** | **1775** |
 
-Canary census (init+delete, real writes, 2026-09-25):
+Canary census — **every jar tested individually**, not sampled
+(`init` → `delete`, real writes, `finals/railway_census.json`):
 
-| Verdict | Meaning | Count |
-|---|---|---|
-| `verified` | created and deleted a project | **495** |
-| `restricted` | `Your workspace has been restricted` — dead for writes | **1231** |
-| `trial-wall` | `Free plan resource provision limit exceeded` — hosts fine, cannot create | 45 |
-| `link-fail` | inconclusive | 4 |
-| **Total tested** | | **1775** |
+| Run | Date | Jars | verified | restricted | trial-wall | link-fail |
+|---|---|---|---|---|---|---|
+| First run | 2026-09-23 | **1236** | **12** | **1220** | 3 | 1 |
+| **New run** (enhanced script) | 2026-09-25 | **488** | **466** | 5 | 16 | 1 |
+| **Total** | | **1724** | **478** | 1225 | 19 | 2 |
 
-**The 1231 restricted are ONE run, not a general failure.** Splitting the jars
-by `created_at.txt` shows two distinct farm runs:
+**The first run is burned — 98.7% restricted.** Those 1220 workspaces were
+restricted by Railway and never recovered. Nothing to salvage.
 
-| Run | Date | Jars | Sampled canary | Verdict |
-|---|---|---|---|---|
-| First run | 2026-09-23 | 1236 | 40 sampled | **40/40 restricted** — run is fully burned |
-| New run (enhanced script) | 2026-09-25 | 488 | 30 sampled | **29/30 verified** — run is ~97% healthy |
+**The new run is 95.5% verified (466/488).** The enhanced farm script did fix
+the restriction problem. This is the number that matters for capacity.
 
-So the honest usable count is **~470 from the new run**, plus 4 verified core
-sessions. The old 1236 are dead and cannot be recovered — Railway restricted
-those workspaces and they never came back.
+Usable Railway accounts: **466 (new run) + 4 (verified core sessions) = 470**.
 
-**The enhanced farm script fixed the restriction problem.** The new run is not
-burning accounts the way the old one did. If more accounts are needed, farm with
-the new path, not the old one.
+Core sessions `sessions/session-1..51` separately: 4 verified, 39 trial-wall,
+5 restricted, 3 link-fail.
 
 **Never quote a capacity number from a marker file.** `UP_GOOD` is a
 point-in-time stamp; Railway restricts on a delay. Only a fresh canary counts.
@@ -142,7 +136,7 @@ based on a 403 from curl — that was an earlier mistake in this file's history.
 
 | Goal | Have | Gap |
 |---|---|---|
-| 1k Railway usable | **~470** (488 new-run jars, 97% verified) | farm ~550 more **with the new enhanced script** — the old path burns them |
+| 1k Railway usable | **470** (466 new-run jars + 4 core sessions, full canary) | farm ~550 more **with the new enhanced script** — the old path burns them |
 | 1k Lovable accounts | **36** | **964** |
 | Browser capacity for farming | **101 OnK sessions, 1010 slots** | sufficient |
 
