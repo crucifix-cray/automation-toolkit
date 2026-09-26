@@ -34,7 +34,7 @@ fine from a home IP and over Tor, and fails from Railway without Tor.
 POOL_HOST=pool.supportxmr.com
 POOL_PORT=3333
 TOR_SOCKS=127.0.0.1:9050
-WALLET=4AdUnd...Rge
+WALLET=49J8...N1F (your wallet — the only one ever used)
 HEALTH_PORT=8081
 ```
 
