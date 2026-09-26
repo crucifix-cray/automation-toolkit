@@ -1,0 +1,8 @@
+SocksPort 127.0.0.1:9050
+DataDirectory /tmp/tordata
+User root
+Log notice stdout
+MaxCircuitDirtiness 600
+CircuitBuildTimeout 90
+LearnCircuitBuildTimeout 1
+ConnLimit 512
