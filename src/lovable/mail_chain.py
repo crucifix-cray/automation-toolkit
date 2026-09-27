@@ -679,27 +679,41 @@ async def acquire_mailbox(
     skip_zenvex: bool = False,
     zenvex_offset: int = 0,
     zenvex_rounds: int = 1,
+    zenvex_only: bool = False,
+    domain_index: Optional[int] = None,
 ) -> Mailbox:
     """Walk mail chain once; raise if every provider fails.
 
     Zenvex domains are shuffled each acquire (spread reputation heat).
     zenvex_offset still biases retries away from the first failed domain.
     zenvex_rounds: full zenvex shuffles before falling through (focus mode).
+    zenvex_only:  zenvex is the ONLY provider — never fall through to
+                  temp.tf/22.do/dispose/mail.tm. Walk all 6 domains then raise.
+    domain_index: start at this domain (deterministic fleet spread) and walk
+                  forward on miss. None = random start.
     """
     used = used or set()
+    n_dom = len(ZENVEX_DOMAINS)
 
-    # 1. Zenvex — random domain order each round
+    def _order_for(round_i: int) -> list:
+        if domain_index is not None:
+            # deterministic start, walk forward — fleet spread (jid % 6)
+            start = (domain_index + round_i) % n_dom
+            return [ZENVEX_DOMAINS[(start + k) % n_dom] for k in range(n_dom)]
+        order = list(ZENVEX_DOMAINS)
+        random.shuffle(order)
+        if zenvex_offset and order and round_i == 0:
+            pivot = order[zenvex_offset % n_dom]
+            order = [pivot] + [d for d in order if d != pivot]
+            random.shuffle(order[1:])  # keep pivot first, reshuffle rest
+        return order
+
+    # 1. Zenvex — random (or deterministic) domain order each round
     if not skip_zenvex:
         for _round in range(max(1, zenvex_rounds)):
-            order = list(ZENVEX_DOMAINS)
-            random.shuffle(order)
-            if zenvex_offset and order and _round == 0:
-                # move previously preferred start out of bit-0 for retries
-                n = len(order)
-                pivot = order[zenvex_offset % n]
-                order = [pivot] + [d for d in order if d != pivot]
-                random.shuffle(order[1:])  # keep pivot first, reshuffle rest
-            log(f"  zenvex domain order (round {_round + 1}): {' → '.join(order)}")
+            order = _order_for(_round)
+            tag = f"dom={domain_index}" if domain_index is not None else "random"
+            log(f"  zenvex domain order (round {_round + 1}, {tag}): {' → '.join(order)}")
             for dom in order:
                 try:
                     box = await create_zenvex(ctx, dom)
@@ -710,6 +724,9 @@ async def acquire_mailbox(
                     log(f"  zenvex/{dom} miss: {str(e)[:120]}")
     else:
         log("  zenvex skipped (--skip-zenvex)")
+
+    if zenvex_only:
+        raise RuntimeError("zenvex_only: all zenvex domains exhausted")
 
     # 2. temp.tf gmail one-dot
     try:

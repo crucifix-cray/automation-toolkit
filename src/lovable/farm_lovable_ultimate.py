@@ -582,7 +582,8 @@ async def signup_flow(ctx, email: str, password: str, mailbox) -> dict:
 
 async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
                    proxy_country: str = "gb", skip_zenvex: bool = False,
-                   zenvex_rounds: int = 3) -> dict:
+                   zenvex_rounds: int = 3, zenvex_only: bool = False,
+                   domain_index: int = None) -> dict:
     # proxy_country "none" = Kernel default stealth egress (fresh IP per
     # browser, no custom proxy). Trial orgs can't USE custom proxies
     # (Insufficient_plan) even though creating the proxy object succeeds.
@@ -644,10 +645,16 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
             browser = await pw.chromium.connect_over_cdp(bdata["cdp_ws_url"], timeout=45000)
             ctx = browser.contexts[0] if browser.contexts else await browser.new_context()
 
-            log(f"📧 Acquiring mailbox (attempt {attempt}, zenvex_offset={attempt - 1})…")
+            # domain_index advances per attempt: a stuck worker walks the
+            # next zenvex domain instead of hammering the same one.
+            _dom_idx = None if domain_index is None else (
+                (domain_index + attempt - 1) % 6)
+            log(f"📧 Acquiring mailbox (attempt {attempt}, zenvex_offset={attempt - 1}"
+                f"{f', domain_index={_dom_idx}' if _dom_idx is not None else ''})…")
             mailbox = await acquire_mailbox(
                 ctx, used=used_emails, skip_zenvex=skip_zenvex, zenvex_offset=attempt - 1,
-                zenvex_rounds=zenvex_rounds,
+                zenvex_rounds=zenvex_rounds, zenvex_only=zenvex_only,
+                domain_index=_dom_idx,
             )
             email = mailbox.address
             log(f"📮 Using {email} via {mailbox.provider}")
@@ -886,6 +893,10 @@ def main() -> None:
                     help="Skip zenvex UI mail (use temp.tf→22.do→dispose→mail.tm) — more reliable on Railway")
     ap.add_argument("--zenvex-rounds", type=int, default=3,
                     help="Full zenvex domain shuffles before fallthrough (focus mode)")
+    ap.add_argument("--zenvex-only", action="store_true",
+                    help="Zenvex is the only provider — never fall through to temp.tf/22.do/dispose/mail.tm")
+    ap.add_argument("--domain-index", type=int, default=None,
+                    help="Start at this zenvex domain (0-5) and walk forward on retry; omit for random")
     args = ap.parse_args()
     if not args.once and args.finish_session is None:
         ap.error("pass --once or --finish-session N")
@@ -898,6 +909,7 @@ def main() -> None:
             asyncio.run(run_once(
                 key, password=args.password, proxy_country=args.proxy_country,
                 skip_zenvex=args.skip_zenvex, zenvex_rounds=args.zenvex_rounds,
+                zenvex_only=args.zenvex_only, domain_index=args.domain_index,
             ))
     except Exception as e:
         log(f"❌ FAIL: {e}")
