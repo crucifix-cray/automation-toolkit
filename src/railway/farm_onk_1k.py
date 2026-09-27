@@ -201,9 +201,12 @@ def worker(job_id: int, key_row: dict, once: bool) -> dict:
     sess_num = next_session_num()
 
     if not ensure_mobile_proxy(key, proxy_name, country):
-        with _lock:
-            _stats["fail"] += 1
-        return {"job": job_id, "ok": False, "err": "proxy"}
+        # Trial orgs cannot USE custom proxies (Insufficient_plan). Fall back
+        # to Kernel default stealth egress — still a fresh IP per browser.
+        print(f"  proxy unusable (plan) -> default egress for {email}", flush=True)
+        proxy_name = ""
+    else:
+        print(f"  proxy {proxy_name} ok ({country})", flush=True)
 
     holy = ""
     try:
@@ -230,9 +233,10 @@ def worker(job_id: int, key_row: dict, once: bool) -> dict:
     cmd = [
         sys.executable, "-u", str(SCRIPT),
         "--kernel",
-        "--kernel-proxy", proxy_name,
         "--no-warp",
     ]
+    if proxy_name:
+        cmd += ["--kernel-proxy", proxy_name]
     _dom = ""
     try:
         with _lock:
@@ -284,7 +288,8 @@ def worker(job_id: int, key_row: dict, once: bool) -> dict:
         with open(log, "a") as lf:
             lf.write(f"\nEXC: {e}\n")
 
-    delete_proxy_named(key, proxy_name)
+    if proxy_name:
+        delete_proxy_named(key, proxy_name)
 
     with _lock:
         if ok:
