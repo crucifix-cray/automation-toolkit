@@ -43,6 +43,16 @@ def _run(cmd: list[str], cwd: Path | None = None, env: dict | None = None, timeo
 
 
 def _decrypt_token() -> str:
+    """Plaintext token wins if present; else decrypt finals/secrets/gh_token.enc.
+
+    Remote workers (Railway VPS fleet) get the token via GITHUB_TOKEN/GH_TOKEN
+    and have no HOLY_SECRET_KEY, so the env path must not require the cipher.
+    """
+    for var in ("GITHUB_TOKEN", "GH_TOKEN"):
+        tok = (os.environ.get(var) or "").strip()
+        if tok.startswith(("ghp_", "github_pat_")):
+            return tok
+
     root = Path(__file__).resolve().parents[2]
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
