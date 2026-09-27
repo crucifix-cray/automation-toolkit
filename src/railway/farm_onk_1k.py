@@ -267,6 +267,24 @@ def worker(job_id: int, key_row: dict, once: bool) -> dict:
                 stdout=lf, stderr=subprocess.STDOUT, timeout=3600,
             )
             ok = p.returncode == 0
+            # Proxy object can be CREATED on trial orgs but not USED
+            # (Insufficient_plan at browser create). Detect and retry once
+            # on default stealth egress so we still get a fresh IP.
+            if not ok and proxy_name and "Insufficient_plan" in log.read_text(errors="replace"):
+                print(f"  {email}: proxy unusable at create -> retry default egress", flush=True)
+                _proxy_obj = proxy_name
+                proxy_name = ""
+                cmd2 = [c for c in cmd if c != _proxy_obj]
+                if "--kernel-proxy" in cmd2:
+                    i = cmd2.index("--kernel-proxy")
+                    del cmd2[i:i + 2]
+                lf.write(f"\n# retry without --kernel-proxy\n")
+                lf.flush()
+                p = subprocess.run(
+                    cmd2, env=env, cwd=str(REPO),
+                    stdout=lf, stderr=subprocess.STDOUT, timeout=3600,
+                )
+                ok = p.returncode == 0
         text = log.read_text(errors="replace")
         import re as _re
         m = _re.search(r"MADE account with service:\s*(session-\d+)", text)
