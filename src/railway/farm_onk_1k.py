@@ -26,10 +26,10 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-REPO = Path("/home/alae/Documents/repos/automation-toolkit")
+REPO = Path("/home/alan/Documents/repos/automation-toolkit")
 SCRIPT = REPO / "src/railway/account_creation.py"
-SESSIONS = Path("/home/alae/Documents/railways")
-LOG_DIR = Path("/home/alae/onk-rail-1k")
+SESSIONS = Path("/home/alan/Documents/railways")
+LOG_DIR = Path("/home/alan/onk-rail-1k")
 API = "https://api.onkernel.com"
 PAID_PROBE = Path("/tmp/onk-paid-probe/results.jsonl")
 
@@ -210,6 +210,19 @@ def worker(job_id: int, key_row: dict, once: bool) -> dict:
         "--kernel-proxy", proxy_name,
         "--no-warp",
     ]
+    _dom = ""
+    try:
+        with _lock:
+            _pick = subprocess.run(
+                [sys.executable, str(Path(__file__).resolve().parents[2]
+                                     / "ops" / "onk-rail-1k" / "mail_rotate.py"),
+                 "pick", "--host", str(job_id)],
+                capture_output=True, text=True, timeout=30)
+        _dom = (_pick.stdout or "").strip().split()[-1] if _pick.returncode == 0 else ""
+        if _dom.startswith("@"):
+            cmd += ["--domain", _dom]
+    except Exception:
+        _dom = ""
     if once:
         cmd.append("--once")
 
@@ -219,7 +232,7 @@ def worker(job_id: int, key_row: dict, once: bool) -> dict:
         with open(log, "w") as lf:
             lf.write(
                 f"# job={job_id} key_email={email} proxy={proxy_name} "
-                f"country={country} HOLY_SESSION_NUM={sess_num} once={once}\n"
+                f"country={country} HOLY_SESSION_NUM={sess_num} once={once} domain={_dom}\n"
             )
             lf.flush()
             p = subprocess.run(

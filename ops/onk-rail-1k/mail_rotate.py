@@ -28,7 +28,7 @@ import json
 import time
 from pathlib import Path
 
-STATE = Path("/home/alae/onk-rail-1k/mail_rotate_state.json")
+STATE = Path("/home/alan/onk-rail-1k/mail_rotate_state.json")
 
 # Providers ordered by trust score. Weights = how often each may be used.
 # gmail/high.edu.pl both verified 100% clean; 22.do pool domains are BURNED
