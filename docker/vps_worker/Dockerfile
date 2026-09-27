@@ -6,9 +6,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       openssh-server git curl ca-certificates jq procps less \
       python3 python3-pip python3-venv \
+      nodejs npm \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/run/sshd /root/.ssh \
     && printf 'PermitRootLogin prohibit-password\nPasswordAuthentication no\nPubkeyAuthentication yes\n' >> /etc/ssh/sshd_config
+
+# The farm scripts shell out to the OnK CLI (npm package @onkernel/cli).
+RUN npm install -g @onkernel/cli && kernel --version
 
 # 1GB cells: swap keeps pip/playwright installs from OOMing the box.
 RUN fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null \

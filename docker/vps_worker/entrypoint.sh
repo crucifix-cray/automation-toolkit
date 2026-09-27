@@ -9,4 +9,5 @@ chmod 700 /root/.ssh
 # Railway injects these; the job reads RAILWAY_PROJECT_ID to pick its own work.
 echo "PROJECT=${RAILWAY_PROJECT_ID:-none} SERVICE=${RAILWAY_SERVICE_NAME:-none} ENV=${RAILWAY_ENVIRONMENT_NAME:-none}"
 python3 -c 'import playwright; print("PLAYWRIGHT CLIENT OK")' 2>&1 | tail -1
+kernel --version 2>&1 | head -1 | sed 's/^/ONK CLI: /'
 /usr/sbin/sshd -D -e
