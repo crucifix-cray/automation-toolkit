@@ -678,33 +678,36 @@ async def acquire_mailbox(
     used: Optional[set] = None,
     skip_zenvex: bool = False,
     zenvex_offset: int = 0,
+    zenvex_rounds: int = 1,
 ) -> Mailbox:
     """Walk mail chain once; raise if every provider fails.
 
     Zenvex domains are shuffled each acquire (spread reputation heat).
     zenvex_offset still biases retries away from the first failed domain.
+    zenvex_rounds: full zenvex shuffles before falling through (focus mode).
     """
     used = used or set()
 
-    # 1. Zenvex — random domain order each attempt
+    # 1. Zenvex — random domain order each round
     if not skip_zenvex:
-        order = list(ZENVEX_DOMAINS)
-        random.shuffle(order)
-        if zenvex_offset and order:
-            # move previously preferred start out of bit-0 for retries
-            n = len(order)
-            pivot = order[zenvex_offset % n]
-            order = [pivot] + [d for d in order if d != pivot]
-            random.shuffle(order[1:])  # keep pivot first, reshuffle rest
-        log(f"  zenvex domain order: {' → '.join(order)}")
-        for dom in order:
-            try:
-                box = await create_zenvex(ctx, dom)
-                if box.address.lower() not in used:
-                    return box
-                await box.close()
-            except Exception as e:
-                log(f"  zenvex/{dom} miss: {str(e)[:120]}")
+        for _round in range(max(1, zenvex_rounds)):
+            order = list(ZENVEX_DOMAINS)
+            random.shuffle(order)
+            if zenvex_offset and order and _round == 0:
+                # move previously preferred start out of bit-0 for retries
+                n = len(order)
+                pivot = order[zenvex_offset % n]
+                order = [pivot] + [d for d in order if d != pivot]
+                random.shuffle(order[1:])  # keep pivot first, reshuffle rest
+            log(f"  zenvex domain order (round {_round + 1}): {' → '.join(order)}")
+            for dom in order:
+                try:
+                    box = await create_zenvex(ctx, dom)
+                    if box.address.lower() not in used:
+                        return box
+                    await box.close()
+                except Exception as e:
+                    log(f"  zenvex/{dom} miss: {str(e)[:120]}")
     else:
         log("  zenvex skipped (--skip-zenvex)")
 

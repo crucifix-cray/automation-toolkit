@@ -581,16 +581,24 @@ async def signup_flow(ctx, email: str, password: str, mailbox) -> dict:
 
 
 async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
-                   proxy_country: str = "gb", skip_zenvex: bool = False) -> dict:
-    proxy_name = f"mobile-{proxy_country}-{uuid.uuid4().hex[:10]}"
+                   proxy_country: str = "gb", skip_zenvex: bool = False,
+                   zenvex_rounds: int = 3) -> dict:
+    # proxy_country "none" = Kernel default stealth egress (fresh IP per
+    # browser, no custom proxy). Trial orgs can't USE custom proxies
+    # (Insufficient_plan) even though creating the proxy object succeeds.
+    use_proxy = proxy_country.lower() not in ("none", "direct", "")
+    proxy_name = f"mobile-{proxy_country}-{uuid.uuid4().hex[:10]}" if use_proxy else ""
     onk_sid = None
     mailbox = None
     browser = None
     pw_cm = None
 
-    if not ensure_mobile_proxy(host_key, proxy_name, country=proxy_country):
-        raise FlowError(f"mobile proxy create failed: {proxy_name}")
-    log(f"✅ Proxy {proxy_name} (country={proxy_country})")
+    if use_proxy:
+        if not ensure_mobile_proxy(host_key, proxy_name, country=proxy_country):
+            raise FlowError(f"mobile proxy create failed: {proxy_name}")
+        log(f"✅ Proxy {proxy_name} (country={proxy_country})")
+    else:
+        log("🌐 No custom proxy — Kernel default stealth egress (fresh IP per browser)")
 
     try:
         from playwright.async_api import async_playwright
@@ -602,7 +610,7 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
         email = ""
         bdata: dict = {}
         ctx = None
-        max_signup_attempts = 3
+        max_signup_attempts = 5
 
         for attempt in range(1, max_signup_attempts + 1):
             if attempt > 1:
@@ -622,11 +630,14 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
                 if onk_sid:
                     delete_browser(host_key, onk_sid)
                     onk_sid = None
-                delete_proxy_named(host_key, proxy_name)
-                proxy_name = f"mobile-{proxy_country}-{uuid.uuid4().hex[:10]}"
-                if not ensure_mobile_proxy(host_key, proxy_name, country=proxy_country):
-                    raise FlowError(f"mobile proxy recreate failed: {proxy_name}")
-                log(f"♻️  Retry {attempt}/{max_signup_attempts}: new proxy {proxy_name}")
+                if use_proxy:
+                    delete_proxy_named(host_key, proxy_name)
+                    proxy_name = f"mobile-{proxy_country}-{uuid.uuid4().hex[:10]}"
+                    if not ensure_mobile_proxy(host_key, proxy_name, country=proxy_country):
+                        raise FlowError(f"mobile proxy recreate failed: {proxy_name}")
+                    log(f"♻️  Retry {attempt}/{max_signup_attempts}: new proxy {proxy_name}")
+                else:
+                    log(f"♻️  Retry {attempt}/{max_signup_attempts}: fresh browser, default egress")
 
             bdata = create_browser(host_key, proxy_name)
             onk_sid = bdata["session_id"]
@@ -636,6 +647,7 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
             log(f"📧 Acquiring mailbox (attempt {attempt}, zenvex_offset={attempt - 1})…")
             mailbox = await acquire_mailbox(
                 ctx, used=used_emails, skip_zenvex=skip_zenvex, zenvex_offset=attempt - 1,
+                zenvex_rounds=zenvex_rounds,
             )
             email = mailbox.address
             log(f"📮 Using {email} via {mailbox.provider}")
@@ -872,6 +884,8 @@ def main() -> None:
                     help="OnK mobile proxy country (default gb — US gets Firebase suspicious)")
     ap.add_argument("--skip-zenvex", action="store_true",
                     help="Skip zenvex UI mail (use temp.tf→22.do→dispose→mail.tm) — more reliable on Railway")
+    ap.add_argument("--zenvex-rounds", type=int, default=3,
+                    help="Full zenvex domain shuffles before fallthrough (focus mode)")
     args = ap.parse_args()
     if not args.once and args.finish_session is None:
         ap.error("pass --once or --finish-session N")
@@ -883,7 +897,7 @@ def main() -> None:
         else:
             asyncio.run(run_once(
                 key, password=args.password, proxy_country=args.proxy_country,
-                skip_zenvex=args.skip_zenvex,
+                skip_zenvex=args.skip_zenvex, zenvex_rounds=args.zenvex_rounds,
             ))
     except Exception as e:
         log(f"❌ FAIL: {e}")
