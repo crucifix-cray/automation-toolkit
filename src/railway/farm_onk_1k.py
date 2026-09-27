@@ -66,10 +66,40 @@ def load_bad_emails() -> set[str]:
 
 
 def load_keys() -> list[dict]:
-    """All distinct unlocked OnK keys; skip paid-probe bad; prefer last (least used)."""
+    """All distinct unlocked OnK keys; skip paid-probe bad; prefer last (least used).
+
+    Primary store = per-account dirs (finals/sessions/onk-*/session.json,
+    post-2026-09-26 rotation). Legacy flat onk_<ts>.json kept as fallback.
+    """
     bad = load_bad_emails()
     seen: set[str] = set()
     out: list[dict] = []
+
+    def _add(d: dict, src: str) -> None:
+        k = d.get("api_key") or d.get("key") or ""
+        if not isinstance(k, str) or not k.startswith("sk_") or k in seen:
+            return
+        email = (d.get("email") or "").lower()
+        if email and email in bad:
+            print(f"→ skip paid/auth: {email}", flush=True)
+            return
+        seen.add(k)
+        out.append({"email": d.get("email"), "api_key": k, "file": src})
+
+    # 1. live per-account dirs
+    n_dir = 0
+    for fp in sorted((SESSIONS / "finals" / "sessions").glob("onk-*/session.json")):
+        try:
+            d = json.loads(fp.read_text())
+        except Exception:
+            continue
+        if not isinstance(d, dict):
+            continue
+        _add(d, str(fp))
+        n_dir += 1
+    print(f"keys: {n_dir} from onk-*/session.json", flush=True)
+
+    # 2. legacy flat files
     for fp in sorted((REPO / "finals" / "sessions").glob("onk_*.json")):
         if fp.name.endswith((".cookies.json", ".storage.json")):
             continue
@@ -77,17 +107,10 @@ def load_keys() -> list[dict]:
             d = json.loads(fp.read_text())
         except Exception:
             continue
-        if not isinstance(d, dict):
+        if not isinstance(d, dict) or d.get("tag") != "unlocked":
             continue
-        k = d.get("api_key") or ""
-        if d.get("tag") != "unlocked" or not isinstance(k, str) or not k.startswith("sk_") or k in seen:
-            continue
-        email = (d.get("email") or "").lower()
-        if email in bad:
-            print(f"→ skip paid/auth: {email}", flush=True)
-            continue
-        seen.add(k)
-        out.append({"email": d.get("email"), "api_key": k, "file": str(fp)})
+        _add(d, str(fp))
+    print(f"keys: {len(out)} total usable", flush=True)
     return out
 
 
