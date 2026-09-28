@@ -84,12 +84,14 @@ BUSY_STATUSES = {"BUILDING", "QUEUED", "DEPLOYING", "WAITING", "INITIALIZING", "
 def check_deploy(jar: Path, proj: str, envid: str, since: str, svc: str = "") -> tuple[str, str]:
     """deployment-list based truth. Returns (state, info).
     state: ok | building | failed | none"""
+    # NOTE: -s is mandatory: old jars host 3 services (checkok/hlth/vf198)
+    # and the CLI demands a linked-or-flagged service, not just -p -e.
+    args = ["deployment", "list", "-p", proj, "-e", envid, "--json"]
     if svc:
-        # NOTE: no --json on link (CLI chokes decoding it); JSON only on reads.
-        run(["link", "-p", proj, "-e", envid, "-s", svc],
-            jar, Path("/tmp"), 60)
-    rc, out = run(["deployment", "list", "-p", proj, "-e", envid, "--json"],
-                  jar, Path("/tmp"), 90)
+        args += ["-s", svc]
+    else:
+        run(["link", "-p", proj, "-e", envid], jar, Path("/tmp"), 60)
+    rc, out = run(args, jar, Path("/tmp"), 90)
     ds = _jload(out)
     if ds is None:
         return "none", f"unparseable:{out[-120:]}"
