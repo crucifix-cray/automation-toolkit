@@ -184,15 +184,14 @@ def main() -> None:
     g.add_argument("--cmd", default="", help="Remote command string")
     g.add_argument("--cmd-file", default="", help="File whose content is the remote command")
     ap.add_argument("--par", type=int, default=25)
-    ap.add_argument("--target", type=int, default=0, help="max jars (0 = all)")
+    ap.add_argument("--target", type=int, default=0,
+                    help="max jars (0 = all); with --offset, slices a wave window")
     ap.add_argument("--only", default="", help="substring filter on jar name")
     ap.add_argument("--timeout", type=int, default=180)
     ap.add_argument("--jid-offset", type=int, default=0,
                     help="add to each job index so re-fired waves rotate OnK keys/domains")
     ap.add_argument("--offset", type=int, default=0,
                     help="rotate jar coverage start (wave slices through the fleet)")
-    ap.add_argument("--target", type=int, default=0,
-                    help="max jars (0 = all); combined with --offset for wave slices")
     ap.add_argument("--fire-and-forget", action="store_true",
                     help="nohup the command remotely; SSH returns in seconds")
     ap.add_argument("--resume", action="store_true", default=True)
