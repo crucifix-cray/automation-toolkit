@@ -226,10 +226,16 @@ def main() -> None:
             else:
                 fail += 1
             if i % 10 == 0 or i == len(todo):
-                save_registry(reg)
+                try:
+                    save_registry(reg)
+                except Exception as e:
+                    print(f"registry save fail (continuing): {str(e)[:80]}", flush=True)
                 print(f"[{i}/{len(todo)}] ok={ok} fail={fail} last={r['jar']}:{r['status']}",
                       flush=True)
-    save_registry(reg)
+    try:
+        save_registry(reg)
+    except Exception as e:
+        print(f"final registry save fail: {str(e)[:80]}", flush=True)
     print(f"FINAL ok={ok} fail={fail}", flush=True)
 
 
