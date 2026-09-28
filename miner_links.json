@@ -1,0 +1,66 @@
+{
+ "updated": "2026-09-28",
+ "pairs": [
+  {
+   "rs": 17,
+   "project": "cell-new-17",
+   "lov": 28,
+   "lovproj": "ef264ce7"
+  },
+  {
+   "rs": 19,
+   "project": "cell-new-19",
+   "lov": 33,
+   "lovproj": "b27e2af0"
+  },
+  {
+   "rs": 21,
+   "project": "cell-new-21",
+   "lov": 38,
+   "lovproj": "7703551a"
+  },
+  {
+   "rs": 22,
+   "project": "cell-new-22",
+   "lov": 39,
+   "lovproj": "432a10dd"
+  },
+  {
+   "rs": 26,
+   "project": "cell-new-26",
+   "lov": 45,
+   "lovproj": "ea9614b2"
+  },
+  {
+   "rs": 28,
+   "project": "cell-new-28",
+   "lov": 49,
+   "lovproj": "ab8e78fe"
+  },
+  {
+   "rs": 29,
+   "project": "cell-new-29",
+   "lov": 51,
+   "lovproj": "9c8b880c"
+  },
+  {
+   "rs": 30,
+   "project": "cell-new-30",
+   "lov": 52,
+   "lovproj": "fa7ad090"
+  },
+  {
+   "rs": 32,
+   "project": "cell-new-32",
+   "lov": 53,
+   "lovproj": "06189278"
+  },
+  {
+   "rs": 3,
+   "project": "cell-new-03",
+   "lov": 47,
+   "lovproj": "9508a15e"
+  }
+ ],
+ "note": "Railway project + Lovable project linked per pair. Services not yet created (Railpack broken platform-wide). Next: add service + deploy image + install.sh + mine.sh."
+}
