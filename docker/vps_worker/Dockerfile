@@ -14,9 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # The farm scripts shell out to the OnK CLI (npm package @onkernel/cli).
 RUN npm install -g @onkernel/cli && kernel --version
 
-# 1GB cells: swap keeps pip/playwright installs from OOMing the box.
-RUN fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null \
-    && echo '/swapfile none swap sw 0 0' >> /etc/fstab
+# NOTE: no swapfile baked in — Railway's builder refuses mkswap
+# ("/swapfile is mounted"). The platform already provides swap at runtime
+# (/dev/vdd seen live); entrypoint enables it when present, degrades if not.
 
 # Playwright CLIENT only — no browser. The browser is OnK's, reached over CDP.
 # This is what keeps the image small and the worker inside a 1GB cell.

@@ -2,7 +2,7 @@
 # Long-lived VPS worker. Boots sshd and idles — work arrives via `railway ssh`.
 set -u
 echo "=== vps_worker boot $(date -u) ==="
-swapon /swapfile 2>/dev/null && echo "SWAP: on" || echo "SWAP: unavailable"
+swapon -a 2>/dev/null && echo "SWAP: on" || echo "SWAP: platform-default"
 free -m | head -2
 mkdir -p /var/run/sshd /root/.ssh /app/work
 chmod 700 /root/.ssh
