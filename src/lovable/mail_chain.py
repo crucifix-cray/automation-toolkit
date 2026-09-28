@@ -85,6 +85,34 @@ ZENVEX_DOMAINS = [
     "ofppt.edu.pl",
 ]
 
+FIRST_NAMES = [
+    "marco", "anas", "yassine", "sofia", "elena", "mateo", "lucas", "emma",
+    "hugo", "leo", "louis", "raphael", "adam", "rayan", "lina", "sara",
+    "diego", "pablo", "carmen", "lucia", "marcos", "ivan", "nina", "mia",
+    "noah", "liam", "olivia", "ava", "isabella", "amelia", "youssef", "omar",
+    "fatima", "khadija", "salma", "mehdi", "bilal", "imane", "nadia", "karim",
+    "thomas", "jules", "camille", "chloe", "manon", "enzo", "gabriel", "arthur",
+    "victor", "felix", "paul", "nathan",
+]
+LAST_NAMES = [
+    "silva", "toure", "rossi", "moreau", "dubois", "santos",
+    "costa", "ferreira", "almeida", "pereira", "gomes", "martins", "rocha",
+    "dias", "nunes", "mendes", "cardoso", "ramos", "reyes", "morales",
+    "ortiz", "chavez", "ruiz", "diaz", "fernandez", "lopez", "sanchez",
+    "perez", "elamrani", "bennani", "tazi", "idrissi", "alaoui", "bennis",
+    "cherkaoui", "moussaoui", "laurent", "bernard", "petit", "robert",
+    "richard", "durand", "leroy", "simon", "michel", "faure", "renard",
+    "dupont", "lambert", "fontaine",
+]
+
+
+def real_prefix() -> str:
+    """Random-but-real mailbox prefix: firstname.lastnameNN (2 digits)."""
+    first = random.choice(FIRST_NAMES)
+    last = random.choice(LAST_NAMES)
+    nn = f"{random.randint(10, 99)}"
+    return f"{first}.{last}{nn}"
+
 
 def log(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
@@ -161,7 +189,7 @@ async def create_zenvex(ctx, domain: str) -> Mailbox:
     page = await ctx.new_page()
     await page.goto("https://zenvex.dev", wait_until="domcontentloaded", timeout=60000)
     await page.wait_for_timeout(3000)
-    prefix = "lov" + "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    prefix = real_prefix()
     inp = page.locator('input[placeholder*="prefix"]').first
     await inp.wait_for(state="visible", timeout=12000)
     await inp.fill(prefix)
