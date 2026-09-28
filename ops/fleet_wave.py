@@ -124,6 +124,7 @@ def main() -> None:
             f"setsid nohup python3 ops/fleet_ssh.py --cmd-file {a.cmd_file} "
             f"--par {par} --timeout 90 --fire-and-forget "
             f"--no-resume --jid-offset {wave * 503} "
+            f"--offset {(wave * 130) % 504} --target 130 "
             f"> /tmp/wave{wave}.log 2>&1 < /dev/null & disown; echo launched",
             timeout=60)
         # watch first 15 starts for throttle

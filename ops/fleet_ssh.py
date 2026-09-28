@@ -189,6 +189,10 @@ def main() -> None:
     ap.add_argument("--timeout", type=int, default=180)
     ap.add_argument("--jid-offset", type=int, default=0,
                     help="add to each job index so re-fired waves rotate OnK keys/domains")
+    ap.add_argument("--offset", type=int, default=0,
+                    help="rotate jar coverage start (wave slices through the fleet)")
+    ap.add_argument("--target", type=int, default=0,
+                    help="max jars (0 = all); combined with --offset for wave slices")
     ap.add_argument("--fire-and-forget", action="store_true",
                     help="nohup the command remotely; SSH returns in seconds")
     ap.add_argument("--resume", action="store_true", default=True)
@@ -197,6 +201,8 @@ def main() -> None:
 
     cmd = a.cmd or Path(a.cmd_file).read_text()
     jars = load_jars(a.only)
+    if a.offset:
+        jars = jars[a.offset % len(jars):] + jars[:a.offset % len(jars)]
     if a.target:
         jars = jars[:a.target]
     print(f"jars={len(jars)} par={a.par} faf={a.fire_and_forget}", flush=True)
