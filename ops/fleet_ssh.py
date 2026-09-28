@@ -187,6 +187,8 @@ def main() -> None:
     ap.add_argument("--target", type=int, default=0, help="max jars (0 = all)")
     ap.add_argument("--only", default="", help="substring filter on jar name")
     ap.add_argument("--timeout", type=int, default=180)
+    ap.add_argument("--jid-offset", type=int, default=0,
+                    help="add to each job index so re-fired waves rotate OnK keys/domains")
     ap.add_argument("--fire-and-forget", action="store_true",
                     help="nohup the command remotely; SSH returns in seconds")
     ap.add_argument("--resume", action="store_true", default=True)
@@ -205,7 +207,8 @@ def main() -> None:
 
     ok = fail = 0
     with ThreadPoolExecutor(max_workers=a.par) as ex:
-        futs = {ex.submit(one, j, cmd, a.timeout, a.fire_and_forget, wi): j
+        futs = {ex.submit(one, j, cmd, a.timeout, a.fire_and_forget,
+                          a.jid_offset + wi): j
                 for wi, j in enumerate(todo)}
         for i, f in enumerate(as_completed(futs), 1):
             try:
