@@ -32,13 +32,30 @@ if [ ! -f "${CHIMERA_SESSIONS_DIR:-/app/work/scripts/sessions}/$SESS/cookies.jso
   echo "ABORT: no cookies for $SESS (trio missing)"; exit 3
 fi
 
-# Xvfb (golden: :99, 1600x900x24)
-if ! pgrep -f "Xvfb :99" >/dev/null 2>&1; then
+# Xvfb health: the PROCESS existing is not enough (it can hang while holding
+# a stale socket). Healthy = proc exists AND socket exists AND socket is NOT
+# older than the proc (a newer proc with an older socket never bound :99).
+xvfb_boot() {
   rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 2>/dev/null || true
   mkdir -p /tmp/.X11-unix
-  Xvfb :99 -screen 0 1600x900x24 >/tmp/xvfb.log 2>&1 &
+  for p in $(ps -eo pid=,args= 2>/dev/null | awk '/[X]vfb :99/ {print $1}'); do
+    kill -9 "$p" 2>/dev/null || true
+  done
   sleep 1
-fi
+  Xvfb :99 -screen 0 1600x900x24 >/tmp/xvfb.log 2>&1 &
+  sleep 2
+}
+xvfb_ok() {
+  XPID=$(ps -eo pid=,args= 2>/dev/null | awk '/[X]vfb :99/ {print $1; exit}')
+  [ -n "$XPID" ] || return 1
+  [ -S /tmp/.X11-unix/X99 ] || return 1
+  SOCK_AGE=$(stat -c %Y /tmp/.X11-unix/X99 2>/dev/null || echo 0)
+  PROC_START=$(stat -c %Y /proc/"$XPID" 2>/dev/null || echo 0)
+  # proc newer than socket by >120s: it failed to bind, hung
+  [ "$PROC_START" -gt "$((SOCK_AGE + 120))" ] && return 1
+  return 0
+}
+if ! xvfb_ok; then xvfb_boot; fi
 export DISPLAY=:99
 export CHIMERA_NO_PROXY=1 CHIMERA_SKIP_IDB=1 CHIMERA_FORCE_HEADED=1
 export CHIMERA_VIEW_W=1600 CHIMERA_VIEW_H=900
@@ -62,12 +79,7 @@ export PYTHONUNBUFFERED=1
 PYBIN="/opt/venv/bin/python3"; [ -x "$PYBIN" ] || PYBIN="python3"
 BOFF=8
 while true; do
-  if ! pgrep -f "Xvfb :99" >/dev/null 2>&1; then
-    rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 2>/dev/null || true
-    mkdir -p /tmp/.X11-unix
-    Xvfb :99 -screen 0 1600x900x24 >/tmp/xvfb.log 2>&1 &
-    sleep 1
-  fi
+  if ! xvfb_ok; then xvfb_boot; fi
   START=$SECONDS
   "$PYBIN" -u daemon.py --session "$SESS" --project "$PROJ" \
     --browser chromium --mode full --headed
