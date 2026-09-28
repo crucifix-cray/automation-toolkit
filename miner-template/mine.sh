@@ -18,7 +18,7 @@ done
 CELLN="$(echo "$LOG" | grep -oE '[0-9]+' | head -1)"
 [ -n "$LOG" ] || LOG="/app/work/daemon.log"
 export LOG SESS PROJ
-WORKER_STALE_S="${WORKER_STALE_S:-600}"
+WORKER_STALE_S="${WORKER_STALE_S:-1800}"
 cd /app/work/chimera-miner 2>/dev/null || cd "$(dirname "$0")" || exit 1
 
 # single instance (exact-PID discipline: only other mine.sh copies)
@@ -57,8 +57,10 @@ export PYTHONUNBUFFERED=1
   done
 ) &
 
-# forever loop (golden flags, byte-identical command)
+# forever loop (golden flags, byte-identical command) with crash backoff:
+# quick deaths in a row mean the box is choking — back off instead of churning.
 PYBIN="/opt/venv/bin/python3"; [ -x "$PYBIN" ] || PYBIN="python3"
+BOFF=8
 while true; do
   if ! pgrep -f "Xvfb :99" >/dev/null 2>&1; then
     rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 2>/dev/null || true
@@ -66,9 +68,16 @@ while true; do
     Xvfb :99 -screen 0 1600x900x24 >/tmp/xvfb.log 2>&1 &
     sleep 1
   fi
+  START=$SECONDS
   "$PYBIN" -u daemon.py --session "$SESS" --project "$PROJ" \
     --browser chromium --mode full --headed
   ec=$?
-  echo "[$(date -u +%H:%M:%S)] supervisor: daemon exited $ec — restart in 8s" >> "$LOG"
-  sleep 8
+  LIVED=$((SECONDS - START))
+  if [ "$LIVED" -lt 300 ]; then
+    BOFF=$((BOFF * 2)); [ "$BOFF" -gt 600 ] && BOFF=600
+  else
+    BOFF=8
+  fi
+  echo "[$(date -u +%H:%M:%S)] supervisor: daemon exited $ec lived=${LIVED}s — restart in ${BOFF}s" >> "$LOG"
+  sleep "$BOFF"
 done
