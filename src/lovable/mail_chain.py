@@ -107,11 +107,11 @@ LAST_NAMES = [
 
 
 def real_prefix() -> str:
-    """Random-but-real mailbox prefix: firstname.lastnameNN (2 digits)."""
+    """Random-but-real mailbox prefix: firstnamelastnameNN (2 digits, no dots)."""
     first = random.choice(FIRST_NAMES)
     last = random.choice(LAST_NAMES)
     nn = f"{random.randint(10, 99)}"
-    return f"{first}.{last}{nn}"
+    return f"{first}{last}{nn}"
 
 
 def log(msg: str) -> None:
