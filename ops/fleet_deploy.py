@@ -69,19 +69,40 @@ def run(args: list[str], jar: Path, cwd: Path, timeout: int) -> tuple[int, str]:
         return -2, f"ERR:{str(e)[:100]}"
 
 
-def svc_ok(jar: Path, build: Path, proj: str, envid: str) -> tuple[bool, str]:
-    rc, out = run(["service", "list", "-p", proj, "-e", envid, "--json"],
-                  jar, build, 90)
+def _jload(s: str):
+    import json as _j
     try:
-        for s in json.loads(out[out.index("["):]):
-            if s.get("deploymentStopped"):
-                continue
-            d = s.get("latestDeployment") or {}
-            if d.get("id"):
-                return True, d["id"][:8]
+        return _j.loads(s[s.index("["):])
     except Exception:
-        pass
-    return False, out[-120:]
+        return None
+
+
+LIVE_STATUSES = {"SUCCESS"}
+BUSY_STATUSES = {"BUILDING", "QUEUED", "DEPLOYING", "WAITING", "INITIALIZING", "PENDING"}
+
+
+def check_deploy(jar: Path, proj: str, envid: str, since: str, svc: str = "") -> tuple[str, str]:
+    """deployment-list based truth. Returns (state, info).
+    state: ok | building | failed | none"""
+    if svc:
+        run(["link", "-p", proj, "-e", envid, "-s", svc, "--json"],
+            jar, Path("/tmp"), 60)
+    rc, out = run(["deployment", "list", "-p", proj, "-e", envid, "--json"],
+                  jar, Path("/tmp"), 90)
+    ds = _jload(out)
+    if ds is None:
+        return "none", f"unparseable:{out[-120:]}"
+    fresh = [d for d in ds if str(d.get("createdAt", "")) >= since]
+    if not fresh:
+        return "none", f"{len(ds)} old deployments, none since {since[-8:]}"
+    for d in fresh:
+        if d.get("status") in LIVE_STATUSES:
+            return "ok", str(d.get("id", ""))[:8]
+    if any(d.get("status") in BUSY_STATUSES for d in fresh):
+        st = ",".join(sorted({str(d.get("status")) for d in fresh}))
+        return "building", st
+    st = ",".join(sorted({str(d.get("status")) for d in fresh}))
+    return "failed", st
 
 
 def one(jar: Path, build: Path) -> dict:
@@ -97,13 +118,18 @@ def one(jar: Path, build: Path) -> dict:
     rc, out = run(["up", "-d", "-y", "--ci"], jar, build, 900)
     if rc != 0:
         return {**rec, "status": "up-fail", "out": out[-200:]}
-    time.sleep(20)
-    for _ in range(6):
-        ok, info = svc_ok(jar, build, proj, envid)
-        if ok:
-            return {**rec, "status": "ok", "deploy": info}
+    import datetime as _dt
+    since = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=3)).strftime("%Y-%m-%dT%H:%M")
+    last = ""
+    for _ in range(20):  # ~10 min: builds land slower than the old 3.5-min window
         time.sleep(30)
-    return {**rec, "status": "no-deploy", "out": info[-150:]}
+        state, info = check_deploy(jar, proj, envid, since, svc)
+        last = f"{state}:{info}"
+        if state == "ok":
+            return {**rec, "status": "ok", "deploy": info}
+        if state == "failed":
+            return {**rec, "status": "deploy-failed", "out": info[-150:]}
+    return {**rec, "status": "no-deploy", "out": last[-150:]}
 
 
 def main() -> None:
