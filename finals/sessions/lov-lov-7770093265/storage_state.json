@@ -1,0 +1,782 @@
+{
+  "cookies": [
+    {
+      "name": "USER_COUNTRY",
+      "value": "US",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1791228875.700212,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "USER_CURRENCY",
+      "value": "USD",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1791228875.700632,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "LOCALE",
+      "value": "en",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1825184075.70067,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "rs_visitor_id",
+      "value": "50d61fb5-721d-4885-9c51-1fc475d8da19",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1822160075.70069,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__dpl",
+      "value": "e6683e30155343016e2712bca5f2fd504c2723a449db708f4de2927183f9037f",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1790710559.142444,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "MVGciO12MrlZhbaz1Ry.pahfyV6jZJvFQ3hnphj48q0-1790624075.6207783-1.0.1.1-EP9utGPU8EuBe3SBCbRndsdDveexgPpm.QiEVg7IDp1YOgDw3TcpQlAbpIyI.FM8IYy2.b9psaquwlSMGe8m.yUg.Tk6Jeqq.9n21yNyHWN7oPkYwfV5EimsWYD6r11L",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1790625875.700756,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "zvx_sid",
+      "value": "9IuaUa2AtyRzPzHQWUi-Wu9bdt0Pyubq.1HGsilJo20JXQhVlFSzVMiO-sCK96CA_tgOME0PC-Wg",
+      "domain": "zenvex.dev",
+      "path": "/",
+      "expires": 1825184143.815711,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "zvx_site",
+      "value": "9IuaUa2AtyRzPzHQWUi-Wu9bdt0Pyubq.1790667276.ZtNAwQWjVfOkWpnrEYeUsbz7tBSazWonEV_NL2taQqQ",
+      "domain": "zenvex.dev",
+      "path": "/",
+      "expires": 1790667276.807073,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "zvx_csrf",
+      "value": "9IuaUa2AtyRzPzHQWUi-Wu9bdt0Pyubq.vaM3ATdfYU73aZIqvEP7rDpiG-DcaXSd.1790667276.9ewOSywoCmsPV1r9FOejuIjuh_DggmRDeAgjnNBwXHc",
+      "domain": "zenvex.dev",
+      "path": "/",
+      "expires": 1790667276.807091,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "ID",
+      "value": "0083bfae91ce4568e4dbc3eb52593263",
+      "domain": "my.rtmark.net",
+      "path": "/",
+      "expires": 1822160078.717877,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "OAID",
+      "value": "0083bfae91ce4568e4dbc3eb52593263",
+      "domain": "6opo.com",
+      "path": "/",
+      "expires": 1822160145.351628,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "syncedCookie",
+      "value": "true",
+      "domain": "6opo.com",
+      "path": "/",
+      "expires": 1791228945.351832,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cuid",
+      "value": "222294e4a3434ce5a962d6c9f471bd39",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1825184160,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "zvx_turnstile",
+      "value": "9IuaUa2AtyRzPzHQWUi-Wu9bdt0Pyubq.1790667281.gDUYGQqChJmnh0cyvEhFn4YYJ1iGVa_EuisxpWXUuTI",
+      "domain": "zenvex.dev",
+      "path": "/",
+      "expires": 1790667281.96637,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "lovable_consent_v1",
+      "value": "%7B%22v%22%3A1%2C%22decided_at%22%3A%222026-09-28T19%3A35%3A26.234Z%22%2C%22preferences%22%3A%7B%22essential%22%3Atrue%2C%22marketing%22%3Atrue%2C%22personalization%22%3Atrue%2C%22analytics%22%3Atrue%7D%7D",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1822160126.234344,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "IR_gbd",
+      "value": "lovable.dev",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "ZXElRpv.emUhHgfQ17uylzd0XvsjnlPA8Jrw73lDPL4-1790624126.4452763-1.0.1.1-IbJHbDGdy4voeYe1qb9UfamRtxjp8mLH4oR5PvJ1__AtCnoORnqcQiXkSYNLb6q6SGWWae7G.0p2U.PTKoXcSx7HVQVodB5ICex68epMDZVwMdxers2rvhg5KTCtRZYZ",
+      "domain": ".hs-scripts.com",
+      "path": "/",
+      "expires": 1790625926.467209,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "brwsr",
+      "value": "c164fc59-bb73-11f1-a46f-c3978615ca2b",
+      "domain": ".pxf.io",
+      "path": "/",
+      "expires": 1822160160.515161,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "irtps",
+      "value": "1",
+      "domain": ".pxf.io",
+      "path": "/",
+      "expires": 1790710526.568421,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "ok4cZhqJ8Q_RBngnCr8hXEyj6hjxvG5FSE4NSxyzFHU-1790624126.5794742-1.0.1.1-0Evcn3N9Si5kGb_mpWs5Hk1nHdZIsxf6MysFwSZqTD7.makbelHbcfKeG7TJ_yxjSO3.eIFQ2zr.4h.l7Va6JClTBvVeAp4iQEUFIlpxyEkP7DuXDqva7wafA..6XiIk",
+      "domain": ".hsadspixel.net",
+      "path": "/",
+      "expires": 1790625926.599409,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "ryaxqWyUDKZH0zZMHSJdoUTjLEgkKoQbnLp5hnm2lXU-1790624126.5743484-1.0.1.1-l_xEiWfwwaJ6Atq7YJYaAHqDxgxuWctZqLz65Nb9GTqlLFDeRkv1wYcD4_Uwo1fk2hRQpfYkQrtX6scgN8n9BTQlCGEja1gIYLCptmSt4AaqRif3Xllqhm8LrS29G.kD",
+      "domain": ".hs-banner.com",
+      "path": "/",
+      "expires": 1790625926.601467,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "0wSA9_ijYQnGbigbs4KlfUtQUsRwMToXnkXPq1OF1Tc-1790624126.5937543-1.0.1.1-lgvOL9X9E_K8rPvRfQRlBYSYZu1OyUypTU1SSXVs.aKEwehjpknNtWaCySmhK.vh_Dehl3Tti1yEq6CO1pOLhgyhWxatjZ8WBQnrB0NTlYze2FHP_SFC3YveZOPkWvUK",
+      "domain": ".hs-analytics.net",
+      "path": "/",
+      "expires": 1790625926.616518,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__spdt",
+      "value": "ce5b6faa046343a491926097e40a3fb9",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1822160126,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "li_sugr",
+      "value": "afd38a3f-425f-4660-b07a-0175f08911a0",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1798400160.217267,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "bcookie",
+      "value": "\"v=2&9d91f3b6-a28d-4872-8577-77aee05321f9\"",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1822160160.217321,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "lidc",
+      "value": "\"b=TGST07:s=T:r=T:a=T:p=T:g=3410:u=1:x=1:i=1790624126:t=1790710526:v=2:sig=AQH6632Krt8udDlv6-dBoRUYnXCXorZl\"",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1790710526.705452,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "DFcFl1LQf3ctlZwovPPVi0L3PJpH.q.E0tfNjgFVJVw-1790624126.6449766-1.0.1.1-sBLitoYdTGAI_pHYV4sEZEkV0GidFFukmjDxNItXwSbyauMVeD7Q3aESgZI9ZtjQRFjRoVChi9UZ95XsgnitMyQ5edrHP.mhZLTuJ2GN6QxmB7gn9jXnJ1HFLZ3FrJF4",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1790625926.705466,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "brwsr",
+      "value": "c1888a02-bb73-11f1-9f7d-81890f451985",
+      "domain": ".ojrq.net",
+      "path": "/",
+      "expires": 1822160126.79515,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__hstc",
+      "value": "86042631.ff2544b244e6342a4cc5b174f7784525.1790624126804.1790624126804.1790624126804.1",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1806176160,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "hubspotutk",
+      "value": "ff2544b244e6342a4cc5b174f7784525",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1806176160,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__hssrc",
+      "value": "1",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "UserMatchHistory",
+      "value": "AQI9sPEoXDWfkAAAAaDpg9dD-upxCEn-merMqZ3M7ITd1iSqW8-RQwdQWHee4oArTDj_90vFZDtbXA",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1793216126.815539,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "AnalyticsSyncHistory",
+      "value": "AQJslYCl3peUAQAAAaDpg9dDrOJmQ6aNwozxcOFDeI5ibJKytXoPreb5x21igIJV1kolr-n6Gn8AIdMFsGb1oA",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1793216126.815555,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "MUID",
+      "value": "2EAC32FF523267E535E9251D533366D2",
+      "domain": ".bing.com",
+      "path": "/",
+      "expires": 1824320126.954316,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "MR",
+      "value": "0",
+      "domain": ".bat.bing.com",
+      "path": "/",
+      "expires": 1791228926.954381,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "hz9osqWwxXTvSlHU6m4F5A._WdYFPtj7jvNQR0hY7VM-1790624126.9160423-1.0.1.1-EzboOZTFNRcl9q00CovbZi9732vQ0Z.MZfugt_5MMIWorJ02NZrIeBd.cI8N7dCJae2Ct4XXoYczKmikobM5l49xXFEbVsZEioRxzGMrwlDvo4bRgqqC1iKgmVL9QqFM",
+      "domain": ".hubspot.com",
+      "path": "/",
+      "expires": 1790625926.961887,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "bscookie",
+      "value": "\"v=1&2026092819352651c0d274-4522-45bd-85f1-b6e93bb0c7e1AQHzWwifSml2NJRrJGg0qdb5ZX3GUQWm\"",
+      "domain": ".www.linkedin.com",
+      "path": "/",
+      "expires": 1822160126.022371,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "pt",
+      "value": "v2:c261a0ca4487e4a082028d58b1521315f07ea8f7619f17b9949e64c52646902b|1d1ed1c5072723c29f98d0f737228ef528a862117c79c4a8ec036a0394739dfd",
+      "domain": ".ispot.tv",
+      "path": "/",
+      "expires": 1825184142.393601,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_fbp",
+      "value": "fb.1.1790624127443.574942732478846440",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1798400178,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.1.71376784.1790624127",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1825184160.742863,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "IDE",
+      "value": "AHWqTUkwbvi1l1VbRLQ0F5MryKTL1Pad2i4fzjTJuTcaDY-WoZCwmsIt2y4sM7s1t2s",
+      "domain": ".doubleclick.net",
+      "path": "/",
+      "expires": 1825184127.551281,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "fr",
+      "value": "0itxt3FRihZL6uLSH..BqusF_...1.0.BqusF_.AWfE4MrKXLio2pmhx9YGVTssMn8",
+      "domain": ".facebook.com",
+      "path": "/",
+      "expires": 1798400127.616992,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "lovable-flag-identity",
+      "value": "Uk9FMXVXOXp3d1pRdEoyVDhXODVkNGhxdTRDMw.A0mzcfppBH-elnb7R6VN7qiFXDYqMrEoBL44Q0l9mKc",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1822160178.24942,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "lovable-flag-attrs",
+      "value": "eyJ1aWQiOiJST0UxdVc5end3WlF0SjJUOFc4NWQ0aHF1NEMzIiwidXNlcl9jcmVhdGVkX2F0IjoiMjAyNi0wOS0yOFQxOTozNTozOVoifQ.BF0il4DJRV3x3EIWP3_Q1oj3QYXe56wMXLJdLJyhFhQ",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1822160178.249448,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "oaidts",
+      "value": "1790624145",
+      "domain": "6opo.com",
+      "path": "/",
+      "expires": 1822160145.351814,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "lovable-workspace-id",
+      "value": "ROE1uW9zwwZQtJ2T8W85d4hqu4C3:dde42563278323f281df",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1793216160.07313,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "lovable-workspace-plan",
+      "value": "free",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1793216160.077678,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__hssc",
+      "value": "86042631.3.1790624126804",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1790625960,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_rdt_uuid",
+      "value": "1790624126541.a9cb4093-65ba-421f-81bb-5bb6a344942f",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1798400160,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "_rdt_em",
+      "value": "8468b26c94c8288e144bd1c4ad4dfe0fbdf81bf9fb819ca6680a2ddf2c213049",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1798400160,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "IR_49205",
+      "value": "1790624160460%7C7094315%7C1790624160460%7C%7C",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "IR_PI",
+      "value": "c164fc59-bb73-11f1-a46f-c3978615ca2b%7C1790710560461",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1822160160,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "irld",
+      "value": "Lz69VrXWd6Q87QqwUKp1joxPsx-f2VWw8zSj6X4pRhe3htXsx",
+      "domain": "lovablelabs.pxf.io",
+      "path": "/",
+      "expires": 1806176160.515205,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "lovable-flag-plan",
+      "value": "eyJ1aWQiOiJST0UxdVc5end3WlF0SjJUOFc4NWQ0aHF1NEMzIiwid29ya3NwYWNlX2lkIjoiZGRlNDI1NjMyNzgzMjNmMjgxZGYiLCJwbGFuIjoiZnJlZSIsImlhdCI6MTc5MDYyNDE2MH0._RJHA0LQfWuZFiflyRQsNH_KTTe7bhS0Qsqf3lmpkgk",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1790624460.960007,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "lovable-session-id-v2",
+      "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6Iktna0hjZyJ9.eyJpc3MiOiJodHRwczovL3Nlc3Npb24uZmlyZWJhc2UuZ29vZ2xlLmNvbS9ncHQtZW5naW5lZXItMzkwNjA3IiwibmFtZSI6IlNhbSBEYWQiLCJsb3ZhYmxlX3Byb3Zpc2lvbmVkX2VtYWlsIjoidmljdG9yY2hlcmthb3VpNTBAemVudmV4LmVkdS5wbCIsImxvZ2luX3Nlc3Npb25faWQiOiJkOGVjZDNlYy02NjM4LTQ1OTEtOTk5Zi0yN2ViZWQzNmY0M2UiLCJsb3ZhYmxlX3VzZXJfcHJvdmlzaW9uaW5nIjoiMjAyNi0wMy0wMiIsInNvdXJjZV9zaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQiLCJhdWQiOiJncHQtZW5naW5lZXItMzkwNjA3IiwiYXV0aF90aW1lIjoxNzkwNjI0MTQwLCJ1c2VyX2lkIjoiUk9FMXVXOXp3d1pRdEoyVDhXODVkNGhxdTRDMyIsInN1YiI6IlJPRTF1Vzl6d3daUXRKMlQ4Vzg1ZDRocXU0QzMiLCJpYXQiOjE3OTA2MjQxNzgsImV4cCI6MTc5MTgzMzc3OCwiZW1haWwiOiJ2aWN0b3JjaGVya2FvdWk1MEB6ZW52ZXguZWR1LnBsIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsidmljdG9yY2hlcmthb3VpNTBAemVudmV4LmVkdS5wbCJdfSwic2lnbl9pbl9wcm92aWRlciI6ImN1c3RvbSJ9fQ.XIFDYINInAmpHr931j1z9JHD6qlJYnFvoEYh7DLxIyvkt6H8uBPjiFFIKbiiUloC-2IppJakAuOihafMq_AVRFJOcbXmi0Il2TPYPgq_zkviyEqeG-hqJ4_eIck4c1PaLvBtiEWWRtaL0jgo9fo2qPAeJwwv3b-r7f4SwWEXJPnwB3KO3LLxB_xXNGzv6TAEQjpqp1Mfe_EuIcODXnwxyc1q0dQnba38zT60TCBKir1QPowj3yMZW_13Riua-2fVUnkZfUIeDkescfku9rhi6mGBgTi0ri0df0pVoIi_ZIXbJ4l7Y0-W97I1NoEyzoeoGfacmsL9v4_yUweUltiHWg",
+      "domain": "lovable.dev",
+      "path": "/",
+      "expires": 1791833778.249357,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_VW0TD1TTTK",
+      "value": "GS2.1.s1790624127$o1$g1$t1790624178$j9$l1$h93392794",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1825184178.618524,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_uetsid",
+      "value": "c1c6c780bb7311f1a841ad9e35cf48f7|zmgsym|2|g9u|0|2462",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1790710579,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_uetvid",
+      "value": "c1c6e2d0bb7311f191e6e5b74dc80056|nts01f|1790624178880|7|1|bat.bing.com/p/insights/c/z",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1824320179,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_gcl_au",
+      "value": "1.1.1669387881.1790624127.1037202024.1790624133.1790624143.637875945.1790624127.1790624179",
+      "domain": ".lovable.dev",
+      "path": "/",
+      "expires": 1798400127,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://lovable.dev",
+      "localStorage": [
+        {
+          "name": "rudder_30uiF44drV1UnRmUEUVhfQ2L500.faf72652-4b03-493c-a158-041eb9f8fc81.batchQueue",
+          "value": "\"[]\""
+        },
+        {
+          "name": "_uetvid_exp",
+          "value": "Sat, 23 Oct 2027 19:36:19 GMT"
+        },
+        {
+          "name": "out-of-cloud-credits-banner-dismissed:dde42563278323f281df",
+          "value": "false"
+        },
+        {
+          "name": "rudder_30uiF44drV1UnRmUEUVhfQ2L500.456bc3ff-fbe8-420d-83aa-20efa8409504.batchQueue",
+          "value": "\"[]\""
+        },
+        {
+          "name": "lovable:sidebar-has-chats:dde42563278323f281df",
+          "value": "false"
+        },
+        {
+          "name": "lastUsedSSOProviderId",
+          "value": "null"
+        },
+        {
+          "name": "launch_card_state_ROE1uW9zwwZQtJ2T8W85d4hqu4C3_v1",
+          "value": "{\"dismissed\":[]}"
+        },
+        {
+          "name": "rl_trait",
+          "value": "\"RS_ENC_v3_eyJlbWFpbCI6InZpY3RvcmNoZXJrYW91aTUwQHplbnZleC5lZHUucGwifQ==\""
+        },
+        {
+          "name": "_gcl_ls",
+          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":6,\"timeouts\":0,\"errors\":0,\"eopCount\":0,\"creationTimeMs\":1790624179517},\"expires\":1798400179517},\"gsid_dc\":{\"value\":{\"joinId\":\"VZxFXhOtSJ2RD4HoOR2_O_5NOXb4kCx4Yg\",\"lastJoinedTimeMs\":1790624126833},\"expires\":1790624426833}}"
+        },
+        {
+          "name": "rl_user_id",
+          "value": "\"RS_ENC_v3_IlJPRTF1Vzl6d3daUXRKMlQ4Vzg1ZDRocXU0QzMi\""
+        },
+        {
+          "name": "rl_anonymous_id",
+          "value": "\"RS_ENC_v3_IjUwZDYxZmI1LTcyMWQtNDg4NS05YzUxLTFmYzQ3NWQ4ZGExOSI=\""
+        },
+        {
+          "name": "rudder_30uiF44drV1UnRmUEUVhfQ2L500.faf72652-4b03-493c-a158-041eb9f8fc81.ack",
+          "value": "\"1790624183832\""
+        },
+        {
+          "name": "rl_session",
+          "value": "\"RS_ENC_v3_eyJhdXRvVHJhY2siOnRydWUsInRpbWVvdXQiOjE4MDAwMDAsImV4cGlyZXNBdCI6MTc5MDYyNTk3OTQwNCwiaWQiOjE3OTA2MjQwNzg1NDYsInNlc3Npb25TdGFydCI6ZmFsc2V9\""
+        },
+        {
+          "name": "rudder_30uiF44drV1UnRmUEUVhfQ2L500.456bc3ff-fbe8-420d-83aa-20efa8409504.inProgress",
+          "value": "\"{}\""
+        },
+        {
+          "name": "_uetvid",
+          "value": "c1c6e2d0bb7311f191e6e5b74dc80056|nts01f|1790624178880|7|1|bat.bing.com/p/insights/c/z"
+        },
+        {
+          "name": "lastExternalReferrer",
+          "value": "empty"
+        },
+        {
+          "name": "lovable-theme",
+          "value": "light"
+        },
+        {
+          "name": "lovable:removed-recent-projects:ROE1uW9zwwZQtJ2T8W85d4hqu4C3:dde42563278323f281df",
+          "value": "[]"
+        },
+        {
+          "name": "li_adsId",
+          "value": "230d8e9b-e646-4392-adcc-4fdad6b75060"
+        },
+        {
+          "name": "rudder_30uiF44drV1UnRmUEUVhfQ2L500.faf72652-4b03-493c-a158-041eb9f8fc81.inProgress",
+          "value": "\"{}\""
+        },
+        {
+          "name": "rudder_30uiF44drV1UnRmUEUVhfQ2L500.456bc3ff-fbe8-420d-83aa-20efa8409504.queue",
+          "value": "\"[]\""
+        },
+        {
+          "name": "rl_page_init_referrer",
+          "value": "\"RS_ENC_v3_IiRkaXJlY3Qi\""
+        },
+        {
+          "name": "lastUsedAuthMethod",
+          "value": "\"email\""
+        },
+        {
+          "name": "_uetsid",
+          "value": "c1c6c780bb7311f1a841ad9e35cf48f7|zmgsym|2|g9u|0|2462"
+        },
+        {
+          "name": "projects-paused-banner-dismissed:dde42563278323f281df:",
+          "value": "false"
+        },
+        {
+          "name": "sweden-student-offer-invitation:back-to-school-sweden-2609:ROE1uW9zwwZQtJ2T8W85d4hqu4C3:dde42563278323f281df",
+          "value": "false"
+        },
+        {
+          "name": "has_seen_attach_image_modal",
+          "value": "false"
+        },
+        {
+          "name": "editor-store-create-form",
+          "value": "{\"message\":\"\",\"editorContentJSON\":null,\"images\":[],\"imagesAddedViaDropdown\":false,\"wasCleared\":false}"
+        },
+        {
+          "name": "__cuid",
+          "value": "222294e4a3434ce5a962d6c9f471bd39"
+        },
+        {
+          "name": "lastExternalReferrerTime",
+          "value": "1790624160149"
+        },
+        {
+          "name": "_uetsid_exp",
+          "value": "Tue, 29 Sep 2026 19:36:19 GMT"
+        },
+        {
+          "name": "report-dialog-draft",
+          "value": "{\"state\":{\"draft\":{\"type\":\"bug\",\"description\":\"\",\"attachments\":[]}},\"version\":0}"
+        },
+        {
+          "name": "lastMutatedAt",
+          "value": "1790624178835"
+        },
+        {
+          "name": "rudder_30uiF44drV1UnRmUEUVhfQ2L500.faf72652-4b03-493c-a158-041eb9f8fc81.queue",
+          "value": "\"[]\""
+        },
+        {
+          "name": "registration_completed_sent:ROE1uW9zwwZQtJ2T8W85d4hqu4C3",
+          "value": "2026-09-28T19:35:59.180Z"
+        },
+        {
+          "name": "rudder_30uiF44drV1UnRmUEUVhfQ2L500.456bc3ff-fbe8-420d-83aa-20efa8409504.ack",
+          "value": "\"1790624183789\""
+        },
+        {
+          "name": "news_read_status_ROE1uW9zwwZQtJ2T8W85d4hqu4C3_v2",
+          "value": "{\"announcements\":[],\"lastSeenVersions\":{}}"
+        },
+        {
+          "name": "editor-mode-store:last",
+          "value": "null"
+        }
+      ]
+    },
+    {
+      "origin": "https://zenvex.dev",
+      "localStorage": [
+        {
+          "name": "syncOrigin",
+          "value": "gidrator"
+        },
+        {
+          "name": "zenvex-inbox-read-ids:victorcherkaoui50@zenvex.edu.pl",
+          "value": "[\"c3ek728uwyv65337p4peh8nk\"]"
+        },
+        {
+          "name": "zenvex-prefix-preference",
+          "value": "victorcherkaoui50"
+        },
+        {
+          "name": "syncId",
+          "value": "0083bfae91ce4568e4dbc3eb52593263"
+        },
+        {
+          "name": "zenvex-domain-preference",
+          "value": "zenvex.edu.pl"
+        },
+        {
+          "name": "syncDate",
+          "value": "1790624078132"
+        }
+      ]
+    }
+  ]
+}
