@@ -85,7 +85,8 @@ def check_deploy(jar: Path, proj: str, envid: str, since: str, svc: str = "") ->
     """deployment-list based truth. Returns (state, info).
     state: ok | building | failed | none"""
     if svc:
-        run(["link", "-p", proj, "-e", envid, "-s", svc, "--json"],
+        # NOTE: no --json on link (CLI chokes decoding it); JSON only on reads.
+        run(["link", "-p", proj, "-e", envid, "-s", svc],
             jar, Path("/tmp"), 60)
     rc, out = run(["deployment", "list", "-p", proj, "-e", envid, "--json"],
                   jar, Path("/tmp"), 90)
@@ -111,9 +112,9 @@ def one(jar: Path, build: Path) -> dict:
     if not ids:
         return {**rec, "status": "no-ids"}
     proj, envid, svc = ids
-    rc, out = run(["link", "-p", proj, "-e", envid, "-s", svc, "--json"],
+    rc, out = run(["link", "-p", proj, "-e", envid, "-s", svc],
                   jar, build, 60)
-    if rc != 0 and "serviceName" not in out:
+    if "linked successfully" not in out and "serviceName" not in out and rc != 0:
         return {**rec, "status": "link-fail", "out": out[-150:]}
     rc, out = run(["up", "-d", "-y", "--ci"], jar, build, 900)
     if rc != 0:
