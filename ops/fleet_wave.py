@@ -48,12 +48,19 @@ def banked() -> int:
         return 0
 
 
-def recent_throttle_rate(n: int = 15) -> float:
+def recent_throttle_rate(n: int = 15, since_ts: float = 0) -> float:
     try:
         d = json.loads(SSH_REG.read_text())
     except Exception:
         return 0.0
-    items = list(d.values())[-n:]
+    items = list(d.values())
+    if since_ts:
+        import datetime as _dt
+        items = [v for v in items
+                 if _dt.datetime.fromisoformat(
+                     str(v.get("ts", "1970-01-01T00:00:00Z")).replace("Z", "+00:00")
+                 ).timestamp() >= since_ts]
+    items = items[-n:]
     if not items:
         return 0.0
     bad = sum(1 for v in items
@@ -127,9 +134,11 @@ def main() -> None:
             f"--offset {(wave * 60) % 504} --target 80 "
             f"> /tmp/wave{wave}.log 2>&1 < /dev/null & disown; echo launched",
             timeout=60)
-        # watch first 15 starts for throttle
+        # watch first 15 starts of THIS wave for throttle (timestamp-gated
+        # so old fails from prior waves can't false-trigger)
+        wave_start = time.time()
         time.sleep(240)
-        rate = recent_throttle_rate(15)
+        rate = recent_throttle_rate(15, since_ts=wave_start)
         print(f"throttle rate in first 15: {rate:.0%}", flush=True)
         if rate > 0.30:
             sh("ps aux | grep -F 'fleet_ssh' | grep -v grep | awk '{print $2}' "
