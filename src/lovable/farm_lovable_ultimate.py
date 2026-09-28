@@ -636,6 +636,42 @@ async def signup_flow(ctx, email: str, password: str, mailbox, fp: dict = None) 
         or "Dashboard" in final_text
     )
     if not verified:
+        # Last resort: the verify-email page has "Didn't receive an email?
+        # Resend". Click it, poll for a FRESH link, click once more.
+        try:
+            log("🔁 verify-landing missed — trying Resend + fresh link")
+            await navigate(page, "https://lovable.dev/verify-email")
+            await page.wait_for_timeout(3000)
+            rs = await page.evaluate("""() => {
+                const el=[...document.querySelectorAll('a,button')]
+                  .find(x=>/resend/i.test(x.innerText||''));
+                if(el){ el.click(); return 'resend-clicked'; } return 'resend-missing';
+            }""")
+            log(f"resend: {rs}")
+            await page.wait_for_timeout(30000)
+            link2 = await mailbox.wait_for_lovable_link(timeout_seconds=180,
+                                                        exclude=link)
+            link2 = html.unescape(link2).replace("&amp;", "&")
+            if link2 and link2 != link:
+                log(f"🎯 Verify retry: {link2[:120]}")
+                await navigate(page, link2)
+                await page.wait_for_timeout(5000)
+                try:
+                    await wait_for_getting_started(page, timeout=60)
+                except Exception:
+                    pass
+                final_url = page.url
+                final_text = await body_text(page)
+                verified = (
+                    "/getting-started" in final_url or "Pick your style" in final_text
+                    or "/dashboard" in final_url or "Ask Lovable" in final_text
+                    or "Dashboard" in final_text
+                )
+                if verified:
+                    link = link2
+        except Exception as e:
+            log(f"resend-retry err {str(e)[:120]}")
+    if not verified:
         raise FlowError(f"not verified: url={final_url} text={final_text[:300]!r}")
     log(f"✅ Verified: {final_url}")
     # Clear getting-started so settings/2FA is reachable
@@ -679,7 +715,7 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
         email = ""
         bdata: dict = {}
         ctx = None
-        max_signup_attempts = 12
+        max_signup_attempts = 16
 
         for attempt in range(1, max_signup_attempts + 1):
             if attempt > 1:

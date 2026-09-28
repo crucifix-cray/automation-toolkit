@@ -161,10 +161,11 @@ class Mailbox:
     _page: Any = field(default=None, repr=False)
     _ctx: Any = field(default=None, repr=False)
 
-    async def wait_for_lovable_link(self, timeout_seconds: int = 420) -> str:
+    async def wait_for_lovable_link(self, timeout_seconds: int = 420,
+                                      exclude: str = None) -> str:
         prov = self.provider
         if prov.startswith("zenvex"):
-            return await _poll_zenvex(self, timeout_seconds)
+            return await _poll_zenvex(self, timeout_seconds, exclude=exclude)
         if prov == "dispose":
             return await _poll_dispose(self, timeout_seconds)
         if prov in ("temptf_gmail", "temptf_high"):
@@ -379,7 +380,7 @@ async def _zenvex_dump_for_link(page) -> str:
         return ""
 
 
-async def _poll_zenvex(box: Mailbox, timeout_seconds: int) -> str:
+async def _poll_zenvex(box: Mailbox, timeout_seconds: int, exclude: str = None) -> str:
     page = box._page
     log(f"📥 Waiting for Lovable verify on zenvex ({box.address})...")
     deadline = time.time() + timeout_seconds
@@ -416,9 +417,11 @@ async def _poll_zenvex(box: Mailbox, timeout_seconds: int) -> str:
             for _ in range(3):
                 htmlzx = await _zenvex_dump_for_link(page)
                 link = _extract_lovable_link(htmlzx)
-                if link:
+                if link and link != exclude:
                     log(f"  🎯 FOUND VERIFY LINK via zenvex: {link[:140]}...")
                     return link
+                if link and link == exclude:
+                    log("  (known consumed link, waiting for a fresh one)")
                 await page.wait_for_timeout(1200)
                 await _zenvex_click_lovable_mail(page)
         await asyncio.sleep(2)
