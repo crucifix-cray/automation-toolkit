@@ -1,0 +1,2578 @@
+{
+ "farmed-sb00-6041b39970": {
+  "jar": "farmed-sb00-6041b39970",
+  "jid": 19,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:16Z"
+ },
+ "farmed-cxs40-r3f737e-6cd3165cc5": {
+  "jar": "farmed-cxs40-r3f737e-6cd3165cc5",
+  "jid": 1,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:26:58Z"
+ },
+ "farmed-sb00-3d589dbd97": {
+  "jar": "farmed-sb00-3d589dbd97",
+  "jid": 11,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:16Z"
+ },
+ "farmed-sb00-1eb521c6f4": {
+  "jar": "farmed-sb00-1eb521c6f4",
+  "jid": 9,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:16Z"
+ },
+ "farmed-sb00-0cc9c1c8de": {
+  "jar": "farmed-sb00-0cc9c1c8de",
+  "jid": 7,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:16Z"
+ },
+ "farmed-cxs33-r2276f5-e706fc9415": {
+  "jar": "farmed-cxs33-r2276f5-e706fc9415",
+  "jid": 0,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=0 out={\"status\":\"ready\",\"account\":{\"user\":{\"name\":null,\"username\":null,\"email\":\"b.al.atc.emr.e@gmail.com\"},\"workspaces\":[{\"id\":\"ac2fe0d1-edcd-44b8-9c5f-a814 err=Using SSH key from agent: fleet-cxs33\nWarning: Permanently added 'ssh.railway.com' (ED25519) to the list of known hosts.\n",
+  "ts": "2026-09-28T17:39:24Z"
+ },
+ "farmed-gxf-cxs14-ra92cb7-63a510b83f-rcb-049f972b5d": {
+  "jar": "farmed-gxf-cxs14-ra92cb7-63a510b83f-rcb-049f972b5d",
+  "jid": 4,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:16Z"
+ },
+ "farmed-fxf-cxs2-r8fdbf3-cd62dcf9a3-r951-b9c2b17569": {
+  "jar": "farmed-fxf-cxs2-r8fdbf3-cd62dcf9a3-r951-b9c2b17569",
+  "jid": 2,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:26:57Z"
+ },
+ "farmed-sb00-072c109c22": {
+  "jar": "farmed-sb00-072c109c22",
+  "jid": 6,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:17Z"
+ },
+ "farmed-sb00-4ead110198": {
+  "jar": "farmed-sb00-4ead110198",
+  "jid": 17,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:17Z"
+ },
+ "farmed-gos19-r275479-304265be74": {
+  "jar": "farmed-gos19-r275479-304265be74",
+  "jid": 1,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=127 out= err=Using SSH key from agent: fleet-farmed-gos19-r275479-304\nWarning: Permanently added 'ssh.railway.com' (ED25519) to the list of known hosts.\nsh: bash: ",
+  "ts": "2026-09-28T17:39:26Z"
+ },
+ "farmed-sb00-30e2f9e2f3": {
+  "jar": "farmed-sb00-30e2f9e2f3",
+  "jid": 10,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:17Z"
+ },
+ "farmed-sb00-4a43f44104": {
+  "jar": "farmed-sb00-4a43f44104",
+  "jid": 14,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:17Z"
+ },
+ "farmed-sb00-4b392a3f93": {
+  "jar": "farmed-sb00-4b392a3f93",
+  "jid": 16,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:17Z"
+ },
+ "farmed-sb00-4aa2f72663": {
+  "jar": "farmed-sb00-4aa2f72663",
+  "jid": 15,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:17Z"
+ },
+ "farmed-sb00-515ac17c0c": {
+  "jar": "farmed-sb00-515ac17c0c",
+  "jid": 18,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:18Z"
+ },
+ "farmed-sb00-1d5a392968": {
+  "jar": "farmed-sb00-1d5a392968",
+  "jid": 8,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:18Z"
+ },
+ "farmed-sb00-497f1d1f76": {
+  "jar": "farmed-sb00-497f1d1f76",
+  "jid": 13,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:18Z"
+ },
+ "farmed-sb00-4867d3a1cb": {
+  "jar": "farmed-sb00-4867d3a1cb",
+  "jid": 12,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:19Z"
+ },
+ "farmed-sb00-0382692db6": {
+  "jar": "farmed-sb00-0382692db6",
+  "jid": 5,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:19Z"
+ },
+ "farmed-sb00-84ae501242": {
+  "jar": "farmed-sb00-84ae501242",
+  "jid": 25,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:22Z"
+ },
+ "farmed-sb00-7eaf35f5ef": {
+  "jar": "farmed-sb00-7eaf35f5ef",
+  "jid": 23,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:22Z"
+ },
+ "farmed-sb00-6bfeb26999": {
+  "jar": "farmed-sb00-6bfeb26999",
+  "jid": 21,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:23Z"
+ },
+ "farmed-sb00-bef32efc9f": {
+  "jar": "farmed-sb00-bef32efc9f",
+  "jid": 35,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:23Z"
+ },
+ "farmed-sb00-9f6ed9bc74": {
+  "jar": "farmed-sb00-9f6ed9bc74",
+  "jid": 30,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:23Z"
+ },
+ "farmed-sb00-8c88696ae9": {
+  "jar": "farmed-sb00-8c88696ae9",
+  "jid": 28,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:24Z"
+ },
+ "farmed-sb00-b65aaded4e": {
+  "jar": "farmed-sb00-b65aaded4e",
+  "jid": 34,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:24Z"
+ },
+ "farmed-sb00-85cde54ad4": {
+  "jar": "farmed-sb00-85cde54ad4",
+  "jid": 26,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:24Z"
+ },
+ "farmed-sb00-77141f3a2d": {
+  "jar": "farmed-sb00-77141f3a2d",
+  "jid": 22,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:24Z"
+ },
+ "farmed-sb00-8bc42dfab2": {
+  "jar": "farmed-sb00-8bc42dfab2",
+  "jid": 27,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:25Z"
+ },
+ "farmed-sb00-a992009649": {
+  "jar": "farmed-sb00-a992009649",
+  "jid": 33,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:25Z"
+ },
+ "farmed-sb00-a48c22072a": {
+  "jar": "farmed-sb00-a48c22072a",
+  "jid": 31,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:25Z"
+ },
+ "farmed-sb00-e4214218bf": {
+  "jar": "farmed-sb00-e4214218bf",
+  "jid": 39,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:25Z"
+ },
+ "farmed-sb00-d2ce42f4f0": {
+  "jar": "farmed-sb00-d2ce42f4f0",
+  "jid": 37,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:25Z"
+ },
+ "farmed-sb00-84998473f8": {
+  "jar": "farmed-sb00-84998473f8",
+  "jid": 24,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:25Z"
+ },
+ "farmed-sb00-d0d1ccbabe": {
+  "jar": "farmed-sb00-d0d1ccbabe",
+  "jid": 36,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:25Z"
+ },
+ "farmed-sb00-67fe75eb37": {
+  "jar": "farmed-sb00-67fe75eb37",
+  "jid": 20,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:26Z"
+ },
+ "farmed-sb00-a74039f7c5": {
+  "jar": "farmed-sb00-a74039f7c5",
+  "jid": 32,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:27Z"
+ },
+ "farmed-sb00-d2f6fd5596": {
+  "jar": "farmed-sb00-d2f6fd5596",
+  "jid": 38,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:27Z"
+ },
+ "farmed-sb00-e4d7df1f84": {
+  "jar": "farmed-sb00-e4d7df1f84",
+  "jid": 40,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:28Z"
+ },
+ "farmed-sb00-ea935e22cd": {
+  "jar": "farmed-sb00-ea935e22cd",
+  "jid": 42,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:30Z"
+ },
+ "farmed-sb00-999cd3a4ef": {
+  "jar": "farmed-sb00-999cd3a4ef",
+  "jid": 29,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:31Z"
+ },
+ "farmed-sb00-ff2532afa7": {
+  "jar": "farmed-sb00-ff2532afa7",
+  "jid": 44,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:31Z"
+ },
+ "farmed-sb01-182d0241b4": {
+  "jar": "farmed-sb01-182d0241b4",
+  "jid": 47,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:33Z"
+ },
+ "farmed-sb01-46d90746ee": {
+  "jar": "farmed-sb01-46d90746ee",
+  "jid": 58,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:34Z"
+ },
+ "farmed-sb01-262554bfb3": {
+  "jar": "farmed-sb01-262554bfb3",
+  "jid": 50,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:34Z"
+ },
+ "farmed-sb01-06fe98b4e0": {
+  "jar": "farmed-sb01-06fe98b4e0",
+  "jid": 46,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:34Z"
+ },
+ "farmed-sb01-305d8067a7": {
+  "jar": "farmed-sb01-305d8067a7",
+  "jid": 53,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:34Z"
+ },
+ "farmed-sb00-fec6818208": {
+  "jar": "farmed-sb00-fec6818208",
+  "jid": 43,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:34Z"
+ },
+ "farmed-sb01-01e70acd08": {
+  "jar": "farmed-sb01-01e70acd08",
+  "jid": 45,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:34Z"
+ },
+ "farmed-sb01-1cc7ae9b27": {
+  "jar": "farmed-sb01-1cc7ae9b27",
+  "jid": 48,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:34Z"
+ },
+ "farmed-sb01-3886469946": {
+  "jar": "farmed-sb01-3886469946",
+  "jid": 3,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=127 out= err=Using SSH key from agent: fleet-farmed-sb01-3886469946\nWarning: Permanently added 'ssh.railway.com' (ED25519) to the list of known hosts.\nsh: bash: no",
+  "ts": "2026-09-28T17:39:25Z"
+ },
+ "farmed-sb00-e9a3c6aa8b": {
+  "jar": "farmed-sb00-e9a3c6aa8b",
+  "jid": 41,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:36Z"
+ },
+ "farmed-sb01-4089be5c12": {
+  "jar": "farmed-sb01-4089be5c12",
+  "jid": 57,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:37Z"
+ },
+ "farmed-sb01-2b801da925": {
+  "jar": "farmed-sb01-2b801da925",
+  "jid": 52,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:37Z"
+ },
+ "farmed-sb01-2383d4e861": {
+  "jar": "farmed-sb01-2383d4e861",
+  "jid": 49,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:38Z"
+ },
+ "farmed-sb01-2a0ba06697": {
+  "jar": "farmed-sb01-2a0ba06697",
+  "jid": 2,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=0 out={\"status\":\"ready\",\"account\":{\"user\":{\"name\":null,\"username\":null,\"email\":\"jzwvvhj4934m+vla1ycoqmow59@outlook.com\"},\"workspaces\":[{\"id\":\"81b62bdc-0d66- err=Using SSH key from agent: fleet-farmed-sb01-2a0ba06697\nWarning: Permanently added 'ssh.railway.com' (ED25519) to the list of known hosts.\nRailway can'",
+  "ts": "2026-09-28T17:39:26Z"
+ },
+ "farmed-sb01-366510498d": {
+  "jar": "farmed-sb01-366510498d",
+  "jid": 54,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:39Z"
+ },
+ "farmed-sb01-52ecc3350a": {
+  "jar": "farmed-sb01-52ecc3350a",
+  "jid": 59,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:41Z"
+ },
+ "farmed-sb01-683ada7887": {
+  "jar": "farmed-sb01-683ada7887",
+  "jid": 62,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:41Z"
+ },
+ "farmed-sb01-569e394925": {
+  "jar": "farmed-sb01-569e394925",
+  "jid": 60,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:41Z"
+ },
+ "farmed-sb01-7f558531bb": {
+  "jar": "farmed-sb01-7f558531bb",
+  "jid": 65,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:42Z"
+ },
+ "farmed-sb01-61f2603e1d": {
+  "jar": "farmed-sb01-61f2603e1d",
+  "jid": 61,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:42Z"
+ },
+ "farmed-sb01-7c3e85bd40": {
+  "jar": "farmed-sb01-7c3e85bd40",
+  "jid": 63,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:44Z"
+ },
+ "farmed-sb01-90520db9fe": {
+  "jar": "farmed-sb01-90520db9fe",
+  "jid": 69,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:44Z"
+ },
+ "farmed-sb01-91a3411571": {
+  "jar": "farmed-sb01-91a3411571",
+  "jid": 70,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:45Z"
+ },
+ "farmed-sb01-8041c318ec": {
+  "jar": "farmed-sb01-8041c318ec",
+  "jid": 66,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:46Z"
+ },
+ "farmed-sb01-c6bfe612a9": {
+  "jar": "farmed-sb01-c6bfe612a9",
+  "jid": 74,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:47Z"
+ },
+ "farmed-sb01-ddace95966": {
+  "jar": "farmed-sb01-ddace95966",
+  "jid": 78,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:47Z"
+ },
+ "farmed-sb01-3fc1575422": {
+  "jar": "farmed-sb01-3fc1575422",
+  "jid": 56,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:48Z"
+ },
+ "farmed-sb01-b4a8786e69": {
+  "jar": "farmed-sb01-b4a8786e69",
+  "jid": 72,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:48Z"
+ },
+ "farmed-sb01-c978c5e3bd": {
+  "jar": "farmed-sb01-c978c5e3bd",
+  "jid": 75,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:48Z"
+ },
+ "farmed-sb01-81b56d4987": {
+  "jar": "farmed-sb01-81b56d4987",
+  "jid": 67,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:48Z"
+ },
+ "farmed-sb01-e13171fd58": {
+  "jar": "farmed-sb01-e13171fd58",
+  "jid": 79,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:48Z"
+ },
+ "farmed-sb01-e1db7712e8": {
+  "jar": "farmed-sb01-e1db7712e8",
+  "jid": 80,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:49Z"
+ },
+ "farmed-sb01-b6ebe3b101": {
+  "jar": "farmed-sb01-b6ebe3b101",
+  "jid": 73,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:50Z"
+ },
+ "farmed-sb01-8592165adc": {
+  "jar": "farmed-sb01-8592165adc",
+  "jid": 68,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:50Z"
+ },
+ "farmed-sb01-7f06082c18": {
+  "jar": "farmed-sb01-7f06082c18",
+  "jid": 64,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:50Z"
+ },
+ "farmed-sb01-e4148f3cbd": {
+  "jar": "farmed-sb01-e4148f3cbd",
+  "jid": 81,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:51Z"
+ },
+ "farmed-sb01-9d3900904d": {
+  "jar": "farmed-sb01-9d3900904d",
+  "jid": 71,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:51Z"
+ },
+ "farmed-sb01-f1f5e108ad": {
+  "jar": "farmed-sb01-f1f5e108ad",
+  "jid": 82,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:52Z"
+ },
+ "farmed-sb01-dd81e6379a": {
+  "jar": "farmed-sb01-dd81e6379a",
+  "jid": 77,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:52Z"
+ },
+ "farmed-sb01-fc07739fc1": {
+  "jar": "farmed-sb01-fc07739fc1",
+  "jid": 83,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:55Z"
+ },
+ "farmed-sb02-2e86d2af7b": {
+  "jar": "farmed-sb02-2e86d2af7b",
+  "jid": 92,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:55Z"
+ },
+ "farmed-sb01-d641bc6455": {
+  "jar": "farmed-sb01-d641bc6455",
+  "jid": 76,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:55Z"
+ },
+ "farmed-sb02-0154557811": {
+  "jar": "farmed-sb02-0154557811",
+  "jid": 85,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:56Z"
+ },
+ "farmed-sb02-0cadb752d2": {
+  "jar": "farmed-sb02-0cadb752d2",
+  "jid": 88,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:56Z"
+ },
+ "farmed-sb02-0fa1426a58": {
+  "jar": "farmed-sb02-0fa1426a58",
+  "jid": 89,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:57Z"
+ },
+ "farmed-sb02-3930fe78ae": {
+  "jar": "farmed-sb02-3930fe78ae",
+  "jid": 93,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:57Z"
+ },
+ "farmed-sb02-47aea3b653": {
+  "jar": "farmed-sb02-47aea3b653",
+  "jid": 96,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:57Z"
+ },
+ "farmed-sb01-fe29fce3e6": {
+  "jar": "farmed-sb01-fe29fce3e6",
+  "jid": 84,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:57Z"
+ },
+ "farmed-sb02-166b196258": {
+  "jar": "farmed-sb02-166b196258",
+  "jid": 91,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:58Z"
+ },
+ "farmed-sb02-03bc333d9f": {
+  "jar": "farmed-sb02-03bc333d9f",
+  "jid": 87,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:59Z"
+ },
+ "farmed-sb02-53649f3bed": {
+  "jar": "farmed-sb02-53649f3bed",
+  "jid": 99,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:59Z"
+ },
+ "farmed-sb02-495e2348d5": {
+  "jar": "farmed-sb02-495e2348d5",
+  "jid": 97,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:01:59Z"
+ },
+ "farmed-sb02-411dbfe9e9": {
+  "jar": "farmed-sb02-411dbfe9e9",
+  "jid": 95,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:00Z"
+ },
+ "farmed-sb02-1470b34d7c": {
+  "jar": "farmed-sb02-1470b34d7c",
+  "jid": 90,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:01Z"
+ },
+ "farmed-sb02-548667ee77": {
+  "jar": "farmed-sb02-548667ee77",
+  "jid": 100,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:02Z"
+ },
+ "farmed-sb02-76786f49b2": {
+  "jar": "farmed-sb02-76786f49b2",
+  "jid": 104,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:02Z"
+ },
+ "farmed-sb02-64e6c5b566": {
+  "jar": "farmed-sb02-64e6c5b566",
+  "jid": 101,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:02Z"
+ },
+ "farmed-sb02-751f3840e9": {
+  "jar": "farmed-sb02-751f3840e9",
+  "jid": 103,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:04Z"
+ },
+ "farmed-sb02-67b361a701": {
+  "jar": "farmed-sb02-67b361a701",
+  "jid": 102,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:04Z"
+ },
+ "farmed-sb02-49ae0675ec": {
+  "jar": "farmed-sb02-49ae0675ec",
+  "jid": 98,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:05Z"
+ },
+ "farmed-sb02-036018c439": {
+  "jar": "farmed-sb02-036018c439",
+  "jid": 86,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:08Z"
+ },
+ "farmed-sb02-7faf43bc4c": {
+  "jar": "farmed-sb02-7faf43bc4c",
+  "jid": 106,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:09Z"
+ },
+ "farmed-sb02-e7550bf395": {
+  "jar": "farmed-sb02-e7550bf395",
+  "jid": 122,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:48Z"
+ },
+ "farmed-sb02-b0558053f5": {
+  "jar": "farmed-sb02-b0558053f5",
+  "jid": 113,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:48Z"
+ },
+ "farmed-sb03-016a94f404": {
+  "jar": "farmed-sb03-016a94f404",
+  "jid": 126,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T15:02:55Z"
+ },
+ "farmed-sb02-9681231453": {
+  "jar": "farmed-sb02-9681231453",
+  "jid": 9,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:07Z"
+ },
+ "farmed-sb02-7c8ea727be": {
+  "jar": "farmed-sb02-7c8ea727be",
+  "jid": 5,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:07Z"
+ },
+ "farmed-sb02-9881f05fbb": {
+  "jar": "farmed-sb02-9881f05fbb",
+  "jid": 10,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:08Z"
+ },
+ "farmed-sb02-b65e7b4706": {
+  "jar": "farmed-sb02-b65e7b4706",
+  "jid": 12,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:07Z"
+ },
+ "farmed-sb02-9a4a183fdc": {
+  "jar": "farmed-sb02-9a4a183fdc",
+  "jid": 11,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:07Z"
+ },
+ "farmed-sb02-9500153141": {
+  "jar": "farmed-sb02-9500153141",
+  "jid": 8,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:06Z"
+ },
+ "farmed-sb02-d5e9e0e137": {
+  "jar": "farmed-sb02-d5e9e0e137",
+  "jid": 17,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:13Z"
+ },
+ "farmed-sb02-bc2fa9d696": {
+  "jar": "farmed-sb02-bc2fa9d696",
+  "jid": 13,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:08Z"
+ },
+ "farmed-sb02-944f0b99a2": {
+  "jar": "farmed-sb02-944f0b99a2",
+  "jid": 7,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:06Z"
+ },
+ "farmed-sb02-930111ed28": {
+  "jar": "farmed-sb02-930111ed28",
+  "jid": 6,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:07Z"
+ },
+ "farmed-sb02-d8b1b972d7": {
+  "jar": "farmed-sb02-d8b1b972d7",
+  "jid": 18,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:17Z"
+ },
+ "farmed-sb02-e644a5258b": {
+  "jar": "farmed-sb02-e644a5258b",
+  "jid": 19,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:16Z"
+ },
+ "farmed-sb02-3e0c44a8f3": {
+  "jar": "farmed-sb02-3e0c44a8f3",
+  "jid": 4,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:06Z"
+ },
+ "farmed-sb03-13051acf8a": {
+  "jar": "farmed-sb03-13051acf8a",
+  "jid": 23,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:14Z"
+ },
+ "farmed-sb02-fd95b17500": {
+  "jar": "farmed-sb02-fd95b17500",
+  "jid": 22,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:14Z"
+ },
+ "farmed-sb03-23dd75d1b4": {
+  "jar": "farmed-sb03-23dd75d1b4",
+  "jid": 24,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:14Z"
+ },
+ "farmed-sb02-c2292d3f17": {
+  "jar": "farmed-sb02-c2292d3f17",
+  "jid": 14,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:15Z"
+ },
+ "farmed-sb02-f57e5c90bf": {
+  "jar": "farmed-sb02-f57e5c90bf",
+  "jid": 21,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:15Z"
+ },
+ "farmed-sb02-cde59b0a7e": {
+  "jar": "farmed-sb02-cde59b0a7e",
+  "jid": 16,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:16Z"
+ },
+ "farmed-sb02-ed7afa606d": {
+  "jar": "farmed-sb02-ed7afa606d",
+  "jid": 20,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:18Z"
+ },
+ "farmed-sb03-276655ca95": {
+  "jar": "farmed-sb03-276655ca95",
+  "jid": 25,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:19Z"
+ },
+ "farmed-sb02-c8da0f6d8b": {
+  "jar": "farmed-sb02-c8da0f6d8b",
+  "jid": 15,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:19Z"
+ },
+ "farmed-sb03-444b50192b": {
+  "jar": "farmed-sb03-444b50192b",
+  "jid": 30,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:21Z"
+ },
+ "farmed-sb03-3d9b078dc4": {
+  "jar": "farmed-sb03-3d9b078dc4",
+  "jid": 28,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:22Z"
+ },
+ "farmed-sb03-4f01e1db69": {
+  "jar": "farmed-sb03-4f01e1db69",
+  "jid": 31,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:22Z"
+ },
+ "farmed-sb03-409b439dbd": {
+  "jar": "farmed-sb03-409b439dbd",
+  "jid": 29,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:23Z"
+ },
+ "farmed-sb03-530e5bcb76": {
+  "jar": "farmed-sb03-530e5bcb76",
+  "jid": 33,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:24Z"
+ },
+ "farmed-sb03-5d0699508e": {
+  "jar": "farmed-sb03-5d0699508e",
+  "jid": 35,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:24Z"
+ },
+ "farmed-sb03-5b7c159be7": {
+  "jar": "farmed-sb03-5b7c159be7",
+  "jid": 34,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:25Z"
+ },
+ "farmed-sb03-5eb09c28cd": {
+  "jar": "farmed-sb03-5eb09c28cd",
+  "jid": 36,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:26Z"
+ },
+ "farmed-sb03-77e0d9c6b6": {
+  "jar": "farmed-sb03-77e0d9c6b6",
+  "jid": 39,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:27Z"
+ },
+ "farmed-sb03-3930474362": {
+  "jar": "farmed-sb03-3930474362",
+  "jid": 27,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:28Z"
+ },
+ "farmed-sb03-37db3d7b1c": {
+  "jar": "farmed-sb03-37db3d7b1c",
+  "jid": 26,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:30Z"
+ },
+ "farmed-sb03-95b4cdf55b": {
+  "jar": "farmed-sb03-95b4cdf55b",
+  "jid": 45,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:31Z"
+ },
+ "farmed-sb03-746bf302b0": {
+  "jar": "farmed-sb03-746bf302b0",
+  "jid": 38,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:32Z"
+ },
+ "farmed-sb03-91164a9e6b": {
+  "jar": "farmed-sb03-91164a9e6b",
+  "jid": 44,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:32Z"
+ },
+ "farmed-sb03-7fb824552a": {
+  "jar": "farmed-sb03-7fb824552a",
+  "jid": 40,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:33Z"
+ },
+ "farmed-sb03-6d599b663f": {
+  "jar": "farmed-sb03-6d599b663f",
+  "jid": 37,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:33Z"
+ },
+ "farmed-sb03-88154f3f85": {
+  "jar": "farmed-sb03-88154f3f85",
+  "jid": 42,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:33Z"
+ },
+ "farmed-sb03-97e3fa90e5": {
+  "jar": "farmed-sb03-97e3fa90e5",
+  "jid": 46,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:35Z"
+ },
+ "farmed-sb03-9f5ea22a37": {
+  "jar": "farmed-sb03-9f5ea22a37",
+  "jid": 47,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:38Z"
+ },
+ "farmed-sb03-89a0c34685": {
+  "jar": "farmed-sb03-89a0c34685",
+  "jid": 43,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:39Z"
+ },
+ "farmed-sb03-d7efb7d1ab": {
+  "jar": "farmed-sb03-d7efb7d1ab",
+  "jid": 54,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:39Z"
+ },
+ "farmed-sb03-b3f0f63699": {
+  "jar": "farmed-sb03-b3f0f63699",
+  "jid": 50,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:39Z"
+ },
+ "farmed-sb03-a594962ce7": {
+  "jar": "farmed-sb03-a594962ce7",
+  "jid": 48,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:39Z"
+ },
+ "farmed-sb03-e4318be756": {
+  "jar": "farmed-sb03-e4318be756",
+  "jid": 55,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:40Z"
+ },
+ "farmed-sb03-b5e6733c4f": {
+  "jar": "farmed-sb03-b5e6733c4f",
+  "jid": 51,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:41Z"
+ },
+ "farmed-sb03-ad78246646": {
+  "jar": "farmed-sb03-ad78246646",
+  "jid": 49,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:41Z"
+ },
+ "farmed-sb03-f1903c246e": {
+  "jar": "farmed-sb03-f1903c246e",
+  "jid": 57,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:41Z"
+ },
+ "farmed-sb03-81f18e9dcb": {
+  "jar": "farmed-sb03-81f18e9dcb",
+  "jid": 41,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:42Z"
+ },
+ "farmed-sb03-ea8201ebea": {
+  "jar": "farmed-sb03-ea8201ebea",
+  "jid": 56,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:43Z"
+ },
+ "farmed-sb03-ba3a53b041": {
+  "jar": "farmed-sb03-ba3a53b041",
+  "jid": 52,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:46Z"
+ },
+ "farmed-sb03-fc610b12af": {
+  "jar": "farmed-sb03-fc610b12af",
+  "jid": 61,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:47Z"
+ },
+ "farmed-sb03-f7ebc1cfac": {
+  "jar": "farmed-sb03-f7ebc1cfac",
+  "jid": 60,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:48Z"
+ },
+ "farmed-sb03-500a0184c1": {
+  "jar": "farmed-sb03-500a0184c1",
+  "jid": 4,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:26Z"
+ },
+ "farmed-sb03-bcd8d366f5": {
+  "jar": "farmed-sb03-bcd8d366f5",
+  "jid": 53,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:49Z"
+ },
+ "farmed-sb03-f33f2695e0": {
+  "jar": "farmed-sb03-f33f2695e0",
+  "jid": 59,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:50Z"
+ },
+ "farmed-sb03-f265b43d4d": {
+  "jar": "farmed-sb03-f265b43d4d",
+  "jid": 58,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:50Z"
+ },
+ "farmed-sb04-1b4c5dfc54": {
+  "jar": "farmed-sb04-1b4c5dfc54",
+  "jid": 64,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:50Z"
+ },
+ "farmed-sb04-3ce09cdd8a": {
+  "jar": "farmed-sb04-3ce09cdd8a",
+  "jid": 67,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:50Z"
+ },
+ "farmed-sb04-156c67ae1c": {
+  "jar": "farmed-sb04-156c67ae1c",
+  "jid": 63,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:51Z"
+ },
+ "farmed-sb04-00cce85945": {
+  "jar": "farmed-sb04-00cce85945",
+  "jid": 62,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:52Z"
+ },
+ "farmed-sb04-3cfa154e1d": {
+  "jar": "farmed-sb04-3cfa154e1d",
+  "jid": 68,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:52Z"
+ },
+ "farmed-sb04-258575fd43": {
+  "jar": "farmed-sb04-258575fd43",
+  "jid": 66,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:52Z"
+ },
+ "farmed-sb04-53a507cc94": {
+  "jar": "farmed-sb04-53a507cc94",
+  "jid": 72,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:54Z"
+ },
+ "farmed-sb04-3d6000510e": {
+  "jar": "farmed-sb04-3d6000510e",
+  "jid": 69,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:54Z"
+ },
+ "farmed-sb04-4b34f6a89a": {
+  "jar": "farmed-sb04-4b34f6a89a",
+  "jid": 71,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:29:57Z"
+ },
+ "farmed-sb04-5432845dd9": {
+  "jar": "farmed-sb04-5432845dd9",
+  "jid": 6,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:24Z"
+ },
+ "farmed-sb04-669f29ff38": {
+  "jar": "farmed-sb04-669f29ff38",
+  "jid": 75,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:01Z"
+ },
+ "farmed-sb04-9f579de005": {
+  "jar": "farmed-sb04-9f579de005",
+  "jid": 84,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:09Z"
+ },
+ "farmed-sb04-99c64d5d52": {
+  "jar": "farmed-sb04-99c64d5d52",
+  "jid": 83,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:09Z"
+ },
+ "farmed-sb04-66c299ff04": {
+  "jar": "farmed-sb04-66c299ff04",
+  "jid": 76,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:15Z"
+ },
+ "farmed-sb04-b5cb232bc9": {
+  "jar": "farmed-sb04-b5cb232bc9",
+  "jid": 89,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:24Z"
+ },
+ "farmed-sb04-a53b0d5778": {
+  "jar": "farmed-sb04-a53b0d5778",
+  "jid": 87,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:25Z"
+ },
+ "farmed-sb04-a2ef2591fe": {
+  "jar": "farmed-sb04-a2ef2591fe",
+  "jid": 85,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:26Z"
+ },
+ "farmed-sb04-250a215d57": {
+  "jar": "farmed-sb04-250a215d57",
+  "jid": 65,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:27Z"
+ },
+ "farmed-sb04-bc8a26ff5b": {
+  "jar": "farmed-sb04-bc8a26ff5b",
+  "jid": 92,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:52Z"
+ },
+ "farmed-sb04-a3462e69f1": {
+  "jar": "farmed-sb04-a3462e69f1",
+  "jid": 86,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:55Z"
+ },
+ "farmed-sb04-c8e9ad4d5d": {
+  "jar": "farmed-sb04-c8e9ad4d5d",
+  "jid": 94,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:30:56Z"
+ },
+ "farmed-sb04-cde44a4949": {
+  "jar": "farmed-sb04-cde44a4949",
+  "jid": 95,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:31:12Z"
+ },
+ "farmed-sb04-d3c225f1d6": {
+  "jar": "farmed-sb04-d3c225f1d6",
+  "jid": 97,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:31:17Z"
+ },
+ "farmed-sb04-d0f98808ec": {
+  "jar": "farmed-sb04-d0f98808ec",
+  "jid": 96,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:31:22Z"
+ },
+ "farmed-sb04-6299214738": {
+  "jar": "farmed-sb04-6299214738",
+  "jid": 7,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:25Z"
+ },
+ "farmed-sb04-6c41c3ddf1": {
+  "jar": "farmed-sb04-6c41c3ddf1",
+  "jid": 8,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:25Z"
+ },
+ "farmed-sb04-78576df719": {
+  "jar": "farmed-sb04-78576df719",
+  "jid": 10,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:30Z"
+ },
+ "farmed-sb04-6c4627cb67": {
+  "jar": "farmed-sb04-6c4627cb67",
+  "jid": 9,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:25Z"
+ },
+ "farmed-sb04-9938d4fc2b": {
+  "jar": "farmed-sb04-9938d4fc2b",
+  "jid": 13,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:32Z"
+ },
+ "farmed-sb04-79e74c2500": {
+  "jar": "farmed-sb04-79e74c2500",
+  "jid": 11,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:30Z"
+ },
+ "farmed-sb04-7d1ea5daa6": {
+  "jar": "farmed-sb04-7d1ea5daa6",
+  "jid": 12,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:31Z"
+ },
+ "farmed-sb04-3f81367a1c": {
+  "jar": "farmed-sb04-3f81367a1c",
+  "jid": 5,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:26Z"
+ },
+ "farmed-sb04-f8fb0e98f3": {
+  "jar": "farmed-sb04-f8fb0e98f3",
+  "jid": 100,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:32:16Z"
+ },
+ "farmed-sb05-07b44c1758": {
+  "jar": "farmed-sb05-07b44c1758",
+  "jid": 20,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:39Z"
+ },
+ "farmed-sb05-23dfed7c31": {
+  "jar": "farmed-sb05-23dfed7c31",
+  "jid": 23,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:38Z"
+ },
+ "farmed-sb05-3903e74f2f": {
+  "jar": "farmed-sb05-3903e74f2f",
+  "jid": 109,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:32:23Z"
+ },
+ "farmed-sb04-ab5589569c": {
+  "jar": "farmed-sb04-ab5589569c",
+  "jid": 14,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:31Z"
+ },
+ "farmed-sb04-b750ef6e93": {
+  "jar": "farmed-sb04-b750ef6e93",
+  "jid": 15,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:32Z"
+ },
+ "farmed-sb05-27a480c0c5": {
+  "jar": "farmed-sb05-27a480c0c5",
+  "jid": 106,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:32:40Z"
+ },
+ "farmed-sb04-bb793d65b5": {
+  "jar": "farmed-sb04-bb793d65b5",
+  "jid": 16,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:32Z"
+ },
+ "farmed-sb05-4bf892f29e": {
+  "jar": "farmed-sb05-4bf892f29e",
+  "jid": 113,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:32:45Z"
+ },
+ "farmed-sb04-c3694e41d0": {
+  "jar": "farmed-sb04-c3694e41d0",
+  "jid": 17,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:33Z"
+ },
+ "farmed-sb05-748948fa27": {
+  "jar": "farmed-sb05-748948fa27",
+  "jid": 117,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:32:52Z"
+ },
+ "farmed-sb05-0a897a83c0": {
+  "jar": "farmed-sb05-0a897a83c0",
+  "jid": 102,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:33:27Z"
+ },
+ "farmed-sb04-eed54546b8": {
+  "jar": "farmed-sb04-eed54546b8",
+  "jid": 18,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:33Z"
+ },
+ "farmed-sb04-ef2c4c12fa": {
+  "jar": "farmed-sb04-ef2c4c12fa",
+  "jid": 19,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:31Z"
+ },
+ "farmed-sb05-9e5e311965": {
+  "jar": "farmed-sb05-9e5e311965",
+  "jid": 121,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:33:48Z"
+ },
+ "farmed-sb05-abecf9cf3e": {
+  "jar": "farmed-sb05-abecf9cf3e",
+  "jid": 33,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:49Z"
+ },
+ "farmed-sb05-829e29d345": {
+  "jar": "farmed-sb05-829e29d345",
+  "jid": 120,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:19Z"
+ },
+ "farmed-sb05-b1c49aa55a": {
+  "jar": "farmed-sb05-b1c49aa55a",
+  "jid": 123,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:22Z"
+ },
+ "farmed-sb05-cc1cfffe72": {
+  "jar": "farmed-sb05-cc1cfffe72",
+  "jid": 124,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:26Z"
+ },
+ "farmed-sb05-d859a76842": {
+  "jar": "farmed-sb05-d859a76842",
+  "jid": 125,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:28Z"
+ },
+ "farmed-sb05-140f42d676": {
+  "jar": "farmed-sb05-140f42d676",
+  "jid": 21,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:37Z"
+ },
+ "farmed-sb05-db3db2bd09": {
+  "jar": "farmed-sb05-db3db2bd09",
+  "jid": 126,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:31Z"
+ },
+ "farmed-sb05-314dd4d6df": {
+  "jar": "farmed-sb05-314dd4d6df",
+  "jid": 24,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:39Z"
+ },
+ "farmed-sb05-1ed7ea3e4e": {
+  "jar": "farmed-sb05-1ed7ea3e4e",
+  "jid": 22,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:36Z"
+ },
+ "farmed-sb05-dcbb42ed47": {
+  "jar": "farmed-sb05-dcbb42ed47",
+  "jid": 127,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:33Z"
+ },
+ "farmed-sb05-3357e2cadb": {
+  "jar": "farmed-sb05-3357e2cadb",
+  "jid": 25,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:39Z"
+ },
+ "farmed-sb05-de46752e3f": {
+  "jar": "farmed-sb05-de46752e3f",
+  "jid": 128,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:35Z"
+ },
+ "farmed-sb05-e457388163": {
+  "jar": "farmed-sb05-e457388163",
+  "jid": 129,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:36Z"
+ },
+ "farmed-sb05-3952dc0eb8": {
+  "jar": "farmed-sb05-3952dc0eb8",
+  "jid": 26,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:39Z"
+ },
+ "farmed-sb05-e7152fa204": {
+  "jar": "farmed-sb05-e7152fa204",
+  "jid": 131,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:37Z"
+ },
+ "farmed-sb05-e5281a2578": {
+  "jar": "farmed-sb05-e5281a2578",
+  "jid": 130,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:38Z"
+ },
+ "farmed-sb05-fa601606f0": {
+  "jar": "farmed-sb05-fa601606f0",
+  "jid": 133,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:38Z"
+ },
+ "farmed-sb06-06a4e391b6": {
+  "jar": "farmed-sb06-06a4e391b6",
+  "jid": 134,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:39Z"
+ },
+ "farmed-sb06-0e321dae4a": {
+  "jar": "farmed-sb06-0e321dae4a",
+  "jid": 135,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:41Z"
+ },
+ "farmed-sb05-4375990a79": {
+  "jar": "farmed-sb05-4375990a79",
+  "jid": 27,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:41Z"
+ },
+ "farmed-sb05-7595e107ef": {
+  "jar": "farmed-sb05-7595e107ef",
+  "jid": 119,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:43Z"
+ },
+ "farmed-sb06-0ee89b9008": {
+  "jar": "farmed-sb06-0ee89b9008",
+  "jid": 136,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:43Z"
+ },
+ "farmed-sb06-1388e1ba12": {
+  "jar": "farmed-sb06-1388e1ba12",
+  "jid": 138,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:43Z"
+ },
+ "farmed-sb06-13eaf47e87": {
+  "jar": "farmed-sb06-13eaf47e87",
+  "jid": 139,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:43Z"
+ },
+ "farmed-sb05-e72a02f929": {
+  "jar": "farmed-sb05-e72a02f929",
+  "jid": 132,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:43Z"
+ },
+ "farmed-sb06-16e95e979f": {
+  "jar": "farmed-sb06-16e95e979f",
+  "jid": 140,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:46Z"
+ },
+ "farmed-sb05-4995d96000": {
+  "jar": "farmed-sb05-4995d96000",
+  "jid": 28,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:40Z"
+ },
+ "farmed-sb06-3f31bee2b1": {
+  "jar": "farmed-sb06-3f31bee2b1",
+  "jid": 147,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:49Z"
+ },
+ "farmed-sb06-2a492fbb35": {
+  "jar": "farmed-sb06-2a492fbb35",
+  "jid": 142,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:49Z"
+ },
+ "farmed-sb06-3af63ec828": {
+  "jar": "farmed-sb06-3af63ec828",
+  "jid": 145,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:50Z"
+ },
+ "farmed-sb06-358be953f9": {
+  "jar": "farmed-sb06-358be953f9",
+  "jid": 144,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:51Z"
+ },
+ "farmed-sb06-3bc90a7188": {
+  "jar": "farmed-sb06-3bc90a7188",
+  "jid": 146,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:55Z"
+ },
+ "farmed-sb06-470eba2956": {
+  "jar": "farmed-sb06-470eba2956",
+  "jid": 152,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:55Z"
+ },
+ "farmed-sb06-1819d04323": {
+  "jar": "farmed-sb06-1819d04323",
+  "jid": 141,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:55Z"
+ },
+ "farmed-sb06-4422a9dcf9": {
+  "jar": "farmed-sb06-4422a9dcf9",
+  "jid": 150,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:56Z"
+ },
+ "farmed-sb06-41586a9463": {
+  "jar": "farmed-sb06-41586a9463",
+  "jid": 148,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:57Z"
+ },
+ "farmed-sb06-41e5e1aa4a": {
+  "jar": "farmed-sb06-41e5e1aa4a",
+  "jid": 149,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:57Z"
+ },
+ "farmed-sb05-5570eebae7": {
+  "jar": "farmed-sb05-5570eebae7",
+  "jid": 29,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:42Z"
+ },
+ "farmed-sb06-4ddb1f4a5c": {
+  "jar": "farmed-sb06-4ddb1f4a5c",
+  "jid": 153,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:34:58Z"
+ },
+ "farmed-sb06-112386a6e7": {
+  "jar": "farmed-sb06-112386a6e7",
+  "jid": 137,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:35:00Z"
+ },
+ "farmed-sb05-60c41f084d": {
+  "jar": "farmed-sb05-60c41f084d",
+  "jid": 30,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:42Z"
+ },
+ "farmed-sb05-64c8bca9cf": {
+  "jar": "farmed-sb05-64c8bca9cf",
+  "jid": 31,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:45Z"
+ },
+ "farmed-sb06-2cfeb3311d": {
+  "jar": "farmed-sb06-2cfeb3311d",
+  "jid": 34,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:46Z"
+ },
+ "farmed-sb05-74b49ee9dd": {
+  "jar": "farmed-sb05-74b49ee9dd",
+  "jid": 32,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:47Z"
+ },
+ "farmed-sb06-5eb9582a6c": {
+  "jar": "farmed-sb06-5eb9582a6c",
+  "jid": 38,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:47Z"
+ },
+ "farmed-sb06-6428d8274a": {
+  "jar": "farmed-sb06-6428d8274a",
+  "jid": 39,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:49Z"
+ },
+ "farmed-sb06-469d7edd80": {
+  "jar": "farmed-sb06-469d7edd80",
+  "jid": 35,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:49Z"
+ },
+ "farmed-sb06-5a5e24fb21": {
+  "jar": "farmed-sb06-5a5e24fb21",
+  "jid": 37,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:51Z"
+ },
+ "farmed-sb06-588bea73cd": {
+  "jar": "farmed-sb06-588bea73cd",
+  "jid": 36,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:51Z"
+ },
+ "farmed-sb06-78eebaf43f": {
+  "jar": "farmed-sb06-78eebaf43f",
+  "jid": 41,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:52Z"
+ },
+ "farmed-sb06-6baac8817f": {
+  "jar": "farmed-sb06-6baac8817f",
+  "jid": 40,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:54Z"
+ },
+ "farmed-sb06-80858adfbc": {
+  "jar": "farmed-sb06-80858adfbc",
+  "jid": 42,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:55Z"
+ },
+ "farmed-sb06-890947f743": {
+  "jar": "farmed-sb06-890947f743",
+  "jid": 43,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:55Z"
+ },
+ "farmed-sb06-942f64cc8a": {
+  "jar": "farmed-sb06-942f64cc8a",
+  "jid": 44,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:55Z"
+ },
+ "farmed-sb06-a93a433233": {
+  "jar": "farmed-sb06-a93a433233",
+  "jid": 46,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:56Z"
+ },
+ "farmed-sb06-9808b2c106": {
+  "jar": "farmed-sb06-9808b2c106",
+  "jid": 45,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:39:58Z"
+ },
+ "farmed-sb06-d9afb94e14": {
+  "jar": "farmed-sb06-d9afb94e14",
+  "jid": 53,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:02Z"
+ },
+ "farmed-sb06-c66a78a664": {
+  "jar": "farmed-sb06-c66a78a664",
+  "jid": 48,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:03Z"
+ },
+ "farmed-sb06-b9ff10d95d": {
+  "jar": "farmed-sb06-b9ff10d95d",
+  "jid": 47,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:03Z"
+ },
+ "farmed-sb06-de11a871fb": {
+  "jar": "farmed-sb06-de11a871fb",
+  "jid": 55,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:03Z"
+ },
+ "farmed-sb06-d3ad81a4b1": {
+  "jar": "farmed-sb06-d3ad81a4b1",
+  "jid": 51,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:04Z"
+ },
+ "farmed-sb06-d66570471d": {
+  "jar": "farmed-sb06-d66570471d",
+  "jid": 52,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:04Z"
+ },
+ "farmed-sb06-cc072ddf10": {
+  "jar": "farmed-sb06-cc072ddf10",
+  "jid": 49,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:05Z"
+ },
+ "farmed-sb06-e22298daac": {
+  "jar": "farmed-sb06-e22298daac",
+  "jid": 56,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:06Z"
+ },
+ "farmed-sb06-dabc2a25ba": {
+  "jar": "farmed-sb06-dabc2a25ba",
+  "jid": 54,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:06Z"
+ },
+ "farmed-sb06-d2ce23cc77": {
+  "jar": "farmed-sb06-d2ce23cc77",
+  "jid": 50,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:09Z"
+ },
+ "farmed-sb06-fce6603e99": {
+  "jar": "farmed-sb06-fce6603e99",
+  "jid": 60,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=1 out= err=Failed to fetch: error sending request for url (https://backboard.railway.com/graphql/v2)\n\nCaused by:\n    0: error sending request for url (https://ba",
+  "ts": "2026-09-28T17:40:09Z"
+ },
+ "farmed-sb06-ea277f8186": {
+  "jar": "farmed-sb06-ea277f8186",
+  "jid": 57,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:10Z"
+ },
+ "farmed-sb06-f3fb390be6": {
+  "jar": "farmed-sb06-f3fb390be6",
+  "jid": 59,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:10Z"
+ },
+ "farmed-sb07-11b920ae3b": {
+  "jar": "farmed-sb07-11b920ae3b",
+  "jid": 63,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-11b920ae3b\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:40:11Z"
+ },
+ "farmed-sb06-ebfc3f43aa": {
+  "jar": "farmed-sb06-ebfc3f43aa",
+  "jid": 58,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:12Z"
+ },
+ "farmed-sb07-1c9b518587": {
+  "jar": "farmed-sb07-1c9b518587",
+  "jid": 65,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:12Z"
+ },
+ "farmed-sb07-1a18c4190b": {
+  "jar": "farmed-sb07-1a18c4190b",
+  "jid": 64,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:13Z"
+ },
+ "farmed-sb07-08c078fb10": {
+  "jar": "farmed-sb07-08c078fb10",
+  "jid": 62,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:14Z"
+ },
+ "farmed-sb07-29369e90a6": {
+  "jar": "farmed-sb07-29369e90a6",
+  "jid": 68,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-29369e90a6\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:40:15Z"
+ },
+ "farmed-sb07-0581882a3b": {
+  "jar": "farmed-sb07-0581882a3b",
+  "jid": 61,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-0581882a3b\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:40:16Z"
+ },
+ "farmed-sb07-2422d8ff2c": {
+  "jar": "farmed-sb07-2422d8ff2c",
+  "jid": 66,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:16Z"
+ },
+ "farmed-sb07-52c492ee2c": {
+  "jar": "farmed-sb07-52c492ee2c",
+  "jid": 73,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:19Z"
+ },
+ "farmed-sb07-358c0c6b25": {
+  "jar": "farmed-sb07-358c0c6b25",
+  "jid": 70,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:19Z"
+ },
+ "farmed-sb07-498296627c": {
+  "jar": "farmed-sb07-498296627c",
+  "jid": 71,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:20Z"
+ },
+ "farmed-sb07-7f4667089e": {
+  "jar": "farmed-sb07-7f4667089e",
+  "jid": 77,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:22Z"
+ },
+ "farmed-sb07-645a18fd44": {
+  "jar": "farmed-sb07-645a18fd44",
+  "jid": 75,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:23Z"
+ },
+ "farmed-sb07-515c2bdb6c": {
+  "jar": "farmed-sb07-515c2bdb6c",
+  "jid": 72,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:24Z"
+ },
+ "farmed-sb07-75a2ef89c0": {
+  "jar": "farmed-sb07-75a2ef89c0",
+  "jid": 76,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:25Z"
+ },
+ "farmed-sb07-2494960da4": {
+  "jar": "farmed-sb07-2494960da4",
+  "jid": 67,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:25Z"
+ },
+ "farmed-sb07-96109d746c": {
+  "jar": "farmed-sb07-96109d746c",
+  "jid": 81,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-96109d746c\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:40:28Z"
+ },
+ "farmed-sb07-2a06f8477f": {
+  "jar": "farmed-sb07-2a06f8477f",
+  "jid": 69,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:29Z"
+ },
+ "farmed-sb07-7f95bbc811": {
+  "jar": "farmed-sb07-7f95bbc811",
+  "jid": 78,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:29Z"
+ },
+ "farmed-sb07-990dd1ccfb": {
+  "jar": "farmed-sb07-990dd1ccfb",
+  "jid": 82,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:29Z"
+ },
+ "farmed-sb07-8c171ce304": {
+  "jar": "farmed-sb07-8c171ce304",
+  "jid": 79,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:29Z"
+ },
+ "farmed-sb07-8ff006905f": {
+  "jar": "farmed-sb07-8ff006905f",
+  "jid": 80,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:30Z"
+ },
+ "farmed-sb07-9e68fe054d": {
+  "jar": "farmed-sb07-9e68fe054d",
+  "jid": 84,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:31Z"
+ },
+ "farmed-sb07-9df6470266": {
+  "jar": "farmed-sb07-9df6470266",
+  "jid": 83,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:33Z"
+ },
+ "farmed-sb07-a350a2e507": {
+  "jar": "farmed-sb07-a350a2e507",
+  "jid": 85,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:34Z"
+ },
+ "farmed-sb07-ab49018dd2": {
+  "jar": "farmed-sb07-ab49018dd2",
+  "jid": 86,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-ab49018dd2\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:40:36Z"
+ },
+ "farmed-sb07-aed9311308": {
+  "jar": "farmed-sb07-aed9311308",
+  "jid": 87,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-aed9311308\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:40:36Z"
+ },
+ "farmed-sb07-b0d336a210": {
+  "jar": "farmed-sb07-b0d336a210",
+  "jid": 89,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-b0d336a210\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:40:36Z"
+ },
+ "farmed-sb07-b051d49f69": {
+  "jar": "farmed-sb07-b051d49f69",
+  "jid": 88,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:38Z"
+ },
+ "farmed-sb07-c32b782cb5": {
+  "jar": "farmed-sb07-c32b782cb5",
+  "jid": 92,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-c32b782cb5\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:40:38Z"
+ },
+ "farmed-sb07-cd90da8228": {
+  "jar": "farmed-sb07-cd90da8228",
+  "jid": 94,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:42Z"
+ },
+ "farmed-sb07-b22190ab31": {
+  "jar": "farmed-sb07-b22190ab31",
+  "jid": 90,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:42Z"
+ },
+ "farmed-sb07-e3581fd329": {
+  "jar": "farmed-sb07-e3581fd329",
+  "jid": 98,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:45Z"
+ },
+ "farmed-sb07-da87e8f2f7": {
+  "jar": "farmed-sb07-da87e8f2f7",
+  "jid": 96,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:46Z"
+ },
+ "farmed-sb07-cf41f33059": {
+  "jar": "farmed-sb07-cf41f33059",
+  "jid": 95,
+  "status": "ok",
+  "rc": 0,
+  "out": "STARTED",
+  "ts": "2026-09-28T17:40:50Z"
+ },
+ "farmed-sb07-f62aed6d0c": {
+  "jar": "farmed-sb07-f62aed6d0c",
+  "jid": 104,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-f62aed6d0c\nkex_exchange_identification: read: Connection reset by peer\nConnection reset by 66.33.22.3 port",
+  "ts": "2026-09-28T17:41:00Z"
+ },
+ "farmed-sb07-62ea520631": {
+  "jar": "farmed-sb07-62ea520631",
+  "jid": 74,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-62ea520631\nssh: connect to host ssh.railway.com port 22: Connection timed out\n",
+  "ts": "2026-09-28T17:42:57Z"
+ },
+ "farmed-sb07-e762bf81ee": {
+  "jar": "farmed-sb07-e762bf81ee",
+  "jid": 99,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-e762bf81ee\nssh: connect to host ssh.railway.com port 22: Connection timed out\n",
+  "ts": "2026-09-28T17:42:57Z"
+ },
+ "farmed-sb07-dd981d0f9b": {
+  "jar": "farmed-sb07-dd981d0f9b",
+  "jid": 97,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-dd981d0f9b\nssh: connect to host ssh.railway.com port 22: Connection timed out\n",
+  "ts": "2026-09-28T17:42:59Z"
+ },
+ "farmed-sb07-ecb621a0a6": {
+  "jar": "farmed-sb07-ecb621a0a6",
+  "jid": 101,
+  "status": "fail",
+  "rc": -10,
+  "out": "NO-MARKER rc=255 out= err=Using SSH key from agent: fleet-farmed-sb07-ecb621a0a6\nssh: connect to host ssh.railway.com port 22: Connection timed out\n",
+  "ts": "2026-09-28T17:43:00Z"
+ }
+}
