@@ -122,7 +122,7 @@ def main() -> None:
               flush=True)
         rc, _ = sh(
             f"setsid nohup python3 ops/fleet_ssh.py --cmd-file {a.cmd_file} "
-            f"--par {par} --timeout {a.timeout} --fire-and-forget "
+            f"--par {par} --timeout 90 --fire-and-forget "
             f"--no-resume --jid-offset {wave * 503} "
             f"> /tmp/wave{wave}.log 2>&1 < /dev/null & disown; echo launched",
             timeout=60)
