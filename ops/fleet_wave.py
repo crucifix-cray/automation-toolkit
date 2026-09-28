@@ -160,6 +160,10 @@ def main() -> None:
         time.sleep(a.job_wait)
         new = harvest()
         print(f"harvested +{new} -> banked={banked()}", flush=True)
+        # cool-down gap between waves: firing nonstop heats Lovable's window
+        # (conversion fell 25% -> 0% across waves). 45 min stillness per cycle.
+        print("cooling 45 min before next wave...", flush=True)
+        time.sleep(2700)
     print(f"DONE: banked={banked()} >= {a.target}", flush=True)
 
 
