@@ -114,6 +114,8 @@ def main() -> None:
     ap.add_argument("--target", type=int, default=500)
     ap.add_argument("--par", type=int, default=10)
     ap.add_argument("--cmd-file", required=True)
+    ap.add_argument("--cmd-file-b", default="",
+                    help="alternate payload on even waves (A/B test)")
     ap.add_argument("--timeout", type=int, default=300)
     ap.add_argument("--job-wait", type=int, default=1200,
                     help="seconds to let jobs run before harvest")
@@ -125,10 +127,12 @@ def main() -> None:
     while banked() < a.target:
         wave += 1
         need = a.target - banked()
-        print(f"===== WAVE {wave}: banked={banked()} need={need} par={par} =====",
-              flush=True)
+        payload = (a.cmd_file_b if (a.cmd_file_b and wave % 2 == 0)
+                   else a.cmd_file)
+        print(f"===== WAVE {wave}: banked={banked()} need={need} par={par} "
+              f"payload={Path(payload).name} =====", flush=True)
         rc, _ = sh(
-            f"setsid nohup python3 ops/fleet_ssh.py --cmd-file {a.cmd_file} "
+            f"setsid nohup python3 ops/fleet_ssh.py --cmd-file {payload} "
             f"--par {par} --timeout 90 --fire-and-forget "
             f"--no-resume --jid-offset {wave * 503} "
             f"--offset {(wave * 60) % 504} --target 80 "
