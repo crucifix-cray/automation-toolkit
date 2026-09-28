@@ -105,9 +105,12 @@ def registered(jar: Path, sock: str) -> bool:
     return "Fingerprint" in (r.stdout or "")
 
 
-def register_key(jar: Path, sock: str, pub: Path) -> bool:
+def register_key(jar: Path, sock: str) -> bool:
+    """No -k flag: the dedicated agent holds exactly this jar's key, so
+    auto-detect picks the right one. (-k <path> is buggy: 'Key not found'
+    on valid files.)"""
     env = dict(base_env(), HOME=str(jar), SSH_AUTH_SOCK=sock)
-    r = subprocess.run([RAILWAY, "ssh", "keys", "add", "-k", str(pub),
+    r = subprocess.run([RAILWAY, "ssh", "keys", "add",
                         "-n", f"fleet-{jar.name[:20]}"],
                        env=env, capture_output=True, text=True, timeout=90)
     out = (r.stdout or "") + (r.stderr or "")
@@ -158,7 +161,7 @@ def one(jar: Path, cmd: str, timeout: int, fire_and_forget: bool, jid: int) -> d
         priv = ensure_key(jar)
         sock = agent_for(jar, priv)
         if not registered(jar, sock):
-            if not register_key(jar, sock, priv.with_suffix(".pub")):
+            if not register_key(jar, sock):
                 return {**rec, "status": "key-register-fail"}
         if fire_and_forget:
             cmd = f"nohup bash -lc {cmd!r} >/dev/null 2>&1 & disown; echo STARTED"
