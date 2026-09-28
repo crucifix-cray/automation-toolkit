@@ -24,6 +24,7 @@ import asyncio
 import fcntl
 import html
 import json
+import random
 import subprocess
 import sys
 import time
@@ -470,7 +471,44 @@ async def _wait_signup_email(page, timeout_ms: int = 75000):
     raise FlowError(f"signup email field never appeared (url={page.url})")
 
 
-async def signup_flow(ctx, email: str, password: str, mailbox) -> dict:
+# Fingerprint pools — every attempt draws a fresh combo so 500 workers
+# never share one signature (viewport/UA/locale/timezone/typing rhythm).
+FP_VIEWPORTS = [(1366, 768), (1536, 864), (1440, 900), (1280, 800),
+                (1920, 1080), (1600, 900), (1512, 982), (1280, 720)]
+FP_LOCALES = [("en-US", "America/New_York"), ("en-GB", "Europe/London"),
+              ("fr-FR", "Europe/Paris"), ("de-DE", "Europe/Berlin"),
+              ("es-ES", "Europe/Madrid"), ("en-US", "America/Chicago")]
+FP_UAS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+]
+
+
+def draw_fingerprint(rng: random.Random) -> dict:
+    w, h = rng.choice(FP_VIEWPORTS)
+    loc, tz = rng.choice(FP_LOCALES)
+    return {"viewport": {"width": w, "height": h}, "locale": loc,
+            "timezone_id": tz, "user_agent": rng.choice(FP_UAS),
+            "type_delay": rng.randint(25, 110),
+            "dwell": round(rng.uniform(0.7, 1.8), 2)}
+
+
+async def new_fp_context(browser, fp: dict):
+    """Fresh context with this attempt's fingerprint (never reuse contexts[0])."""
+    try:
+        ctx = await browser.new_context(
+            viewport=fp["viewport"], locale=fp["locale"],
+            timezone_id=fp["timezone_id"], user_agent=fp["user_agent"])
+        return ctx
+    except Exception:
+        return browser.contexts[0] if browser.contexts else await browser.new_context()
+
+
+async def signup_flow(ctx, email: str, password: str, mailbox, fp: dict = None) -> dict:
+    fp = fp or {"type_delay": 35, "dwell": 1.0}
+    dwell = fp.get("dwell", 1.0)
     page = await ctx.new_page()
     # OnK stealth already spoofs navigator — extra playwright_stealth can worsen CF
     # await apply_stealth_patches(page)
@@ -501,8 +539,8 @@ async def signup_flow(ctx, email: str, password: str, mailbox) -> dict:
     try:
         await email_loc.fill(email, timeout=5000)
     except Exception:
-        await page.keyboard.type(email, delay=35)
-    await page.wait_for_timeout(500)
+        await page.keyboard.type(email, delay=fp.get("type_delay", 35))
+    await page.wait_for_timeout(int(500 * dwell))
 
     # Continuer
     log("🖱️ Continuer")
@@ -674,7 +712,14 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
                                    attempt=attempt)
             onk_sid = bdata["session_id"]
             browser = await pw.chromium.connect_over_cdp(bdata["cdp_ws_url"], timeout=45000)
-            ctx = browser.contexts[0] if browser.contexts else await browser.new_context()
+            # Fresh fingerprint per attempt: never reuse contexts[0], so no two
+            # workers (or retries) share viewport/UA/locale/timezone/rhythm.
+            _rng = random.Random((time.time_ns() ^ _os.getpid() ^ attempt) & 0xFFFFFFFF)
+            fp = draw_fingerprint(_rng)
+            ctx = await new_fp_context(browser, fp)
+            log(f"🎭 fp {fp['viewport']['width']}x{fp['viewport']['height']} "
+                f"{fp['locale']} {fp['timezone_id']} type={fp['type_delay']}ms "
+                f"dwell={fp['dwell']}x")
 
             # domain_index advances per attempt: a stuck worker walks the
             # next zenvex domain instead of hammering the same one.
@@ -691,7 +736,7 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
             log(f"📮 Using {email} via {mailbox.provider}")
 
             try:
-                signup = await signup_flow(ctx, email, password, mailbox)
+                signup = await signup_flow(ctx, email, password, mailbox, fp)
                 save_used_email(email)
                 break
             except FlowError as e:
