@@ -193,16 +193,40 @@ async def create_zenvex(ctx, domain: str) -> Mailbox:
     inp = page.locator('input[placeholder*="prefix"]').first
     await inp.wait_for(state="visible", timeout=12000)
     await inp.fill(prefix)
+    picked = None
     try:
         trig = page.locator("button.domain-trigger").first
         if await trig.count():
-            await trig.click(timeout=5000)
-            await page.wait_for_timeout(800)
+            try:
+                await trig.scroll_into_view_if_needed(timeout=5000)
+            except Exception:
+                pass
+            try:
+                await trig.click(timeout=8000)
+            except Exception:
+                await trig.evaluate("el => el.click()")
+            await page.wait_for_timeout(1500)
             opt = page.locator("button.domain-option").filter(has_text=domain).first
             if await opt.count():
-                await opt.click(timeout=5000)
-                await page.wait_for_timeout(800)
-                log(f"  zenvex domain set: {domain}")
+                try:
+                    await opt.scroll_into_view_if_needed(timeout=5000)
+                except Exception:
+                    pass
+                try:
+                    await opt.click(timeout=8000)
+                except Exception:
+                    await opt.evaluate("el => el.click()")
+                await page.wait_for_timeout(1200)
+                try:
+                    picked = await page.evaluate("""() => {
+                        const t = document.querySelector('button.domain-trigger');
+                        return t ? (t.innerText || '').trim().slice(0,40) : '';
+                    }""")
+                except Exception:
+                    picked = None
+                log(f"  zenvex domain set: {domain} (trigger shows: {picked})")
+            else:
+                log(f"  zenvex option missing for {domain}, keeping default")
     except Exception as e:
         log(f"  zenvex domain pick fail ({str(e)[:60]}), keeping default")
     open_btn = page.get_by_role("button", name="Open Inbox").first
@@ -240,12 +264,26 @@ async def open_existing_zenvex(ctx, email: str) -> Mailbox:
     try:
         trig = page.locator("button.domain-trigger").first
         if await trig.count():
-            await trig.click(timeout=5000)
-            await page.wait_for_timeout(800)
+            try:
+                await trig.scroll_into_view_if_needed(timeout=5000)
+            except Exception:
+                pass
+            try:
+                await trig.click(timeout=8000)
+            except Exception:
+                await trig.evaluate("el => el.click()")
+            await page.wait_for_timeout(1500)
             opt = page.locator("button.domain-option").filter(has_text=domain).first
             if await opt.count():
-                await opt.click(timeout=5000)
-                await page.wait_for_timeout(800)
+                try:
+                    await opt.scroll_into_view_if_needed(timeout=5000)
+                except Exception:
+                    pass
+                try:
+                    await opt.click(timeout=8000)
+                except Exception:
+                    await opt.evaluate("el => el.click()")
+                await page.wait_for_timeout(1200)
     except Exception as e:
         log(f"  zenvex domain pick fail ({str(e)[:60]})")
     open_btn = page.get_by_role("button", name="Open Inbox").first

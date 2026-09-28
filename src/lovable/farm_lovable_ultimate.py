@@ -611,7 +611,7 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
         email = ""
         bdata: dict = {}
         ctx = None
-        max_signup_attempts = 5
+        max_signup_attempts = 8
 
         for attempt in range(1, max_signup_attempts + 1):
             if attempt > 1:
