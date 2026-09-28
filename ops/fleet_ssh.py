@@ -164,7 +164,12 @@ def one(jar: Path, cmd: str, timeout: int, fire_and_forget: bool, jid: int) -> d
             if not register_key(jar, sock):
                 return {**rec, "status": "key-register-fail"}
         if fire_and_forget:
-            cmd = f"nohup bash -lc {cmd!r} >/dev/null 2>&1 & disown; echo STARTED"
+            # shlex.quote preserves real newlines (bash runs them as separate
+            # commands). repr() would escape them to literal backslash-n and
+            # silently break every multi-line payload — that bug voided the
+            # entire first blast (270 bogus STARTEDs, zero jobs ran).
+            import shlex as _sh
+            cmd = f"nohup bash -lc {_sh.quote(cmd)} >/dev/null 2>&1 & disown; echo STARTED"
         rc, out = run_remote(jar, sock, proj, envid, svc, cmd, timeout)
         ok = rc == 0 and out and not out.startswith("NO-MARKER")
         return {**rec, "status": "ok" if ok else "fail", "rc": rc,
