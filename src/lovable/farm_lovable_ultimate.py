@@ -126,7 +126,35 @@ def delete_proxy_named(key: str, name: str) -> None:
         pass
 
 
-def create_browser(key: str, proxy_name: str) -> dict:
+def _zenrows_keys() -> list:
+    """47 farmed residential keys. Cached per process."""
+    global _ZEN_KEYS
+    try:
+        return _ZEN_KEYS
+    except NameError:
+        _ZEN_KEYS = []
+    try:
+        data = json.loads((REPO / "finals" / "zenrows_onkernel_farmed.json").read_text())
+        _ZEN_KEYS = [r["api_key"] for r in data
+                     if isinstance(r, dict) and len(str(r.get("api_key") or "")) >= 20]
+    except Exception:
+        pass
+    return _ZEN_KEYS
+
+
+def create_browser(key: str, proxy_name: str, backend: str = "onk",
+                   attempt: int = 0) -> dict:
+    """OnK: spawn a stealth browser via CLI. ZenRows: residential CDP URL
+    (cloud sessions auto-expire — nothing to provision or delete)."""
+    if backend == "zenrows":
+        zkeys = _zenrows_keys()
+        if not zkeys:
+            raise FlowError("no zenrows keys in finals/zenrows_onkernel_farmed.json")
+        zk = zkeys[attempt % len(zkeys)]
+        log(f"🌐 ZenRows residential CDP (key …{zk[-6:]}, proxy_country=gb)")
+        return {"cdp_ws_url": f"wss://browser.zenrows.com?apikey={zk}&proxy_country=gb",
+                "session_id": f"zen-{uuid.uuid4().hex[:12]}",
+                "browser_live_view_url": ""}
     import shlex
     px = f" --proxy-name {shlex.quote(proxy_name)}" if proxy_name else ""
     # start on / not /signup — first nav to signup hydrates cleaner on mobile-US
@@ -148,6 +176,8 @@ def create_browser(key: str, proxy_name: str) -> dict:
 
 
 def delete_browser(key: str, sid: str) -> None:
+    if not sid or sid.startswith("zen-"):
+        return  # ZenRows cloud sessions auto-expire
     env = {**_os.environ, "KERNEL_API_KEY": key, "LD_PRELOAD": ""}
     try:
         subprocess.run(f"kernel browsers delete {sid}", shell=True, env=env,
@@ -583,7 +613,7 @@ async def signup_flow(ctx, email: str, password: str, mailbox) -> dict:
 async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
                    proxy_country: str = "gb", skip_zenvex: bool = False,
                    zenvex_rounds: int = 3, zenvex_only: bool = False,
-                   domain_index: int = None) -> dict:
+                   domain_index: int = None, backend: str = "onk") -> dict:
     # proxy_country "none" = Kernel default stealth egress (fresh IP per
     # browser, no custom proxy). Trial orgs can't USE custom proxies
     # (Insufficient_plan) even though creating the proxy object succeeds.
@@ -640,7 +670,8 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
                 else:
                     log(f"♻️  Retry {attempt}/{max_signup_attempts}: fresh browser, default egress")
 
-            bdata = create_browser(host_key, proxy_name)
+            bdata = create_browser(host_key, proxy_name, backend=backend,
+                                   attempt=attempt)
             onk_sid = bdata["session_id"]
             browser = await pw.chromium.connect_over_cdp(bdata["cdp_ws_url"], timeout=45000)
             ctx = browser.contexts[0] if browser.contexts else await browser.new_context()
@@ -897,6 +928,8 @@ def main() -> None:
                     help="Zenvex is the only provider — never fall through to temp.tf/22.do/dispose/mail.tm")
     ap.add_argument("--domain-index", type=int, default=None,
                     help="Start at this zenvex domain (0-5) and walk forward on retry; omit for random")
+    ap.add_argument("--backend", default="onk", choices=["onk", "zenrows"],
+                    help="Browser backend: onk (default stealth) or zenrows (residential GB CDP)")
     args = ap.parse_args()
     if not args.once and args.finish_session is None:
         ap.error("pass --once or --finish-session N")
@@ -910,6 +943,7 @@ def main() -> None:
                 key, password=args.password, proxy_country=args.proxy_country,
                 skip_zenvex=args.skip_zenvex, zenvex_rounds=args.zenvex_rounds,
                 zenvex_only=args.zenvex_only, domain_index=args.domain_index,
+                backend=args.backend,
             ))
     except Exception as e:
         log(f"❌ FAIL: {e}")
