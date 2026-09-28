@@ -120,7 +120,7 @@ def main() -> None:
     a = ap.parse_args()
 
     par = a.par
-    backoff = 300
+    backoff = 900
     wave = 0
     while banked() < a.target:
         wave += 1
@@ -147,9 +147,9 @@ def main() -> None:
                   flush=True)
             par = max(6, par // 2)
             time.sleep(backoff)
-            backoff = min(backoff * 2, 1200)
+            backoff = min(backoff * 2, 1800)
             continue
-        backoff = 300
+        backoff = 900
         if par < a.par:
             par = min(a.par, par + 2)
         print(f"waiting {a.job_wait//60} min for jobs...", flush=True)
