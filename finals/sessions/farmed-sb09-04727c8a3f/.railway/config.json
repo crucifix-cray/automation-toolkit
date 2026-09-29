@@ -28,15 +28,23 @@
       "project": "d0127511-4740-49bb-a3c6-3a42c4fb15d5",
       "projectPath": "/tmp/rvwork/session-1",
       "service": "7cd717b8-b919-44d6-9c46-2084e0a9e24b"
+    },
+    "/tmp/vpsbuild_fleet": {
+      "environment": "c01a3da3-aea1-49da-b165-98ae1cb2cec2",
+      "environmentName": "production",
+      "name": "cell-1-d9ed0a",
+      "project": "d0127511-4740-49bb-a3c6-3a42c4fb15d5",
+      "projectPath": "/tmp/vpsbuild_fleet",
+      "service": "7cd717b8-b919-44d6-9c46-2084e0a9e24b"
     }
   },
   "sandboxTemplates": null,
   "sandboxes": null,
   "user": {
-    "accessToken": "1Xd_FzH61FPkL5fpH7i6UDnHxU_oIrXSiYD5WSBn_nU",
+    "accessToken": "D3Nf0P4uXOQ5yJ4BWsMu4UQM-2c7LmFbIv1sIN_rmPU",
     "id": "8fe6d290-9fe9-4fae-b41d-1e1efa767606",
     "refreshToken": "9E0st9L6ExAd88HDn5Wd2BJdKKfdvFHaeTIor9_yhK2",
     "token": null,
-    "tokenExpiresAt": 1790444488
+    "tokenExpiresAt": 1790662583
   }
 }

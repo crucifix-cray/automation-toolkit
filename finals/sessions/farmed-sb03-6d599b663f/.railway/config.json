@@ -36,15 +36,23 @@
       "project": "bc341ba7-61f9-4c2f-b1e3-16a9b781608e",
       "projectPath": "/tmp/vn2/sb03-6d599b66_78388",
       "service": null
+    },
+    "/tmp/vpsbuild_fleet": {
+      "environment": "6623ee22-36c9-4d5a-b31c-4ae30e3515c6",
+      "environmentName": "production",
+      "name": "cell-1-b5a70c",
+      "project": "b117fc6c-64c6-4bbb-b9ea-2be0180a614d",
+      "projectPath": "/tmp/vpsbuild_fleet",
+      "service": "0582e68b-d897-4e4e-ae69-3a516cb5a281"
     }
   },
   "sandboxTemplates": null,
   "sandboxes": null,
   "user": {
-    "accessToken": "3I3YcAi01iMLQXAcs0WJmIfv7Jug6MGWjMsp_CB0XRg",
+    "accessToken": "820FKfSULJfZcJbsf5k1o5mFJCuXsvGtN7Hm--MxIUB",
     "id": "127f2a09-55d2-4b35-887d-e1fc7aef851d",
     "refreshToken": "ku-8PFROwJ65NIRaK4LyYRVbzmNpktHf9gCIH5ZZ3-J",
     "token": null,
-    "tokenExpiresAt": 1790441220
+    "tokenExpiresAt": 1790649219
   }
 }
