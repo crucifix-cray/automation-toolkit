@@ -25,6 +25,8 @@ from pathlib import Path
 REPO = Path("/home/alan/Documents/railways")
 HARVEST = REPO / "finals" / "lovables_harvest.json"
 SSH_REG = REPO / "finals" / "fleet_ssh_registry.json"
+LOGDIR = REPO / "finals" / "logs"
+LOGDIR.mkdir(parents=True, exist_ok=True)
 
 
 def sh(cmd: str, timeout: int = 120) -> tuple[int, str]:
@@ -136,7 +138,7 @@ def main() -> None:
             f"--par {par} --timeout 90 --fire-and-forget "
             f"--no-resume --jid-offset {wave * 503} "
             f"--offset {(wave * 60) % 504} --target 80 "
-            f"> /tmp/wave{wave}.log 2>&1 < /dev/null & disown; echo launched",
+            f"> {LOGDIR}/wave{wave}.log 2>&1 < /dev/null & disown; echo launched",
             timeout=60)
         # watch first 15 starts of THIS wave for throttle (timestamp-gated
         # so old fails from prior waves can't false-trigger)
