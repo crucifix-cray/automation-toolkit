@@ -64,6 +64,35 @@ export CHIMERA_SHOT_DIR=/app/work/shots
 export PYTHONUNBUFFERED=1
 [ "$THREADS" != "16" ] && export CHIMERA_THREADS="$THREADS"
 
+# orphan reaper (pure bash, zero forks beyond kill): chrome children
+# reparented to PID 1 accumulate on every relaunch and starve the 1GB box
+# (seen: 909 procs). Keep the newest 20, kill the rest. Runs inside mine.sh
+# so there is nothing extra to keep alive.
+(
+  while true; do
+    sleep 45
+    all=""
+    for d in /proc/[0-9]*/; do
+      pid=${d#/proc/}; pid=${pid%/}
+      case "$pid" in ''|*[!0-9]*) continue;; esac
+      if read -r cmd < "$d/cmdline" 2>/dev/null; then
+        case "$cmd" in *chrome*) all="$all $pid";; esac
+      fi
+    done
+    # /proc iterates PID-ascending: keep the LAST 20 (newest = live tree)
+    set -- $all
+    total=$#
+    if [ "$total" -gt 20 ]; then
+      drop=$((total - 20)); nkill=0
+      for p in $all; do
+        [ "$nkill" -ge "$drop" ] && break
+        kill -9 "$p" 2>/dev/null && nkill=$((nkill+1))
+      done
+      [ "$nkill" -gt 0 ] && echo "[$(date -u +%H:%M:%S)] reaper: killed $nkill orphan chrome (had $total)" >> "$LOG"
+    fi
+  done
+) &
+
 # watchdog: no "Worker alive" in LOG for WORKER_STALE_S → kill daemon (respawn below)
 (
   while true; do
