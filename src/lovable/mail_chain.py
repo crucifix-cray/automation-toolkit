@@ -750,6 +750,7 @@ async def acquire_mailbox(
     zenvex_rounds: int = 1,
     zenvex_only: bool = False,
     domain_index: Optional[int] = None,
+    shuffle_providers: bool = False,
 ) -> Mailbox:
     """Walk mail chain once; raise if every provider fails.
 
@@ -760,6 +761,9 @@ async def acquire_mailbox(
                   temp.tf/22.do/dispose/mail.tm. Walk all 6 domains then raise.
     domain_index: start at this domain (deterministic fleet spread) and walk
                   forward on miss. None = random start.
+    shuffle_providers: randomize PROVIDER order each acquire (zenvex, temp.tf
+                  gmail/high, 22.do, dispose, mail.tm) instead of the fixed
+                  chain — spreads detection heat across mail surfaces.
     """
     used = used or set()
     n_dom = len(ZENVEX_DOMAINS)
@@ -777,8 +781,10 @@ async def acquire_mailbox(
             random.shuffle(order[1:])  # keep pivot first, reshuffle rest
         return order
 
-    # 1. Zenvex — random (or deterministic) domain order each round
-    if not skip_zenvex:
+    async def _get_zenvex() -> Mailbox:
+        if skip_zenvex:
+            log("  zenvex skipped (--skip-zenvex)")
+            raise RuntimeError("zenvex skipped")
         for _round in range(max(1, zenvex_rounds)):
             order = _order_for(_round)
             tag = f"dom={domain_index}" if domain_index is not None else "random"
@@ -791,52 +797,61 @@ async def acquire_mailbox(
                     await box.close()
                 except Exception as e:
                     log(f"  zenvex/{dom} miss: {str(e)[:120]}")
-    else:
-        log("  zenvex skipped (--skip-zenvex)")
+        raise RuntimeError("zenvex exhausted")
 
-    if zenvex_only:
-        raise RuntimeError("zenvex_only: all zenvex domains exhausted")
-
-    # 2. temp.tf gmail one-dot
-    try:
+    async def _get_temptf_gmail() -> Mailbox:
         box = await create_temptf_gmail()
-        if box.address.lower() not in used:
-            return box
-    except Exception as e:
-        log(f"  temptf_gmail miss: {str(e)[:120]}")
+        if box.address.lower() in used:
+            raise RuntimeError("duplicate temptf gmail")
+        return box
 
-    # 3. temp.tf high.edu.pl
-    try:
+    async def _get_temptf_high() -> Mailbox:
         box = await create_temptf_high()
         if box.address.lower() not in used:
             return box
-    except Exception as e:
-        log(f"  temptf_high miss: {str(e)[:120]}")
+        raise RuntimeError("duplicate temptf high")
 
-    # 4. 22.do
-    try:
+    async def _get_22do() -> Mailbox:
         box = await create_22do(ctx)
         if box.address.lower() not in used:
             return box
         await box.close()
-    except Exception as e:
-        log(f"  22do miss: {str(e)[:120]}")
+        raise RuntimeError("duplicate 22do")
 
-    # 5. dispose
-    try:
+    async def _get_dispose() -> Mailbox:
         box = await create_dispose(ctx)
         if box.address.lower() not in used:
             return box
         await box.close()
-    except Exception as e:
-        log(f"  dispose miss: {str(e)[:120]}")
+        raise RuntimeError("duplicate dispose")
 
-    # 6. mail.tm
-    try:
+    async def _get_mailtm() -> Mailbox:
         box = await create_mailtm()
-        if box.address.lower() not in used:
-            return box
-    except Exception as e:
-        log(f"  mailtm miss: {str(e)[:120]}")
+        if box.address.lower() in used:
+            raise RuntimeError("duplicate mailtm")
+        return box
 
+    getters = {
+        "zenvex": _get_zenvex,
+        "temptf_gmail": _get_temptf_gmail,
+        "temptf_high": _get_temptf_high,
+        "22do": _get_22do,
+        "dispose": _get_dispose,
+        "mailtm": _get_mailtm,
+    }
+    if zenvex_only:
+        order = ["zenvex"]
+    else:
+        order = ["zenvex", "temptf_gmail", "temptf_high", "22do", "dispose", "mailtm"]
+        if skip_zenvex:
+            order.remove("zenvex")
+        if shuffle_providers:
+            random.shuffle(order)
+            log(f"  provider shuffle: {' → '.join(order)}")
+    for prov in order:
+        try:
+            return await getters[prov]()
+        except Exception as e:
+            if prov != "zenvex" or zenvex_only:
+                log(f"  {prov} miss: {str(e)[:120]}")
     raise RuntimeError("mail chain exhausted — all providers failed")

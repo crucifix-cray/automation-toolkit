@@ -5,7 +5,7 @@
 #
 #   1. clone the repo (payload lives in code, not in the image)
 #   2. pick this box's OnK key deterministically from the project id
-#   3. farm one Lovable account (zenvex-only)
+#   3. farm one Lovable account (shuffled mail providers)
 #   4. push the result to GitHub
 set -u
 JID="${LOV_JID:-0}"
@@ -57,8 +57,8 @@ python3 src/lovable/farm_lovable_ultimate.py \
   --once \
   --host-key "$KEY" \
   --proxy-country none \
-  --zenvex-only \
   --zenvex-rounds 2 \
+  --shuffle-providers \
   $DOMAIN_IDX
 RC=$?
 echo "farm exit=$RC"

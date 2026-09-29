@@ -687,7 +687,8 @@ async def signup_flow(ctx, email: str, password: str, mailbox, fp: dict = None) 
 async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
                    proxy_country: str = "gb", skip_zenvex: bool = False,
                    zenvex_rounds: int = 3, zenvex_only: bool = False,
-                   domain_index: int = None, backend: str = "onk") -> dict:
+                   domain_index: int = None, backend: str = "onk",
+                   shuffle_providers: bool = False) -> dict:
     # proxy_country "none" = Kernel default stealth egress (fresh IP per
     # browser, no custom proxy). Trial orgs can't USE custom proxies
     # (Insufficient_plan) even though creating the proxy object succeeds.
@@ -766,7 +767,7 @@ async def run_once(host_key: str, password: str = PASSWORD_DEFAULT,
             mailbox = await acquire_mailbox(
                 ctx, used=used_emails, skip_zenvex=skip_zenvex, zenvex_offset=attempt - 1,
                 zenvex_rounds=zenvex_rounds, zenvex_only=zenvex_only,
-                domain_index=_dom_idx,
+                domain_index=_dom_idx, shuffle_providers=shuffle_providers,
             )
             email = mailbox.address
             log(f"📮 Using {email} via {mailbox.provider}")
@@ -1011,6 +1012,8 @@ def main() -> None:
                     help="Start at this zenvex domain (0-5) and walk forward on retry; omit for random")
     ap.add_argument("--backend", default="onk", choices=["onk", "zenrows"],
                     help="Browser backend: onk (default stealth) or zenrows (residential GB CDP)")
+    ap.add_argument("--shuffle-providers", action="store_true",
+                    help="Randomize mail provider order each acquire (spread detection heat)")
     args = ap.parse_args()
     if not args.once and args.finish_session is None:
         ap.error("pass --once or --finish-session N")
@@ -1024,7 +1027,7 @@ def main() -> None:
                 key, password=args.password, proxy_country=args.proxy_country,
                 skip_zenvex=args.skip_zenvex, zenvex_rounds=args.zenvex_rounds,
                 zenvex_only=args.zenvex_only, domain_index=args.domain_index,
-                backend=args.backend,
+                backend=args.backend, shuffle_providers=args.shuffle_providers,
             ))
     except Exception as e:
         log(f"❌ FAIL: {e}")
