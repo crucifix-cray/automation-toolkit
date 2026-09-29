@@ -1,36 +1,52 @@
 {
- "blocked_auth_wall": {
-  "43": "lov session 25 api_only, cookies 16d old; refresh OK but wall stays; manual re-auth needed; patch bfad2dd on disk"
- },
- "bridge": {
-  "failures": 0,
-  "pool_connects_last_window": 500,
-  "url": "wss://bridge-production-2e86.up.railway.app/ws"
- },
- "browser_dead": {
-  "13": "953MB ceiling kills chrome; lean_sup relaunched",
-  "35": "bounced during verify; lean_sup relaunched",
-  "53": "OOM mid-revive; lean_sup relaunched"
- },
- "daemon_md5": "923c213801d3e87605fb3db7960cc25f",
- "mining": [
-  "28",
-  "77",
-  "83",
-  "87",
-  "89"
+ "updated": "2026-09-29",
+ "mining_confirmed": [
+  "cell-26",
+  "cell-92"
  ],
- "no_doc_page_loads_no_worker": {
-  "88": "/term serves no-doc; daemon prompting rebuilds"
- },
- "recovering_post_bounce": [
-  "76",
-  "81"
+ "new_cells": [
+  "cell-82",
+  "cell-84",
+  "cell-86",
+  "cell-90",
+  "cell-91",
+  "cell-92",
+  "cell-26",
+  "cell-25",
+  "cell-30",
+  "cell-31"
  ],
- "service_dark_trial_expired": {
-  "16": "Railway service Failed; session-2 trial expired; redeploy refused"
- },
- "supervisor": "fleet_supervisor.py PID 2685391, 4-min cycles, alive 2026-09-26 19:05 UTC",
- "updated": "2026-09-27T13:45:00Z",
- "golden_deploy_2026_09_27": "cell-28 bytes (cb9305f5) shipped+bounced to 13,43,53,76,81,83,88; supervisors relaunched sup=3; 43/53 procs live chrome=9; 13/76/81/83/88 OOM-loop exit-137; 35 unreachable x2 (dead service?)"
+ "rescued": [
+  8,
+  25,
+  28,
+  33,
+  38,
+  39,
+  42,
+  44,
+  45,
+  46,
+  47,
+  48,
+  49,
+  50,
+  51,
+  52
+ ],
+ "burned": [
+  2,
+  7,
+  26,
+  27,
+  30,
+  37,
+  40,
+  41,
+  43
+ ],
+ "homeless": [
+  "cell-16",
+  "cell-35"
+ ]
 }
