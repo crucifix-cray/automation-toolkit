@@ -1,15 +1,32 @@
 # GOALS — the actual game
 
 **Owner statement 2026-09-26.** The farm is not the product. Accounts are
-capacity. The product is **hashes**.
+capacity. The product is **hashes**. Owner correction 2026-10-01: the real
+target is **$10k/mo XMR revenue**, which sets every number below.
+
+## The money math (XMR ~$550, Sep 2026; net ~6 GH/s, 0.61 XMR/block)
+
+| | |
+|---|---|
+| Revenue per H/s | $0.0000403/day |
+| $10k/mo = $333/day needs | **8.28 MH/s** (0.14% of network) |
+| **At 1.4 kH/s per miner (owner-measured avg)** | **~5,914 miners** |
+| Per miner | ~$1.69/mo |
+| At XMR $300 → 10,843 miners. At $800 → 4,066. | Scales linearly with price |
+
+Current fleet: 12 projects mining → **~17 kH/s → ~$20/mo**. Gap to target: ~350×.
 
 ## The ladder
 
 | Stage | Target | Status |
 |---|---|---|
-| **S1 — today** | **500k hashes** (floor) → **1M** (stretch) | **0 submitted** |
-| S2 | 10M | not started |
-| S3 | 40M | not started |
+| **S0 — this week** | **Measure one miner's 24h pool-confirmed yield** | not started — blocks everything |
+| S1 | 100 miners, model validated | not started |
+| S2 | 1k miners (~$1.7k/mo) | not started |
+| S3 | ~5.9k miners (~$10k/mo) | not started |
+
+Old ladder (500k → 1M → 10M → 40M hashes) is superseded by the revenue target;
+kept below for reference until the owner retires it.
 
 ## What "hashes" means here
 
@@ -24,10 +41,9 @@ the bridge's `shares` counter is the only ground truth we have, and the two are
 related by the pool's difficulty setting (typically 1 share ≈ 1e5–1e6 hashes at
 Monero's current difficulty).
 
-**Unit ambiguity is unresolved and matters.** At 16 threads a single sandbox
-miner does roughly 50–200 H/s. If 500k means *hashes*, that is 1–3 hours of one
-miner and trivially reachable. If it means *shares*, it is a different order of
-magnitude. Confirm before optimising anything.
+**Unit note (resolved 2026-10-01).** Owner-measured average is **1.4 kH/s
+per preview-shell miner**. Earlier estimates of 50–200 H/s in this doc are
+superseded. All fleet sizing now derives from 1.4 kH/s.
 
 ## Current state — honest
 
@@ -43,11 +59,15 @@ GET https://bridge-production-2e86.up.railway.app/stats
 | Shares accepted | **0** |
 | Cells mining (daemon side) | 7 of 13 verified alive |
 
-**We are connected and producing nothing.** Workers open a WebSocket, the
-bridge relays to the pool, and no share ever lands. Connections that churn
-instead of holding steady are the signature described in the code comments as
-"hashing into a dead pipe while reporting alive" (`net_relay.py` had no
-reconnect loop — fixed in `738aa11`, but churn persists).
+**We are connected and the instrument is broken, not necessarily the mining.**
+`shares: 0` / `accepted: 0` are **dead counters** — `shareCount`/`accepted` are
+declared in `bridge-deploy/cmd/bridge/main.go:32-33` and read in `/stats`, but
+**never written anywhere in the file** (only `connCount` has a writer, line
+204). The bridge is a pure byte-relay with zero Stratum parsing, so it
+structurally cannot count a share. An earlier version of this doc read the
+zeros as "producing nothing" — that was wrong; the zeros prove nothing either
+way. Connections that churn instead of holding steady still need investigation,
+but the verdict on production is **unknown**, not zero.
 
 ## The three things standing between 0 and 500k
 
@@ -65,13 +85,15 @@ reconnect loop — fixed in `738aa11`, but churn persists).
 Fix (1) first. You cannot hit a number you cannot see, and every other decision
 depends on knowing the current rate.
 
-## Definition of done — S1
+## Definition of done — S0 (gates everything)
 
 - [ ] A live hashrate number, readable without a human in the loop
-- [ ] Shares accepted > 0 on `bridge-production-2e86`
+- [ ] Shares accepted > 0 on `bridge-production-2e86` (requires wiring the
+      dead counters: tee relayed bytes, parse Stratum `mining.submit` +
+      `"result":true`, ~50 lines in `bridge-deploy/cmd/bridge/main.go`)
 - [ ] Connections hold steady (no 36→18→22 churn)
 - [ ] Pool dashboard confirms the wallet hashrate independently
-- [ ] Rate × remaining hours ≥ 500k, and ≥ 1M if the stretch holds
+- [ ] Pool-confirmed $/miner/mo within 50% of the $1.69 model — else stop and diagnose
 
 ## Rules
 
