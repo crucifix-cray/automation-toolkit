@@ -5,9 +5,11 @@
 ## Right now
 - Pool (wallet `49J8…N1F`): 0.63 XMR paid, ~0.004 due. Hashrate cycles 0–4k H/s
   as workers hunt docs and boxes OOM-loop. Peak: 15.2k H/s, 8 rigs.
-- Bridge `wss://bridge-production-2e86.up.railway.app/ws` (session-33,
-  service `bridge`): healthy, 500/500 Tor connects, serves JOB.
-  Old `chimera-bridge-production-0703`: dead (1013), owner unknown, do not use.
+- Bridge `wss://bridge-production-9f81.up.railway.app/ws` (session-51,
+  project `cell-new-51`, service `bridge`, image `ttl.sh/chimera-bridge:24h`):
+  Online, Tor 100%, pool circuit warm, serves JOB (verified from cell-94).
+  Old `bridge-production-2e86` (session-33): Failed, trial expired. Older
+  `chimera-bridge-production-0703`: dead (1013), owner unknown, do not use.
 - **2026-09-29 fix:** `system-optimizer-daemon/sysoptd.py` DEFAULT_BRIDGE was
   still the dead 0703 — every worker without `--bridge` hashed into the void.
   Fixed to the live bridge (`fd19e3d`). Fresh clones pick it up automatically.

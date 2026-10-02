@@ -25,7 +25,7 @@ CHIMERA_SHOT_DIR=/app/work/shots
 PYTHONUNBUFFERED=1
 ```
 No `MINER_CMD`, no `CHIMERA_THREADS` (default 16), no `CHIMERA_BRIDGE`
-(default `wss://bridge-production-2e86.up.railway.app/ws`).
+(default `wss://bridge-production-9f81.up.railway.app/ws`).
 
 ## Notes
 - `daemon.golden.py` == chimera-miner `bfad2dd^` (parent of the auth-revive

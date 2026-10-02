@@ -32,7 +32,7 @@ import time
 from pathlib import Path
 
 WALLET = "49J8k2f3qtHaNYcQ52WXkHZgWhU4dU8fuhRJcNiG9Bra3uyc2pQRsmR38mqkh2MZhEfvhkh2bNkzR892APqs3U6aHsBcN1F"
-BRIDGE_WS = "wss://bridge-production-2e86.up.railway.app/ws"
+BRIDGE_WS = "wss://bridge-production-9f81.up.railway.app/ws"
 
 OPS = Path("/home/alan/Documents/repos/chimera-miner/ops")
 sys.path.insert(0, str(OPS))
