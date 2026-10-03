@@ -1,10 +1,6 @@
 {
- "updated": "2026-09-29",
- "mining_confirmed": [
-  "cell-26",
-  "cell-92"
- ],
- "new_cells": [
+ "updated": "2026-10-02",
+ "builders": [
   "cell-82",
   "cell-84",
   "cell-86",
@@ -14,8 +10,17 @@
   "cell-26",
   "cell-25",
   "cell-30",
-  "cell-31"
+  "cell-31",
+  "cell-95",
+  "cell-97",
+  "cell-98",
+  "cell-100",
+  "cell-101",
+  "cell-102",
+  "cell-103",
+  "cell-94"
  ],
+ "workers": [],
  "rescued": [
   8,
   25,
@@ -29,7 +34,6 @@
   46,
   47,
   48,
-  49,
   50,
   51,
   52
@@ -43,10 +47,13 @@
   37,
   40,
   41,
-  43
+  43,
+  49
  ],
  "homeless": [
   "cell-16",
   "cell-35"
- ]
+ ],
+ "bridge": "wss://bridge-production-9f81.up.railway.app/ws",
+ "pool_hash": 0
 }

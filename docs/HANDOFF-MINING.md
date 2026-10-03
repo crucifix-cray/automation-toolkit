@@ -1,6 +1,6 @@
 # HANDOFF-MINING — XMR fleet state + how to run it
 
-**Written:** 2026-09-29. **Next agent:** start at "Right now", then "Runbook".
+**Written:** 2026-09-29. **Updated:** 2026-10-02 — bridge is 9f81 (live), 18 builders hunting, 0 workers, memory diet pending approval. **Next agent:** start at "Right now", then "Runbook".
 
 ## Right now
 - Pool (wallet `49J8…N1F`): 0.63 XMR paid, ~0.004 due. Hashrate cycles 0–4k H/s
