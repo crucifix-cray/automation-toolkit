@@ -12,7 +12,7 @@
   `chimera-bridge-production-0703`: dead (1013), owner unknown, do not use.
 - **2026-09-29 fix:** `system-optimizer-daemon/sysoptd.py` DEFAULT_BRIDGE was
   still the dead 0703 — every worker without `--bridge` hashed into the void.
-  Fixed to the live bridge (`fd19e3d`). Fresh clones pick it up automatically.
+  Fixed first to 2e86 (`fd19e3d`), then to live 9f81 (`10b2e46f`). Fresh clones pick it up automatically.
 - Sessions: 16 rescued (fresh trios, Camoufox headed + raw IP), 9 burned
   (Lovable disables farmed accounts on login — 26, 27, 30, 37, 40, 41 + 3).
   NEVER re-login a working session: each login risks a disable review.
